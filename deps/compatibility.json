@@ -21,19 +21,23 @@
   "required_imports": [
     {
       "distribution": "rclpy",
-      "module": "rclpy"
+      "module": "rclpy",
+      "ownership": "ros_or_os"
     },
     {
       "distribution": "cv-bridge",
-      "module": "cv_bridge"
+      "module": "cv_bridge",
+      "ownership": "ros_or_os"
     },
     {
       "distribution": "numpy",
-      "module": "numpy"
+      "module": "numpy",
+      "ownership": "ros_or_os"
     },
     {
       "distribution": "opencv-python",
-      "module": "cv2"
+      "module": "cv2",
+      "ownership": "ros_or_os"
     },
     {
       "distribution": "mcp",

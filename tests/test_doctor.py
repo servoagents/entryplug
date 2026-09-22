@@ -39,9 +39,11 @@ class _Spec:
         self.origin = origin
 
 
-def _context(*, healthy: bool) -> ProbeContext:
+def _context(
+    *, healthy: bool, numpy_origin: str = "/opt/ros/jazzy/numpy/__init__.py"
+) -> ProbeContext:
     modules = {
-        "numpy": _Spec("/opt/ros/jazzy/numpy/__init__.py"),
+        "numpy": _Spec(numpy_origin),
         "mcp": _Spec("/venv/mcp/__init__.py"),
         "rclpy": _Spec("/opt/ros/jazzy/rclpy/__init__.py"),
         "cv_bridge": _Spec("/opt/ros/jazzy/cv_bridge/__init__.py"),
@@ -110,6 +112,24 @@ def test_unqualified_version_selection_cannot_be_green(tmp_path: Path) -> None:
     by_id = {check.check_id: check for check in report.checks}
     assert by_id["profile.version_lock"].status == "blocked"
     assert "mcp_sdk" in by_id["profile.version_lock"].observed
+
+
+def test_ros_owned_python_package_cannot_be_shadowed(tmp_path: Path) -> None:
+    profile = _profile(tmp_path / "profile.json")
+    data = json.loads(profile.read_text(encoding="utf-8"))
+    data["required_imports"][0]["ownership"] = "ros_or_os"
+    profile.write_text(json.dumps(data), encoding="utf-8")
+    context = _context(
+        healthy=True,
+        numpy_origin="/home/person/.local/lib/python3.12/site-packages/numpy/__init__.py",
+    )
+
+    report = run_doctor(profile, context=context)
+
+    assert report.overall == "red"
+    by_id = {check.check_id: check for check in report.checks}
+    assert by_id["import.numpy"].status == "fail"
+    assert "shadowing" in by_id["import.numpy"].remediation
 
 
 def test_report_is_create_only_and_records_path(tmp_path: Path) -> None:
