@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "entryplug"
 version = "0.0.1"
-description = "Agent-first physical capability runtime"
+description = "Agent first physical capability runtime"
 readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "Apache-2.0"}
-authors = [{name = "Entryplug contributors"}]
+authors = [{name = "Javier Blanco-Romero"}]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
   "License :: OSI Approved :: Apache Software License",
@@ -17,6 +17,9 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering",
 ]
+
+[project.urls]
+Repository = "https://github.com/fj-blanco/entryplug"
 
 [project.scripts]
 entryplug = "entryplug.cli:main"
