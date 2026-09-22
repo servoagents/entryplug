@@ -1,0 +1,8 @@
+{
+  "request_id": "request-example-01",
+  "runtime_id": "runtime-example-01",
+  "body_handle": "",
+  "target_id": "target-2",
+  "timeout_s": 60.0,
+  "allow_rebind": true
+}

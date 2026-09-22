@@ -1,0 +1,7 @@
+{
+  "operation_id": "operation-example-01",
+  "phase": "validate",
+  "binding_revision": 1,
+  "has_visual_error": false,
+  "visual_error_px": 0.0
+}

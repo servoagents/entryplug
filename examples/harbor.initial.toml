@@ -1,0 +1,29 @@
+profile_version = 1
+name = "harbor-initial-design"
+status = "proposed-unqualified"
+
+[scene]
+link_lengths_m = [0.18, 0.14]
+physics_step_s = 0.002
+controller_update_hz = 250
+image_width = 320
+image_height = 240
+camera_hz = 10
+
+[execution]
+correction_hz_max = 2
+reference_displacement_rad_max = 0.05
+segment_duration_s_max = 0.25
+probe_displacement_rad = 0.02
+observation_age_s_max = 0.25
+settling_timeout_s = 2.0
+operation_timeout_s_max = 120.0
+run_timeout_s_max = 600.0
+rebindings_max = 2
+start_request_records_max = 1024
+
+[completion]
+public_pixel_error_max = 3.0
+public_dwell_sim_s = 0.5
+private_planar_error_m_max = 0.01
+private_dwell_sim_s = 0.5

@@ -1,0 +1,22 @@
+string<=64 request_id
+string<=64 runtime_id
+string<=96 body_handle
+string<=32 target_id
+float64 timeout_s
+bool allow_rebind
+---
+string<=64 operation_id
+string<=24 outcome
+bool goal_observed
+bool has_visual_error
+float64 visual_error_px
+string<=96 body_handle
+uint32 binding_revision
+string<=16 motion_state
+string<=48 error_code
+---
+string<=64 operation_id
+string<=24 phase
+uint32 binding_revision
+bool has_visual_error
+float64 visual_error_px

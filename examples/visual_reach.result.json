@@ -1,0 +1,11 @@
+{
+  "operation_id": "operation-example-01",
+  "outcome": "succeeded",
+  "goal_observed": true,
+  "has_visual_error": true,
+  "visual_error_px": 1.8,
+  "body_handle": "body-example-02",
+  "binding_revision": 2,
+  "motion_state": "holding",
+  "error_code": ""
+}
