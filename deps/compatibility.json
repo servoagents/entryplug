@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "architecture": "x86_64",
+  "os": {
+    "id": "ubuntu",
+    "version_id": "24.04"
+  },
+  "profile_id": "harbor-jazzy-amd64-v1",
+  "python": {
+    "executable": "/usr/bin/python3",
+    "major": 3,
+    "minor": 12
+  },
+  "required_commands": [
+    "uv",
+    "colcon",
+    "ros2",
+    "cmake",
+    "ninja"
+  ],
+  "required_imports": [
+    {
+      "distribution": "rclpy",
+      "module": "rclpy"
+    },
+    {
+      "distribution": "cv-bridge",
+      "module": "cv_bridge"
+    },
+    {
+      "distribution": "numpy",
+      "module": "numpy"
+    },
+    {
+      "distribution": "opencv-python",
+      "module": "cv2"
+    },
+    {
+      "distribution": "mcp",
+      "module": "mcp"
+    },
+    {
+      "distribution": "a2a-sdk",
+      "module": "a2a"
+    }
+  ],
+  "ros": {
+    "distro": "jazzy",
+    "required_packages": [
+      "mujoco_ros2_control",
+      "joint_trajectory_controller",
+      "rmw_zenoh_cpp",
+      "rmw_cyclonedds_cpp"
+    ]
+  },
+  "selection": {
+    "a2a_sdk": null,
+    "mcp_sdk": null,
+    "mujoco_ros2_control_commit": null,
+    "qualification": "unqualified",
+    "ros_apt_versions": null
+  }
+}

@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+
+project_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+python_bin=${ENTRYPLUG_PYTHON:-/usr/bin/python3}
+
+if [ ! -x "$python_bin" ]; then
+    echo "entryplug: Python interpreter is not executable: $python_bin" >&2
+    exit 127
+fi
+
+export PYTHONPATH="$project_dir/src${PYTHONPATH:+:$PYTHONPATH}"
+exec "$python_bin" -m entryplug.cli "$@"
