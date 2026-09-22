@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.metadata
 import json
 import subprocess
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Sequence
@@ -68,6 +69,7 @@ def _context(
         machine="x86_64",
         python_version=(3, 12, 8) if healthy else (3, 14, 4),
         python_executable="/usr/bin/python3",
+        python_base_executable="/usr/bin/python3",
         environ={"ROS_DISTRO": "jazzy"} if healthy else {},
         which=(lambda command: f"/usr/bin/{command}" if healthy else None),
         find_spec=find_spec,
@@ -130,6 +132,20 @@ def test_ros_owned_python_package_cannot_be_shadowed(tmp_path: Path) -> None:
     by_id = {check.check_id: check for check in report.checks}
     assert by_id["import.numpy"].status == "fail"
     assert "shadowing" in by_id["import.numpy"].remediation
+
+
+def test_venv_derived_from_system_interpreter_is_accepted(tmp_path: Path) -> None:
+    context = replace(
+        _context(healthy=True),
+        python_executable="/workspace/.venv/bin/python",
+        python_base_executable="/usr/bin/python3",
+    )
+
+    report = run_doctor(_profile(tmp_path / "profile.json"), context=context)
+
+    by_id = {check.check_id: check for check in report.checks}
+    assert by_id["python.executable"].status == "pass"
+    assert "base: /usr/bin/python3" in by_id["python.executable"].observed
 
 
 def test_report_is_create_only_and_records_path(tmp_path: Path) -> None:

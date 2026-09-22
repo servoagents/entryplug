@@ -73,6 +73,7 @@ class ProbeContext:
     machine: str
     python_version: tuple[int, int, int]
     python_executable: str
+    python_base_executable: str
     environ: Mapping[str, str]
     which: Callable[[str], str | None]
     find_spec: Callable[[str], object | None]
@@ -87,6 +88,7 @@ class ProbeContext:
             machine=platform.machine(),
             python_version=(sys.version_info.major, sys.version_info.minor, sys.version_info.micro),
             python_executable=sys.executable,
+            python_base_executable=getattr(sys, "_base_executable", sys.executable),
             environ=os.environ,
             which=shutil.which,
             find_spec=importlib.util.find_spec,
@@ -181,7 +183,12 @@ def _check_python(context: ProbeContext, profile: Mapping[str, object]) -> list[
     expected_executable = _string(python_profile, "executable")
     actual_version = ".".join(str(part) for part in context.python_version)
     version_ok = context.python_version[:2] == (expected_major, expected_minor)
-    executable_ok = context.python_executable == expected_executable
+    executable_ok = Path(context.python_base_executable).resolve() == Path(
+        expected_executable
+    ).resolve()
+    executable_observation = context.python_executable
+    if context.python_base_executable != context.python_executable:
+        executable_observation += f" (base: {context.python_base_executable})"
     return [
         CheckResult(
             check_id="python.version",
@@ -200,12 +207,12 @@ def _check_python(context: ProbeContext, profile: Mapping[str, object]) -> list[
         CheckResult(
             check_id="python.executable",
             status=PASS if executable_ok else FAIL,
-            summary="Explicit system interpreter",
-            expected=expected_executable,
-            observed=context.python_executable,
+            summary="System interpreter ancestry",
+            expected=f"directly use or derive from {expected_executable}",
+            observed=executable_observation,
             remediation=(
-                f"Set ENTRYPLUG_PYTHON={expected_executable} after installing the supported "
-                "system environment."
+                f"Create the project environment from {expected_executable} after installing "
+                "the supported system environment."
                 if not executable_ok
                 else ""
             ),
