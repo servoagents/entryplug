@@ -7,8 +7,11 @@ import pytest
 from entryplug.association import (
     CandidateEvidence,
     assess_candidate,
+    load_visual_binding,
+    make_visual_binding_record,
     metadata_only_selection,
     select_candidate,
+    validate_cached_binding,
 )
 
 
@@ -107,3 +110,107 @@ def test_empty_provenance_and_duplicate_candidate_ids_are_rejected() -> None:
         assess_candidate(replace(_controlled(), lineage_id=""))
     with pytest.raises(ValueError, match="unique"):
         select_candidate((_controlled(), replace(_controlled(), lineage_id="lineage-b")))
+
+
+def _binding():
+    record = make_visual_binding_record(
+        context={
+            "task": "visual_reach",
+            "model_version": "scalar-jacobian-v1",
+            "fixture": "harbor-mirrors-v1",
+        },
+        candidate_id="source-a",
+        lineage_id="lineage-a",
+        gain_px_per_radian=82.0,
+        validity_radians=(-0.05, 0.05),
+        noise_range_px=0.8,
+        maximum_age_ms=250.0,
+        timing_method_id="settled-before-after-v1",
+        evidence_refs=("run-1/mirrors.json",),
+        created_at="2026-09-23T12:00:00+00:00",
+    )
+    return record, load_visual_binding(record)
+
+
+def _reuse_inputs() -> dict[str, object]:
+    return {
+        "commands_radians": (-0.03, 0.025),
+        "candidate_effects_px": {
+            "source-a": (-2.5, 2.08),
+            "source-b": (-2.5, 2.08),
+            "source-c": (1.0, -1.5),
+        },
+        "candidate_lineages": {
+            "source-a": "lineage-a",
+            "source-b": "lineage-a",
+            "source-c": "lineage-c",
+        },
+        "candidate_maximum_ages_ms": {
+            "source-a": 20.0,
+            "source-b": 480.0,
+            "source-c": 15.0,
+        },
+        "candidate_noise_ranges_px": {
+            "source-a": 0.8,
+            "source-b": 0.8,
+            "source-c": 3.0,
+        },
+    }
+
+
+def test_cached_binding_round_trip_preserves_explicit_model_shape_and_units() -> None:
+    record, binding = _binding()
+
+    assert record.payload["jacobian"]["shape"] == (1, 1)
+    assert record.payload["command_unit"] == "radian"
+    assert binding.evidence_key == record.key
+    assert binding.gain_px_per_radian == 82.0
+
+
+def test_checked_reuse_accepts_one_fresh_matching_lineage() -> None:
+    _, binding = _binding()
+
+    result = validate_cached_binding(binding, **_reuse_inputs())
+
+    assert result["status"] == "reused"
+    assert result["candidate_id"] == "source-a"
+    assert result["probe_count"] == 2
+    assert result["matching_candidate_ids"] == ["source-a"]
+
+
+def test_checked_reuse_rejects_model_mismatch_and_changed_provenance() -> None:
+    _, binding = _binding()
+    inputs = _reuse_inputs()
+    inputs["candidate_effects_px"] = {
+        **inputs["candidate_effects_px"],
+        "source-a": (3.0, -2.0),
+    }
+    mismatch = validate_cached_binding(binding, **inputs)
+    assert mismatch["status"] == "refused"
+    assert mismatch["reason_code"] == "cached_model_invalid"
+
+    inputs = _reuse_inputs()
+    inputs["candidate_lineages"] = {
+        **inputs["candidate_lineages"],
+        "source-a": "replacement-lineage",
+    }
+    changed = validate_cached_binding(binding, **inputs)
+    assert changed["reason_code"] == "cached_provenance_changed"
+
+
+def test_checked_reuse_rejects_new_independent_match() -> None:
+    _, binding = _binding()
+    inputs = _reuse_inputs()
+    inputs["candidate_effects_px"] = {
+        **inputs["candidate_effects_px"],
+        "source-c": (-2.44, 2.1),
+    }
+    inputs["candidate_noise_ranges_px"] = {
+        **inputs["candidate_noise_ranges_px"],
+        "source-c": 0.5,
+    }
+
+    result = validate_cached_binding(binding, **inputs)
+
+    assert result["status"] == "refused"
+    assert result["reason_code"] == "ambiguous_sources"

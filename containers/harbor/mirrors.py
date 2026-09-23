@@ -22,9 +22,13 @@ from sensor_msgs.msg import Image
 from entryplug.association import (
     AssociationProfile,
     CandidateEvidence,
+    load_visual_binding,
+    make_visual_binding_record,
     metadata_only_selection,
     select_candidate,
+    validate_cached_binding,
 )
+from entryplug.evidence import EvidenceQuery, SqliteEvidenceCache
 from reach import (
     Frame,
     Observer,
@@ -46,8 +50,15 @@ SOURCE_NAME_SEED = 7043
 DELAY_SECONDS = 0.36
 FIT_PROBES_RADIANS = (0.018, -0.031, 0.047, -0.022, 0.036, -0.044)
 VALIDATION_PROBES_RADIANS = (0.028, -0.049, 0.041, -0.034)
+REUSE_PROBES_RADIANS = (-0.027, 0.023)
 MINIMUM_PROBE_GAP_SECONDS = 0.12
 MAXIMUM_PROBE_GAP_SECONDS = 0.62
+BINDING_CONTEXT = {
+    "task": "visual_reach",
+    "model_version": "scalar-jacobian-v1",
+    "fixture": "harbor-mirrors-v1",
+    "source_convention": "red-centroid-y-v1",
+}
 
 
 class MirrorsObserver(Observer):
@@ -374,7 +385,11 @@ def _probe_trace_panel(
 
     for index, record in enumerate(records):
         x, _ = point(index, 0.0)
-        stage = "F" if record["event"] == "fit_probe" else "V"
+        stage = {
+            "fit_probe": "F",
+            "validation_probe": "V",
+            "reuse_probe": "R",
+        }[str(record["event"])]
         label = f"{stage}{int(record['index'])} {commands[index]:+.3f}"
         cv2.putText(
             panel,
@@ -518,6 +533,7 @@ def qualify(
         fit_records: list[dict[str, object]] = []
         independent_pairs: list[dict[str, object]] = []
         direct_pairs: list[dict[str, object]] = []
+        acquisition_started = time.monotonic()
         for index, command in enumerate(fit_commands):
             requested_gap = solver.uniform(
                 MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS
@@ -741,6 +757,9 @@ def qualify(
         profile = AssociationProfile()
         metadata_baseline = metadata_only_selection(candidates, profile)
         selection = select_candidate(candidates, profile)
+        acquisition_duration_ms = _round(
+            (time.monotonic() - acquisition_started) * 1000
+        )
 
         ambiguous = replace(
             controlled,
@@ -754,6 +773,203 @@ def qualify(
                 "selection": selection,
                 "metadata_only_baseline": metadata_baseline,
                 "ambiguity_check": ambiguity_check,
+            }
+        )
+
+        controlled_assessment = next(
+            item
+            for item in selection["assessments"]
+            if item["candidate_id"] == controlled_id
+        )
+        binding_record = make_visual_binding_record(
+            context=BINDING_CONTEXT,
+            candidate_id=controlled_id,
+            lineage_id=controlled_lineage,
+            gain_px_per_radian=float(
+                controlled_assessment["gain_px_per_radian"]
+            ),
+            validity_radians=(
+                min(FIT_PROBES_RADIANS + VALIDATION_PROBES_RADIANS),
+                max(FIT_PROBES_RADIANS + VALIDATION_PROBES_RADIANS),
+            ),
+            noise_range_px=float(direct_noise["y_range_px"]),
+            maximum_age_ms=profile.maximum_age_ms,
+            timing_method_id="settled-before-after-v1",
+            evidence_refs=("mirrors.json", "trace.jsonl"),
+            created_at=datetime.now(UTC).isoformat(),
+        )
+        cache_path = output_dir / "evidence-cache.private.sqlite3"
+        cache = SqliteEvidenceCache(cache_path)
+        try:
+            stored_key = cache.store(binding_record)
+            cached_candidates = cache.find(
+                EvidenceQuery(kind=binding_record.kind, context=BINDING_CONTEXT),
+                limit=1,
+            )
+            if not cached_candidates:
+                raise RuntimeError("stored visual binding was not retrievable")
+            loaded_record = cache.load(cached_candidates[0].key)
+            if loaded_record is None or loaded_record.key != stored_key:
+                raise RuntimeError("loaded visual binding did not match stored evidence")
+            cached_binding = load_visual_binding(loaded_record)
+        finally:
+            cache.close()
+
+        reuse_started = time.monotonic()
+        reuse_commands = list(REUSE_PROBES_RADIANS)
+        solver.shuffle(reuse_commands)
+        reuse_direct: list[float] = []
+        reuse_independent: list[float] = []
+        reuse_delayed: list[dict[str, object]] = []
+        reuse_direct_ages: list[float] = []
+        reuse_independent_ages: list[float] = []
+        reuse_records: list[dict[str, object]] = []
+        for index, command in enumerate(reuse_commands):
+            requested_gap = solver.uniform(
+                MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS
+            )
+            actual_gap = _wait_probe_gap(node, requested_gap)
+            probe_started_ms = _round((time.monotonic() - started) * 1000)
+            independent_before = _fresh_mirror_observation(node)
+            probe = _measure_probe(
+                node,
+                anchor,
+                command,
+                purpose=f"mirrors-reuse-{index + 1}",
+                trace=trace,
+            )
+            independent_after = _fresh_mirror_observation(
+                node, after_sequence=int(independent_before["last_frame_sequence"])
+            )
+            direct_effect = float(probe["observed_feature_delta_px"])
+            independent_effect = _round(
+                float(independent_after["y_px"])
+                - float(independent_before["y_px"])
+            )
+            trace_item = next(
+                item for item in trace if item.get("request_id") == probe["request_id"]
+            )
+            direct_pairs.append(
+                {
+                    "effect_px": direct_effect,
+                    "before_feature": trace_item["before_feature"],
+                    "after_feature": trace_item["after_feature"],
+                    "before_frame": _find_frame(
+                        node.frames,
+                        int(trace_item["before_feature"]["last_frame_sequence"]),
+                        "controlled reuse probe before",
+                    ),
+                    "after_frame": _find_frame(
+                        node.frames,
+                        int(trace_item["after_feature"]["last_frame_sequence"]),
+                        "controlled reuse probe after",
+                    ),
+                }
+            )
+            independent_pairs.append(
+                {
+                    "effect_px": independent_effect,
+                    "before": independent_before,
+                    "after": independent_after,
+                    "before_frame": _find_frame(
+                        node.mirror_frames,
+                        int(independent_before["last_frame_sequence"]),
+                        "independent reuse interval before",
+                    ),
+                    "after_frame": _find_frame(
+                        node.mirror_frames,
+                        int(independent_after["last_frame_sequence"]),
+                        "independent reuse interval after",
+                    ),
+                }
+            )
+            reuse_direct.append(direct_effect)
+            reuse_independent.append(independent_effect)
+            reuse_direct_ages.append(
+                float(trace_item["after_feature"]["last_receive_age_ms"])
+            )
+            reuse_independent_ages.append(
+                max(
+                    float(independent_before["last_receive_age_ms"]),
+                    float(independent_after["last_receive_age_ms"]),
+                )
+            )
+            delayed_copy = _deliver_delayed_copy(node, probe, trace_item)
+            reuse_delayed.append(delayed_copy)
+            record = {
+                "event": "reuse_probe",
+                "index": index + 1,
+                "command_radians": command,
+                "pre_probe_gap_ms": _round(actual_gap * 1000),
+                "probe_started_ms": probe_started_ms,
+                "probe_completed_ms": _round((time.monotonic() - started) * 1000),
+                "request_id": probe["request_id"],
+                "goal_id": probe["goal_id"],
+                "candidate_effects_px": {
+                    controlled_id: direct_effect,
+                    delayed_id: delayed_copy["effect_px"],
+                    independent_id: independent_effect,
+                },
+                "independent_sample_ids": {
+                    "before": independent_before["last_frame_sequence"],
+                    "after": independent_after["last_frame_sequence"],
+                },
+            }
+            reuse_records.append(record)
+            public_events.append(record)
+
+        checked_reuse = validate_cached_binding(
+            cached_binding,
+            commands_radians=reuse_commands,
+            candidate_effects_px={
+                controlled_id: reuse_direct,
+                delayed_id: reuse_direct,
+                independent_id: reuse_independent,
+            },
+            candidate_lineages={
+                controlled_id: controlled_lineage,
+                delayed_id: controlled_lineage,
+                independent_id: independent_lineage,
+            },
+            candidate_maximum_ages_ms={
+                controlled_id: max(reuse_direct_ages),
+                delayed_id: max(float(item["delay_ms"]) for item in reuse_delayed),
+                independent_id: max(reuse_independent_ages),
+            },
+            candidate_noise_ranges_px={
+                controlled_id: float(direct_noise["y_range_px"]),
+                delayed_id: float(direct_noise["y_range_px"]),
+                independent_id: float(independent_noise["y_range_px"]),
+            },
+            profile=profile,
+        )
+        reuse_duration_ms = _round((time.monotonic() - reuse_started) * 1000)
+        reuse_work = {
+            "scope": "warm reuse within one live fixture episode",
+            "cache_backend": "sqlite",
+            "cache_hit_granted_readiness": False,
+            "evidence_key": binding_record.key,
+            "validation": checked_reuse,
+            "full_reacquisition": {
+                "probe_count": len(fit_commands) + len(validation_commands),
+                "command_travel_radians": _round(
+                    sum(abs(value) for value in fit_commands + validation_commands)
+                ),
+                "duration_ms": acquisition_duration_ms,
+            },
+            "checked_reuse": {
+                "probe_count": len(reuse_commands),
+                "command_travel_radians": _round(
+                    sum(abs(value) for value in reuse_commands)
+                ),
+                "duration_ms": reuse_duration_ms,
+            },
+        }
+        public_events.append(
+            {
+                "event": "checked_reuse_result",
+                "evidence_key": binding_record.key,
+                "result": checked_reuse,
             }
         )
 
@@ -803,12 +1019,7 @@ def qualify(
                 f"LATER: RED CENTROID DY {independent_delta:+.1f} PX",
             ),
         )
-        controlled_assessment = next(
-            item
-            for item in selection["assessments"]
-            if item["candidate_id"] == controlled_id
-        )
-        all_probe_records = fit_records + validation_records
+        all_probe_records = fit_records + validation_records + reuse_records
         trace_panel = _probe_trace_panel(
             all_probe_records,
             controlled_id,
@@ -972,6 +1183,19 @@ def qualify(
                 "/camera/spectator/image_raw"
                 not in image_manifest["information_boundary"]["association_inputs"]
             ),
+            "checked_reuse_accepted": checked_reuse["status"] == "reused",
+            "checked_reuse_reduced_probe_count": (
+                reuse_work["checked_reuse"]["probe_count"]
+                < reuse_work["full_reacquisition"]["probe_count"]
+            ),
+            "checked_reuse_reduced_command_travel": (
+                reuse_work["checked_reuse"]["command_travel_radians"]
+                < reuse_work["full_reacquisition"]["command_travel_radians"]
+            ),
+            "checked_reuse_reduced_setup_time": (
+                reuse_work["checked_reuse"]["duration_ms"]
+                < reuse_work["full_reacquisition"]["duration_ms"]
+            ),
         }
         if not all(gates.values()):
             failed = [name for name, passed in gates.items() if not passed]
@@ -990,6 +1214,7 @@ def qualify(
                 "to the spectator topic."
             ),
             "private_fixture_schedule": "mirror-schedule.private.jsonl",
+            "reuse_scope": "warm reuse within one live fixture episode",
         }
         summary = {
             "schema_version": 2,
@@ -1022,13 +1247,15 @@ def qualify(
                 "maximum_measured_delivery_ms": _round(maximum_delay_ms),
                 "capture_stamps_preserved": all(
                     bool(item["capture_stamps_preserved"])
-                    for item in delayed_fit + delayed_validation
+                    for item in delayed_fit + delayed_validation + reuse_delayed
                 ),
                 "same_lineage_as_controlled": True,
                 "treated_as_independent_evidence": False,
             },
             "probe_count": len(fit_commands),
             "validation_probe_count": len(validation_commands),
+            "reuse_probe_count": len(reuse_commands),
+            "checked_reuse": reuse_work,
             "probe_timing": {
                 "randomized_pre_probe_gaps": True,
                 "minimum_requested_gap_ms": MINIMUM_PROBE_GAP_SECONDS * 1000,
@@ -1043,7 +1270,8 @@ def qualify(
             "validation_probes": validation_records,
             "safety": {
                 "maximum_probe_radians": max(
-                    abs(value) for value in fit_commands + validation_commands
+                    abs(value)
+                    for value in fit_commands + validation_commands + reuse_commands
                 ),
                 "all_native_actions_succeeded": all(
                     int(item["native_status"]) == 4 for item in trace
@@ -1058,6 +1286,7 @@ def qualify(
                 "observer_overview": "spectator-overview.observer.png",
                 "observer_report": "observer-report.json",
                 "private_fixture_schedule": "mirror-schedule.private.jsonl",
+                "private_evidence_cache": "evidence-cache.private.sqlite3",
                 "public_events": "public.jsonl",
                 "private_evaluation": "evaluation.jsonl",
                 "action_trace": "trace.jsonl",
@@ -1068,8 +1297,9 @@ def qualify(
                 "mechanism follows a hidden nonperiodic fixture schedule, while probe "
                 "order and timing are randomized independently. The external overview "
                 "is captured after association by an evaluator-only process. This "
-                "qualifies local source association in this "
-                "Harbor fixture, not general causal identification."
+                "qualifies local source association and checked within-episode reuse "
+                "in this Harbor fixture. It does not yet qualify cross-episode reuse, "
+                "invalidation recovery, or general causal identification."
             ),
         }
         return summary, evaluation
