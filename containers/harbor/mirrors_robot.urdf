@@ -1,0 +1,101 @@
+<?xml version="1.0"?>
+<robot name="entryplug_hall_of_mirrors">
+  <link name="world"/>
+  <link name="upperarm"/>
+  <link name="forearm"/>
+  <link name="camera_color_mujoco_frame"/>
+  <link name="mirror_base_link"/>
+  <link name="mirror_upperarm"/>
+  <link name="mirror_forearm"/>
+  <link name="mirror_camera_color_mujoco_frame"/>
+
+  <joint name="joint1" type="revolute">
+    <parent link="world"/>
+    <child link="upperarm"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14" upper="3.14" velocity="3.14" effort="1000"/>
+  </joint>
+  <joint name="joint2" type="revolute">
+    <parent link="upperarm"/>
+    <child link="forearm"/>
+    <origin xyz="1 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14" upper="3.14" velocity="3.14" effort="1000"/>
+  </joint>
+  <joint name="camera_color_mujoco_joint" type="fixed">
+    <parent link="forearm"/>
+    <child link="camera_color_mujoco_frame"/>
+    <origin xyz="1 0 0.1"/>
+  </joint>
+
+  <joint name="mirror_base" type="fixed">
+    <parent link="world"/>
+    <child link="mirror_base_link"/>
+    <origin xyz="0 2.5 0"/>
+  </joint>
+  <joint name="mirror_joint1" type="revolute">
+    <parent link="mirror_base_link"/>
+    <child link="mirror_upperarm"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14" upper="3.14" velocity="3.14" effort="1000"/>
+  </joint>
+  <joint name="mirror_joint2" type="revolute">
+    <parent link="mirror_upperarm"/>
+    <child link="mirror_forearm"/>
+    <origin xyz="1 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-3.14" upper="3.14" velocity="3.14" effort="1000"/>
+  </joint>
+  <joint name="mirror_camera_color_mujoco_joint" type="fixed">
+    <parent link="mirror_forearm"/>
+    <child link="mirror_camera_color_mujoco_frame"/>
+    <origin xyz="1 0 0.1"/>
+  </joint>
+
+  <ros2_control name="MujocoSystem" type="system">
+    <hardware>
+      <plugin>mujoco_ros2_control/MujocoSystemInterface</plugin>
+      <param name="mujoco_model">/workspace/entryplug/containers/harbor/mirrors_scene.xml</param>
+      <param name="sim_speed_factor">1.0</param>
+      <param name="headless">false</param>
+    </hardware>
+
+    <joint name="joint1">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="joint2">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="mirror_joint1">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="mirror_joint2">
+      <command_interface name="position"/>
+      <state_interface name="position"><param name="initial_value">0.0</param></state_interface>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+
+    <sensor name="camera">
+      <param name="frame_name">camera_color_mujoco_frame</param>
+      <param name="info_topic">/camera/color/camera_info</param>
+      <param name="image_topic">/camera/color/image_raw</param>
+      <param name="depth_topic">/camera/aligned_depth_to_color/image_raw</param>
+    </sensor>
+    <sensor name="mirror_camera">
+      <param name="frame_name">mirror_camera_color_mujoco_frame</param>
+      <param name="info_topic">/camera/mirror/camera_info</param>
+      <param name="image_topic">/camera/mirror/image_raw</param>
+      <param name="depth_topic">/camera/mirror/depth_raw</param>
+    </sensor>
+  </ros2_control>
+</robot>

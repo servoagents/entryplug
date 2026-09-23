@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Qualify active source association against delayed and unrelated visual paths."""
+"""Qualify active association across two rendered cameras and a delayed path."""
 
 from __future__ import annotations
 
@@ -7,13 +7,17 @@ import argparse
 import hashlib
 import json
 import random
+import statistics
 import time
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+import cv2
 import numpy as np
 import rclpy
+from rclpy.qos import qos_profile_sensor_data
+from sensor_msgs.msg import Image
 
 from entryplug.association import (
     AssociationProfile,
@@ -40,79 +44,42 @@ from reach import (
 
 
 SOLVER_SEED = 947
-FIXTURE_SEED = 3119
 SOURCE_NAME_SEED = 7043
 DELAY_SECONDS = 0.36
 
 
-class IndependentVisualFixture:
-    """A prerecorded visual schedule that is independent of solver probes."""
+class MirrorsObserver(Observer):
+    """Observe the controlled and independently driven rendered cameras."""
 
-    def __init__(self, seed: int, samples: int = 64) -> None:
-        generator = random.Random(seed)
-        position = 250.0
-        positions: list[float] = []
-        for _ in range(samples):
-            position = max(232.0, min(268.0, position + generator.uniform(-4.5, 4.5)))
-            positions.append(position)
-        self._positions = tuple(positions)
-        self._index = 0
-        self._started = time.monotonic()
+    def __init__(self) -> None:
+        super().__init__("entryplug_hall_of_mirrors")
+        self.mirror_frame: Frame | None = None
+        self.mirror_frames: list[Frame] = []
+        self.create_subscription(
+            Image,
+            "/camera/mirror/image_raw",
+            self._mirror_image,
+            qos_profile_sensor_data,
+        )
 
-    def sample(self) -> tuple[dict[str, object], Frame]:
-        if self._index >= len(self._positions):
-            raise RuntimeError("independent visual fixture exhausted its prerecorded schedule")
-        y_center = self._positions[self._index]
-        self._index += 1
-        height, width = 480, 640
-        rgb = np.empty((height, width, 3), dtype=np.uint8)
-        rgb[:, :, :] = (32, 52, 70)
-        apex = int(round(y_center + 8.0))
-        for row in range(apex, height):
-            half_width = min(width // 2, int((row - apex) * 1.35))
-            if half_width:
-                rgb[row, width // 2 - half_width : width // 2 + half_width, :] = (
-                    0,
-                    0,
-                    220,
-                )
-        top = max(0, int(round(y_center - 5.0)))
-        bottom = min(height, int(round(y_center + 5.0)))
-        rgb[top:bottom, width // 2 - 20 : width // 2 + 20, :] = (205, 0, 0)
-        contents = rgb.tobytes()
-        elapsed_ns = int((time.monotonic() - self._started) * 1_000_000_000)
+    def _mirror_image(self, message: Image) -> None:
+        data = bytes(message.data)
         frame = Frame(
-            sequence=self._index,
+            sequence=(self.mirror_frame.sequence + 1) if self.mirror_frame else 1,
             received_monotonic=time.monotonic(),
-            width=width,
-            height=height,
-            encoding="rgb8",
-            step=width * 3,
-            stamp_sec=elapsed_ns // 1_000_000_000,
-            stamp_nanosec=elapsed_ns % 1_000_000_000,
-            sha256=hashlib.sha256(contents).hexdigest(),
-            data=contents,
+            width=message.width,
+            height=message.height,
+            encoding=message.encoding,
+            step=message.step,
+            stamp_sec=message.header.stamp.sec,
+            stamp_nanosec=message.header.stamp.nanosec,
+            sha256=hashlib.sha256(data).hexdigest(),
+            data=data,
         )
-        return _marker(frame), frame
-
-    def effect(self) -> tuple[float, dict[str, object]]:
-        before, before_frame = self.sample()
-        after, after_frame = self.sample()
-        observed = time.monotonic()
-        return (
-            _round(float(after["y_px"]) - float(before["y_px"])),
-            {
-                "before": before,
-                "after": after,
-                "maximum_age_ms": _round(
-                    max(
-                        observed - before_frame.received_monotonic,
-                        observed - after_frame.received_monotonic,
-                    )
-                    * 1000
-                ),
-            },
-        )
+        self.mirror_frame = frame
+        self.mirror_frames.append(frame)
+        if len(self.mirror_frames) > 256:
+            del self.mirror_frames[:128]
 
 
 def _opaque_ids() -> tuple[list[str], list[str]]:
@@ -122,8 +89,78 @@ def _opaque_ids() -> tuple[list[str], list[str]]:
     return candidate_ids, lineage_ids
 
 
+def _fresh_mirror_observation(
+    node: MirrorsObserver, *, after_sequence: int | None = None, samples: int = 3
+) -> dict[str, object]:
+    start_sequence = (
+        after_sequence
+        if after_sequence is not None
+        else (node.mirror_frame.sequence if node.mirror_frame is not None else 0)
+    )
+    observations: list[dict[str, object]] = []
+    frames: list[Frame] = []
+    last_sequence = start_sequence
+    deadline = time.monotonic() + 4.0
+    while rclpy.ok() and time.monotonic() < deadline and len(observations) < samples:
+        rclpy.spin_once(node, timeout_sec=0.1)
+        frame = node.mirror_frame
+        if frame is None or frame.sequence <= last_sequence:
+            continue
+        observations.append(_marker(frame))
+        frames.append(frame)
+        last_sequence = frame.sequence
+    if len(observations) != samples:
+        raise TimeoutError(
+            f"received {len(observations)} of {samples} fresh mirror camera samples"
+        )
+    x_values = [float(item["x_px"]) for item in observations]
+    y_values = [float(item["y_px"]) for item in observations]
+    last = observations[-1]
+    return {
+        "x_px": _round(statistics.median(x_values)),
+        "y_px": _round(statistics.median(y_values)),
+        "sample_count": samples,
+        "x_range_px": _round(max(x_values) - min(x_values)),
+        "y_range_px": _round(max(y_values) - min(y_values)),
+        "first_frame_sequence": observations[0]["frame"]["sequence"],
+        "last_frame_sequence": last["frame"]["sequence"],
+        "last_frame": last["frame"],
+        "last_receive_age_ms": _round(
+            max(0.0, (time.monotonic() - frames[-1].received_monotonic) * 1000)
+        ),
+        "marker_area_px": last["area_px"],
+        "bounding_box_px": last["bounding_box_px"],
+    }
+
+
+def _mirror_marker_is_visible(node: MirrorsObserver) -> bool:
+    if node.mirror_frame is None:
+        return False
+    try:
+        _marker(node.mirror_frame)
+    except RuntimeError:
+        return False
+    return True
+
+
+def _mirror_noise(node: MirrorsObserver, samples: int = 8) -> dict[str, object]:
+    values = [_fresh_mirror_observation(node, samples=1) for _ in range(samples)]
+    x_values = [float(item["x_px"]) for item in values]
+    y_values = [float(item["y_px"]) for item in values]
+    return {
+        "commands_applied_by_entryplug": 0,
+        "fixture_driver_active": True,
+        "sample_count": samples,
+        "x_range_px": _round(max(x_values) - min(x_values)),
+        "y_range_px": _round(max(y_values) - min(y_values)),
+        "y_population_stddev_px": _round(statistics.pstdev(y_values)),
+        "first_frame_sequence": values[0]["last_frame_sequence"],
+        "last_frame_sequence": values[-1]["last_frame_sequence"],
+    }
+
+
 def _deliver_delayed_copy(
-    node: Observer,
+    node: MirrorsObserver,
     probe: dict[str, object],
     trace_item: dict[str, object],
 ) -> dict[str, object]:
@@ -146,6 +183,75 @@ def _deliver_delayed_copy(
     }
 
 
+def _find_frame(frames: list[Frame], sequence: int, label: str) -> Frame:
+    for frame in reversed(frames):
+        if frame.sequence == sequence:
+            return frame
+    raise RuntimeError(f"{label} frame sequence {sequence} is no longer retained")
+
+
+def _annotated(frame: Frame, feature: dict[str, object], label: str) -> np.ndarray:
+    rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape(
+        (frame.height, frame.width, 3)
+    ).copy()
+    box = feature["bounding_box_px"]
+    left, top = int(box["left"]), int(box["top"])
+    right, bottom = int(box["right"]), int(box["bottom"])
+    center = (int(round(float(feature["x_px"]))), int(round(float(feature["y_px"]))))
+    cv2.rectangle(rgb, (left, top), (right, bottom), (255, 255, 0), 2)
+    cv2.drawMarker(rgb, center, (0, 255, 0), cv2.MARKER_CROSS, 18, 2)
+    cv2.rectangle(rgb, (0, 0), (frame.width, 34), (0, 0, 0), -1)
+    cv2.putText(
+        rgb,
+        label,
+        (12, 24),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.65,
+        (255, 255, 255),
+        2,
+        cv2.LINE_AA,
+    )
+    return rgb
+
+
+def _write_review_pair(
+    path: Path,
+    before_frame: Frame,
+    before_feature: dict[str, object],
+    after_frame: Frame,
+    after_feature: dict[str, object],
+    labels: tuple[str, str],
+) -> None:
+    review = np.concatenate(
+        (
+            _annotated(before_frame, before_feature, labels[0]),
+            _annotated(after_frame, after_feature, labels[1]),
+        ),
+        axis=1,
+    )
+    legend = (
+        "BLUE = CAMERA FOREARM  |  RED = TRACKED UPPER ARM  |  "
+        "YELLOW BOX + GREEN CROSS = MEASUREMENT"
+    )
+    height, width = review.shape[:2]
+    cv2.rectangle(review, (0, height - 30), (width, height), (0, 0, 0), -1)
+    cv2.putText(
+        review,
+        legend,
+        (12, height - 9),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.55,
+        (255, 255, 255),
+        1,
+        cv2.LINE_AA,
+    )
+    encoded, contents = cv2.imencode(".png", cv2.cvtColor(review, cv2.COLOR_RGB2BGR))
+    if not encoded:
+        raise RuntimeError("OpenCV could not encode the review image")
+    with path.open("xb") as stream:
+        stream.write(contents.tobytes())
+
+
 def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("x", encoding="utf-8") as stream:
@@ -164,20 +270,53 @@ def qualify(
     public_events: list[dict[str, object]],
 ) -> tuple[dict[str, object], dict[str, object]]:
     started = time.monotonic()
-    node = Observer("entryplug_hall_of_mirrors")
+    node = MirrorsObserver()
     try:
         _spin_until(
             node,
-            lambda: node.frame is not None and node.joints is not None,
+            lambda: (
+                node.frame is not None
+                and node.mirror_frame is not None
+                and node.joints is not None
+            ),
             30.0,
-            "camera and joint topics",
+            "two cameras and joint topics",
         )
         if not node.action.wait_for_server(timeout_sec=15.0):
             raise TimeoutError("trajectory action server was unavailable")
         assert node.frame is not None
-        _write_png_create_only(output_dir / "mirrors-start.png", node.frame)
+        controlled_at_rest = node.frame
+        _write_png_create_only(
+            output_dir / "controlled-at-rest.raw.png", controlled_at_rest
+        )
         anchor, visibility_anchor = _establish_visibility_anchor(node, trace)
+        controlled_anchor_feature = visibility_anchor["after_feature"]
+        controlled_anchor = _find_frame(
+            node.frames,
+            int(controlled_anchor_feature["last_frame_sequence"]),
+            "controlled anchor",
+        )
+        _write_png_create_only(
+            output_dir / "controlled-anchor.raw.png", controlled_anchor
+        )
         direct_noise = _no_action_noise(node)
+
+        _spin_until(
+            node,
+            lambda: _mirror_marker_is_visible(node),
+            10.0,
+            "visible red marker in the independent camera",
+        )
+        mirror_preview_feature = _fresh_mirror_observation(node)
+        mirror_preview = _find_frame(
+            node.mirror_frames,
+            int(mirror_preview_feature["last_frame_sequence"]),
+            "mirror preview",
+        )
+        _write_png_create_only(
+            output_dir / "independent-camera-preview.raw.png", mirror_preview
+        )
+        independent_noise = _mirror_noise(node)
 
         candidate_ids, lineage_ids = _opaque_ids()
         controlled_id, delayed_id, independent_id, ambiguous_id = candidate_ids
@@ -196,13 +335,6 @@ def qualify(
             }
         )
 
-        fixture = IndependentVisualFixture(FIXTURE_SEED)
-        independent_noise_samples = [fixture.sample()[0] for _ in range(8)]
-        independent_y = [float(sample["y_px"]) for sample in independent_noise_samples]
-        independent_noise_range = max(independent_y) - min(independent_y)
-        _, independent_preview = fixture.sample()
-        _write_png_create_only(output_dir / "mirrors-independent-source.png", independent_preview)
-
         solver = random.Random(SOLVER_SEED)
         fit_commands = list(FIT_PROBES_RADIANS)
         validation_commands = list(VALIDATION_PROBES_RADIANS)
@@ -215,7 +347,10 @@ def qualify(
         delayed_fit: list[dict[str, object]] = []
         direct_ages: list[float] = []
         fit_records: list[dict[str, object]] = []
+        independent_pairs: list[dict[str, object]] = []
+        direct_pairs: list[dict[str, object]] = []
         for index, command in enumerate(fit_commands):
+            independent_before = _fresh_mirror_observation(node)
             probe = _measure_probe(
                 node,
                 anchor,
@@ -223,17 +358,63 @@ def qualify(
                 purpose=f"mirrors-fit-{index + 1}",
                 trace=trace,
             )
+            independent_after = _fresh_mirror_observation(
+                node, after_sequence=int(independent_before["last_frame_sequence"])
+            )
             direct_effect = float(probe["observed_feature_delta_px"])
-            independent_effect, independent_frames = fixture.effect()
+            independent_effect = _round(
+                float(independent_after["y_px"]) - float(independent_before["y_px"])
+            )
             trace_item = next(
                 item for item in trace if item.get("request_id") == probe["request_id"]
             )
-            direct_ages.append(float(trace_item["after_feature"]["last_receive_age_ms"]))
-            independent_ages.append(float(independent_frames["maximum_age_ms"]))
+            direct_pairs.append(
+                {
+                    "effect_px": direct_effect,
+                    "before_feature": trace_item["before_feature"],
+                    "after_feature": trace_item["after_feature"],
+                    "before_frame": _find_frame(
+                        node.frames,
+                        int(trace_item["before_feature"]["last_frame_sequence"]),
+                        "controlled fit probe before",
+                    ),
+                    "after_frame": _find_frame(
+                        node.frames,
+                        int(trace_item["after_feature"]["last_frame_sequence"]),
+                        "controlled fit probe after",
+                    ),
+                }
+            )
+            direct_ages.append(
+                float(trace_item["after_feature"]["last_receive_age_ms"])
+            )
+            independent_ages.append(
+                max(
+                    float(independent_before["last_receive_age_ms"]),
+                    float(independent_after["last_receive_age_ms"]),
+                )
+            )
             delayed = _deliver_delayed_copy(node, probe, trace_item)
             direct_fit.append(direct_effect)
             independent_fit.append(independent_effect)
             delayed_fit.append(delayed)
+            independent_pairs.append(
+                {
+                    "effect_px": independent_effect,
+                    "before": independent_before,
+                    "after": independent_after,
+                    "before_frame": _find_frame(
+                        node.mirror_frames,
+                        int(independent_before["last_frame_sequence"]),
+                        "independent fit interval before",
+                    ),
+                    "after_frame": _find_frame(
+                        node.mirror_frames,
+                        int(independent_after["last_frame_sequence"]),
+                        "independent fit interval after",
+                    ),
+                }
+            )
             record = {
                 "event": "fit_probe",
                 "index": index + 1,
@@ -246,8 +427,8 @@ def qualify(
                     independent_id: independent_effect,
                 },
                 "independent_sample_ids": {
-                    "before": independent_frames["before"]["frame"]["sequence"],
-                    "after": independent_frames["after"]["frame"]["sequence"],
+                    "before": independent_before["last_frame_sequence"],
+                    "after": independent_after["last_frame_sequence"],
                 },
             }
             fit_records.append(record)
@@ -258,6 +439,7 @@ def qualify(
         delayed_validation: list[dict[str, object]] = []
         validation_records: list[dict[str, object]] = []
         for index, command in enumerate(validation_commands):
+            independent_before = _fresh_mirror_observation(node)
             probe = _measure_probe(
                 node,
                 anchor,
@@ -265,17 +447,63 @@ def qualify(
                 purpose=f"mirrors-validation-{index + 1}",
                 trace=trace,
             )
+            independent_after = _fresh_mirror_observation(
+                node, after_sequence=int(independent_before["last_frame_sequence"])
+            )
             direct_effect = float(probe["observed_feature_delta_px"])
-            independent_effect, independent_frames = fixture.effect()
+            independent_effect = _round(
+                float(independent_after["y_px"]) - float(independent_before["y_px"])
+            )
             trace_item = next(
                 item for item in trace if item.get("request_id") == probe["request_id"]
             )
-            direct_ages.append(float(trace_item["after_feature"]["last_receive_age_ms"]))
-            independent_ages.append(float(independent_frames["maximum_age_ms"]))
+            direct_pairs.append(
+                {
+                    "effect_px": direct_effect,
+                    "before_feature": trace_item["before_feature"],
+                    "after_feature": trace_item["after_feature"],
+                    "before_frame": _find_frame(
+                        node.frames,
+                        int(trace_item["before_feature"]["last_frame_sequence"]),
+                        "controlled validation probe before",
+                    ),
+                    "after_frame": _find_frame(
+                        node.frames,
+                        int(trace_item["after_feature"]["last_frame_sequence"]),
+                        "controlled validation probe after",
+                    ),
+                }
+            )
+            direct_ages.append(
+                float(trace_item["after_feature"]["last_receive_age_ms"])
+            )
+            independent_ages.append(
+                max(
+                    float(independent_before["last_receive_age_ms"]),
+                    float(independent_after["last_receive_age_ms"]),
+                )
+            )
             delayed = _deliver_delayed_copy(node, probe, trace_item)
             direct_validation.append(direct_effect)
             independent_validation.append(independent_effect)
             delayed_validation.append(delayed)
+            independent_pairs.append(
+                {
+                    "effect_px": independent_effect,
+                    "before": independent_before,
+                    "after": independent_after,
+                    "before_frame": _find_frame(
+                        node.mirror_frames,
+                        int(independent_before["last_frame_sequence"]),
+                        "independent validation interval before",
+                    ),
+                    "after_frame": _find_frame(
+                        node.mirror_frames,
+                        int(independent_after["last_frame_sequence"]),
+                        "independent validation interval after",
+                    ),
+                }
+            )
             record = {
                 "event": "validation_probe",
                 "index": index + 1,
@@ -288,8 +516,8 @@ def qualify(
                     independent_id: independent_effect,
                 },
                 "independent_sample_ids": {
-                    "before": independent_frames["before"]["frame"]["sequence"],
-                    "after": independent_frames["after"]["frame"]["sequence"],
+                    "before": independent_before["last_frame_sequence"],
+                    "after": independent_after["last_frame_sequence"],
                 },
             }
             validation_records.append(record)
@@ -317,7 +545,7 @@ def qualify(
             candidate_id=independent_id,
             lineage_id=independent_lineage,
             maximum_age_ms=max(independent_ages),
-            noise_range_px=independent_noise_range,
+            noise_range_px=float(independent_noise["y_range_px"]),
             fit_commands_radians=tuple(fit_commands),
             fit_effects_px=tuple(independent_fit),
             validation_commands_radians=tuple(validation_commands),
@@ -344,28 +572,149 @@ def qualify(
             }
         )
 
-        _return_to_anchor(node, anchor, purpose="mirrors:final-anchor", trace=trace)
-        assert node.frame is not None
-        _write_png_create_only(output_dir / "mirrors-end.png", node.frame)
+        representative_direct = max(
+            direct_pairs, key=lambda item: abs(float(item["effect_px"]))
+        )
+        direct_before_feature = representative_direct["before_feature"]
+        direct_after_feature = representative_direct["after_feature"]
+        direct_before_frame = representative_direct["before_frame"]
+        direct_after_frame = representative_direct["after_frame"]
+        representative_independent = max(
+            independent_pairs, key=lambda item: abs(float(item["effect_px"]))
+        )
+        independent_before_feature = representative_independent["before"]
+        independent_after_feature = representative_independent["after"]
+        independent_before_frame = representative_independent["before_frame"]
+        independent_after_frame = representative_independent["after_frame"]
+        raw_frames = {
+            "controlled-probe-before.raw.png": direct_before_frame,
+            "controlled-probe-after.raw.png": direct_after_frame,
+            "independent-probe-before.raw.png": independent_before_frame,
+            "independent-probe-after.raw.png": independent_after_frame,
+        }
+        for name, frame in raw_frames.items():
+            _write_png_create_only(output_dir / name, frame)
+        controlled_delta = float(representative_direct["effect_px"])
+        _write_review_pair(
+            output_dir / "review-controlled-probe.png",
+            direct_before_frame,
+            direct_before_feature,
+            direct_after_frame,
+            direct_after_feature,
+            (
+                "CONTROLLED CAMERA: BEFORE",
+                f"AFTER PROBE: RED CENTROID DY {controlled_delta:+.1f} PX",
+            ),
+        )
+        independent_delta = float(representative_independent["effect_px"])
+        _write_review_pair(
+            output_dir / "review-independent-probe.png",
+            independent_before_frame,
+            independent_before_feature,
+            independent_after_frame,
+            independent_after_feature,
+            (
+                "INDEPENDENT CAMERA: BEFORE",
+                f"LATER: RED CENTROID DY {independent_delta:+.1f} PX",
+            ),
+        )
 
+        image_manifest = {
+            "schema_version": 1,
+            "raw_files_are_unmodified_sensor_captures": True,
+            "visual_key": {
+                "blue_shape": "forearm carrying the camera, seen in perspective",
+                "red_shape": "upper arm exposed behind the blue forearm",
+                "dark_pixels": (
+                    "self occlusion, lighting, or near-camera clipping; they are not "
+                    "the tracked feature"
+                ),
+                "tracked_feature": "centroid and bounding box of the red pixels",
+                "review_overlay": "yellow bounding box and green centroid cross",
+            },
+            "files": {
+                "controlled-at-rest.raw.png": {
+                    "kind": "raw",
+                    "meaning": "controlled camera before the visibility setup motion",
+                    "expected": "red upper arm is almost completely occluded",
+                },
+                "controlled-anchor.raw.png": {
+                    "kind": "raw",
+                    "meaning": (
+                        "controlled camera at the visible local operating anchor"
+                    ),
+                    "expected": (
+                        "a measurable red patch appears beyond the blue forearm"
+                    ),
+                },
+                "controlled-probe-before.raw.png": {
+                    "kind": "raw",
+                    "meaning": (
+                        "controlled camera immediately before a representative probe"
+                    ),
+                },
+                "controlled-probe-after.raw.png": {
+                    "kind": "raw",
+                    "meaning": "controlled camera immediately after that probe settled",
+                },
+                "independent-camera-preview.raw.png": {
+                    "kind": "raw",
+                    "meaning": (
+                        "second MuJoCo camera on the independently driven mechanism"
+                    ),
+                },
+                "independent-probe-before.raw.png": {
+                    "kind": "raw",
+                    "meaning": "independent camera before the representative interval",
+                },
+                "independent-probe-after.raw.png": {
+                    "kind": "raw",
+                    "meaning": "independent camera later in the same interval",
+                },
+                "review-controlled-probe.png": {
+                    "kind": "annotated_review",
+                    "sources": [
+                        "controlled-probe-before.raw.png",
+                        "controlled-probe-after.raw.png",
+                    ],
+                },
+                "review-independent-probe.png": {
+                    "kind": "annotated_review",
+                    "sources": [
+                        "independent-probe-before.raw.png",
+                        "independent-probe-after.raw.png",
+                    ],
+                },
+            },
+        }
+        _write_create_only(output_dir / "images.json", image_manifest)
+
+        _return_to_anchor(node, anchor, purpose="mirrors:final-anchor", trace=trace)
         role_map = {
-            controlled_id: "controlled_camera",
+            controlled_id: "controlled_rendered_camera",
             delayed_id: "delayed_controlled_lineage",
-            independent_id: "independent_visual_schedule",
+            independent_id: "independent_rendered_camera",
             ambiguous_id: "negative_test_indistinguishable_clone",
         }
         assessments = {
             item["candidate_id"]: item for item in selection["assessments"]
         }
         gates = {
-            "controlled_source_selected": selection.get("candidate_id") == controlled_id,
+            "controlled_source_selected": (
+                selection.get("candidate_id") == controlled_id
+            ),
             "metadata_alone_refused": metadata_baseline["status"] == "refused",
             "delayed_path_rejected_as_stale": "stale"
             in assessments[delayed_id]["reasons"],
-            "delayed_path_preserved_lineage": delayed.lineage_id == controlled.lineage_id,
+            "delayed_path_preserved_lineage": (
+                delayed.lineage_id == controlled.lineage_id
+            ),
             "independent_source_rejected": not assessments[independent_id]["eligible"],
             "ambiguous_sources_refused": ambiguity_check.get("reason_code")
             == "ambiguous_sources",
+            "two_rendered_camera_topics_observed": (
+                node.frame is not None and node.mirror_frame is not None
+            ),
         }
         if not all(gates.values()):
             failed = [name for name, passed in gates.items() if not passed]
@@ -378,22 +727,22 @@ def qualify(
             "gates": gates,
             "selected_role": role_map[str(selection["candidate_id"])],
             "truth_boundary": (
-                "Source roles and the independent schedule seed are fixture evaluation data; "
-                "they were not inputs to candidate assessment or selection."
+                "Source roles and the mirror driver schedule are fixture evaluation "
+                "data; they were not inputs to candidate assessment or selection."
             ),
         }
         summary = {
-            "schema_version": 1,
+            "schema_version": 2,
             "status": "passed",
             "recorded_at": datetime.now(UTC).isoformat(),
             "seeds": {
                 "solver": SOLVER_SEED,
-                "fixture": FIXTURE_SEED,
                 "source_names": SOURCE_NAME_SEED,
                 "independent": True,
             },
             "interfaces": {
-                "camera_topic": "/camera/color/image_raw",
+                "controlled_camera_topic": "/camera/color/image_raw",
+                "independent_camera_topic": "/camera/mirror/image_raw",
                 "joint_topic": "/joint_states",
                 "trajectory_action": "/trajectory_controller/follow_joint_trajectory",
             },
@@ -405,7 +754,7 @@ def qualify(
             "visibility_anchor": visibility_anchor,
             "no_action_noise": {
                 "controlled_path": direct_noise,
-                "independent_path_y_range_px": _round(independent_noise_range),
+                "independent_path": independent_noise,
             },
             "delayed_path": {
                 "configured_delay_ms": DELAY_SECONDS * 1000,
@@ -431,16 +780,17 @@ def qualify(
                 "action_count": len(trace),
             },
             "artifacts": {
+                "image_manifest": "images.json",
                 "public_events": "public.jsonl",
                 "private_evaluation": "evaluation.jsonl",
                 "action_trace": "trace.jsonl",
             },
             "timing_ms": {"total": _round((time.monotonic() - started) * 1000)},
             "claim_boundary": (
-                "The controlled path uses rendered ROS images and real bounded actions. "
-                "The independent distractor is a generated visual fixture, not a second "
-                "MuJoCo camera. This qualifies association behavior, not the complete "
-                "two-camera Hall of Mirrors."
+                "Both candidate sources are real MuJoCo camera renders. The second "
+                "mechanism follows a fixture-owned schedule independent of Entryplug "
+                "probes. This qualifies local source association in this two-camera "
+                "Harbor fixture, not general causal identification."
             ),
         }
         return summary, evaluation
@@ -461,7 +811,7 @@ def main() -> int:
             payload, evaluation = qualify(args.output.parent, trace, public_events)
         except Exception as error:  # preserve failure evidence at the process boundary
             payload = {
-                "schema_version": 1,
+                "schema_version": 2,
                 "status": "failed",
                 "recorded_at": datetime.now(UTC).isoformat(),
                 "error_type": type(error).__name__,

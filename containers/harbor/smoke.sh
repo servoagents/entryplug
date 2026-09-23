@@ -66,16 +66,26 @@ ros2 run rmw_zenoh_cpp rmw_zenohd >"${run_dir}/zenoh.log" 2>&1 &
 owned_pids+=("$!")
 sleep 1
 
-ros2 launch mujoco_ros2_control_demos 01_basic_robot.launch.py \
-  >"${run_dir}/mujoco.log" 2>&1 &
+if [[ "${case_name}" == mirrors ]]; then
+  python3 /workspace/entryplug/containers/harbor/mirrors_launch.py \
+    >"${run_dir}/mujoco.log" 2>&1 &
+else
+  ros2 launch mujoco_ros2_control_demos 01_basic_robot.launch.py \
+    >"${run_dir}/mujoco.log" 2>&1 &
+fi
 owned_pids+=("$!")
 
 ready=false
-for _ in {1..120}; do
-  if ros2 control list_controllers >"${run_dir}/controllers-initial.txt" 2>&1 && \
-    grep -qE '^position_controller .* active$' "${run_dir}/controllers-initial.txt"; then
-    ready=true
-    break
+for _ in {1..12}; do
+  if timeout 5 ros2 control list_controllers \
+    >"${run_dir}/controllers-initial.txt" 2>&1; then
+    if grep -qE '^position_controller .* active$' "${run_dir}/controllers-initial.txt"; then
+      if [[ "${case_name}" != mirrors ]] || \
+        grep -qE '^mirror_controller .* active$' "${run_dir}/controllers-initial.txt"; then
+        ready=true
+        break
+      fi
+    fi
   fi
   sleep 0.25
 done
@@ -93,6 +103,16 @@ ros2 run controller_manager spawner trajectory_controller \
   --controller-manager-timeout 30 \
   >"${run_dir}/controller-spawn.txt" 2>&1
 ros2 control list_controllers >"${run_dir}/controllers-final.txt" 2>&1
+
+if [[ "${case_name}" == mirrors ]]; then
+  if ! grep -qE '^mirror_controller .* active$' "${run_dir}/controllers-final.txt"; then
+    echo "mirror fixture controller did not become active" >&2
+    exit 1
+  fi
+  python3 /workspace/entryplug/containers/harbor/mirror_driver.py \
+    >"${run_dir}/mirror-driver.log" 2>&1 &
+  owned_pids+=("$!")
+fi
 
 set +e
 case "${case_name}" in
