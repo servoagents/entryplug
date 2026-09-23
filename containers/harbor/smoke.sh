@@ -2,6 +2,7 @@
 set -euo pipefail
 
 run_dir=${1:?usage: entryplug-harbor-smoke RUN_DIRECTORY}
+case_name=${2:-render-smoke}
 if [[ -e "${run_dir}" ]]; then
   echo "refusing to overwrite existing evidence: ${run_dir}" >&2
   exit 2
@@ -94,18 +95,31 @@ ros2 run controller_manager spawner trajectory_controller \
 ros2 control list_controllers >"${run_dir}/controllers-final.txt" 2>&1
 
 set +e
-python3 /workspace/entryplug/containers/harbor/smoke.py \
-  --output "${run_dir}/smoke.json"
-smoke_status=$?
+case "${case_name}" in
+  render-smoke)
+    python3 /workspace/entryplug/containers/harbor/smoke.py \
+      --output "${run_dir}/smoke.json"
+    case_status=$?
+    ;;
+  reach)
+    python3 /workspace/entryplug/containers/harbor/reach.py \
+      --output "${run_dir}/reach.json"
+    case_status=$?
+    ;;
+  *)
+    echo "unsupported Harbor case: ${case_name}" >&2
+    case_status=2
+    ;;
+esac
 ./entryplug doctor --profile harbor --json --output "${run_dir}/doctor.json" \
   >"${run_dir}/doctor-stdout.json"
 doctor_status=$?
 set -e
 
-if [[ "${smoke_status}" -ne 0 ]]; then
-  exit "${smoke_status}"
+if [[ "${case_status}" -ne 0 ]]; then
+  exit "${case_status}"
 fi
 if [[ "${doctor_status}" -ne 0 ]]; then
-  echo "Harbor smoke passed but its readiness profile is not qualified" >&2
+  echo "Harbor case passed but its readiness profile is not qualified" >&2
   exit "${doctor_status}"
 fi

@@ -41,8 +41,10 @@ def harbor_build_command(root: Path, image: str, uid: int, gid: int) -> list[str
     ]
 
 
-def harbor_run_command(root: Path, image: str, run_id: str) -> list[str]:
-    """Construct the least-privilege command for a self-contained smoke case."""
+def harbor_run_command(
+    root: Path, image: str, run_id: str, case: str = "render-smoke"
+) -> list[str]:
+    """Construct the least-privilege command for a self-contained Harbor case."""
 
     runs = (root / "runs").resolve()
     container_run = f"/workspace/entryplug/runs/{run_id}"
@@ -74,6 +76,7 @@ def harbor_run_command(root: Path, image: str, run_id: str) -> list[str]:
         image,
         "/usr/local/bin/entryplug-harbor-smoke",
         container_run,
+        case,
     ]
 
 
@@ -81,11 +84,14 @@ def run_harbor(
     root: Path,
     *,
     image: str = DEFAULT_HARBOR_IMAGE,
+    case: str = "render-smoke",
     build: bool = False,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> RuntimeResult:
-    """Build when requested, then run the Harbor qualification smoke case."""
+    """Build when requested, then run a Harbor qualification case."""
 
+    if case not in supported_cases():
+        raise ValueError(f"unsupported Harbor case: {case}")
     runs = root / "runs"
     runs.mkdir(parents=True, exist_ok=True)
     if build:
@@ -112,9 +118,9 @@ def run_harbor(
             )
 
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    run_id = f"harbor-{stamp}-{uuid.uuid4().hex[:8]}"
+    run_id = f"harbor-{case}-{stamp}-{uuid.uuid4().hex[:8]}"
     completed = runner(
-        harbor_run_command(root, image, run_id),
+        harbor_run_command(root, image, run_id, case),
         cwd=root,
         check=False,
         text=True,
@@ -123,4 +129,4 @@ def run_harbor(
 
 
 def supported_cases() -> Sequence[str]:
-    return ("render-smoke",)
+    return ("render-smoke", "reach")

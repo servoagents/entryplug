@@ -167,7 +167,7 @@ def _up(args: argparse.Namespace) -> int:
         print("entryplug up: run this command from a source checkout", file=sys.stderr)
         return 2
     try:
-        result = run_harbor(root, image=args.image, build=args.build)
+        result = run_harbor(root, image=args.image, case=args.case, build=args.build)
     except (OSError, RuntimeError, ValueError) as error:
         print(f"entryplug up: {error}", file=sys.stderr)
         return 2
