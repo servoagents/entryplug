@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import math
+import os
 import statistics
 import time
 import uuid
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -29,6 +32,19 @@ from smoke import (
     _write_create_only,
     _write_png_create_only,
 )
+
+from entryplug.agent import AgentRunner, ScriptedExplorer, Stop
+from entryplug.evidence import JsonValue
+from entryplug.operation import (
+    CapabilitySpec,
+    Lifecycle,
+    MotionState,
+    OperationContext,
+    OperationHost,
+    OperationResult,
+    OperationSnapshot,
+)
+from entryplug.session import Session
 
 CONTROL_JOINT = "joint2"
 SUPPLIED_GAIN_PX_PER_RADIAN = 125.0
@@ -123,6 +139,7 @@ def _execute_absolute(
     *,
     purpose: str,
     trace: list[dict[str, object]],
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> dict[str, object]:
     before_positions = _current_positions(node)
     requested_delta = {name: float(target[name] - before_positions[name]) for name in JOINTS}
@@ -136,11 +153,35 @@ def _execute_absolute(
     before_sequence = int(before_feature["last_frame_sequence"])
     request_id = uuid.uuid4().hex
     handle, submitted = _send_goal(node, target, 0.65)
-    result = _future(node, handle.get_result_async(), 10.0, f"{purpose} action result")
+    result_future = handle.get_result_async()
+    native_cancel_requested = False
+    cancel_acknowledged = False
+    result_deadline = time.monotonic() + 10.0
+    while rclpy.ok() and time.monotonic() < result_deadline and not result_future.done():
+        rclpy.spin_once(node, timeout_sec=min(0.05, result_deadline - time.monotonic()))
+        if cancel_requested is not None and cancel_requested() and not native_cancel_requested:
+            native_cancel_requested = True
+            cancel_response = _future(
+                node,
+                handle.cancel_goal_async(),
+                5.0,
+                f"{purpose} cancel acknowledgment",
+            )
+            cancel_acknowledged = bool(cancel_response.goals_canceling)
+            if not cancel_acknowledged:
+                raise RuntimeError(f"{purpose} action server did not acknowledge cancellation")
+    if not result_future.done():
+        raise TimeoutError(f"timed out waiting for {purpose} action result")
+    error = result_future.exception()
+    if error is not None:
+        raise RuntimeError(f"{purpose} action result failed: {error}")
+    result = result_future.result()
     native_result = time.monotonic()
-    if result.status != GoalStatus.STATUS_SUCCEEDED:
+    canceled = native_cancel_requested and result.status == GoalStatus.STATUS_CANCELED
+    if result.status != GoalStatus.STATUS_SUCCEEDED and not canceled:
         raise RuntimeError(f"{purpose} action finished with status {result.status}")
-    _wait_position(node, target, tolerance=0.008, timeout=4.0, label=purpose)
+    if not canceled:
+        _wait_position(node, target, tolerance=0.008, timeout=4.0, label=purpose)
     stationary = _wait_stationary(node, timeout=3.0)
     after_positions = _current_positions(node)
     after_feature = _fresh_observation(node, after_sequence=before_sequence)
@@ -153,6 +194,9 @@ def _execute_absolute(
         "purpose": purpose,
         "goal_id": _goal_id(handle),
         "native_status": result.status,
+        "cancel_requested": native_cancel_requested,
+        "cancel_acknowledged": cancel_acknowledged,
+        "stop_confirmed_from_feedback": canceled,
         "before_positions_radians": {name: _round(before_positions[name]) for name in JOINTS},
         "commanded_positions_radians": {name: _round(float(target[name])) for name in JOINTS},
         "requested_delta_radians": {name: _round(requested_delta[name]) for name in JOINTS},
@@ -362,6 +406,7 @@ def _reach_target(
     calibration_source: str,
     purpose: str,
     trace: list[dict[str, object]],
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> dict[str, object]:
     started = time.monotonic()
     initial = _fresh_observation(node)
@@ -377,7 +422,11 @@ def _reach_target(
     first_trace = len(trace)
     steps: list[dict[str, object]] = []
     observation = initial
+    canceled = False
     for index in range(3):
+        if cancel_requested is not None and cancel_requested():
+            canceled = True
+            break
         error = target_y_px - float(observation["y_px"])
         if abs(error) <= TARGET_TOLERANCE_PX:
             break
@@ -394,6 +443,7 @@ def _reach_target(
             _target(anchor, proposed_joint2),
             purpose=f"{purpose}:servo-step-{index + 1}",
             trace=trace,
+            cancel_requested=cancel_requested,
         )
         observation = item["after_feature"]
         steps.append(
@@ -405,14 +455,26 @@ def _reach_target(
                 "goal_id": item["goal_id"],
             }
         )
+        if item["cancel_requested"]:
+            canceled = True
+            break
 
+    if cancel_requested is not None and cancel_requested():
+        canceled = True
     final_error = target_y_px - float(observation["y_px"])
     action_items = trace[first_trace:]
     travel = sum(
         abs(float(item["requested_delta_radians"][CONTROL_JOINT])) for item in action_items
     )
     return {
-        "status": "passed" if abs(final_error) <= TARGET_TOLERANCE_PX else "failed",
+        "status": (
+            "canceled"
+            if canceled
+            else "passed"
+            if abs(final_error) <= TARGET_TOLERANCE_PX
+            else "failed"
+        ),
+        "cancel_requested": canceled,
         "calibration_source": calibration_source,
         "target_y_px": _round(target_y_px),
         "initial_y_px": initial["y_px"],
@@ -426,6 +488,155 @@ def _reach_target(
         "commanded_travel_radians": _round(travel),
         "timing_ms": _round((time.monotonic() - started) * 1000),
     }
+
+
+def _visual_reach_arguments(arguments: Mapping[str, JsonValue]) -> Mapping[str, object]:
+    if set(arguments) != {"target_y_px"}:
+        raise ValueError("visual reach requires exactly target_y_px")
+    target = arguments["target_y_px"]
+    if isinstance(target, bool) or not isinstance(target, (int, float)):
+        raise ValueError("target_y_px must be a number")
+    target_y_px = float(target)
+    if not math.isfinite(target_y_px) or not 0 <= target_y_px < 480:
+        raise ValueError("target_y_px must be finite and inside the 480 pixel image")
+    return {"target_y_px": target_y_px}
+
+
+async def _agent_reach(
+    node: Observer,
+    anchor: dict[str, float],
+    *,
+    gain: float,
+    target_y_px: float,
+    trace: list[dict[str, object]],
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Run one real reach through the shared host, session, and child policy."""
+
+    trial_result: dict[str, object] = {}
+
+    async def run_visual_reach(
+        context: OperationContext,
+        arguments: Mapping[str, JsonValue],
+    ) -> OperationResult:
+        if context.cancel_requested:
+            return OperationResult(
+                Lifecycle.CANCELED,
+                MotionState.HOLDING,
+                reason_code="CANCELED_BEFORE_MOTION",
+            )
+        context.report("visual_servo", MotionState.MOVING)
+        trial = await asyncio.to_thread(
+            _reach_target,
+            node,
+            anchor,
+            gain=gain,
+            target_y_px=float(arguments["target_y_px"]),
+            calibration_source="validated_cached_mapping",
+            purpose="agent-warm-held-out",
+            trace=trace,
+            cancel_requested=lambda: context.cancel_requested,
+        )
+        trial_result.update(trial)
+        context.report("reconcile", MotionState.HOLDING)
+        if context.cancel_requested or trial["status"] == "canceled":
+            return OperationResult(
+                Lifecycle.CANCELED,
+                MotionState.HOLDING,
+                result=trial,
+                reason_code="CANCEL_REQUESTED",
+            )
+        if trial["status"] != "passed":
+            return OperationResult(
+                Lifecycle.FAILED,
+                MotionState.HOLDING,
+                result=trial,
+                reason_code="TARGET_NOT_REACHED",
+            )
+        return OperationResult(Lifecycle.SUCCEEDED, MotionState.HOLDING, result=trial)
+
+    host = OperationHost(
+        (
+            CapabilitySpec(
+                "visual_reach",
+                "1",
+                "Reach one image row using a freshly validated local visual mapping",
+                True,
+                30.0,
+                10.0,
+                _visual_reach_arguments,
+                run_visual_reach,
+            ),
+        )
+    )
+    session = Session(host, owns_runtime=True)
+    runner = AgentRunner(
+        ScriptedExplorer(
+            "visual_reach",
+            {"target_y_px": target_y_px},
+            wait_seconds=2.0,
+        ),
+        decision_timeout_seconds=2.0,
+        maximum_wait_seconds=3.0,
+    )
+    try:
+        steps = await runner.run_until_stop(session, maximum_decisions=20)
+        view = await session.observe()
+        if len(view.operations) != 1:
+            raise RuntimeError("scripted reach did not produce exactly one operation")
+        operation = view.operations[0]
+        if operation.lifecycle != Lifecycle.SUCCEEDED or not trial_result:
+            raise RuntimeError(
+                f"agent visual reach finished as {operation.lifecycle.value}: "
+                f"{operation.reason_code}"
+            )
+        decisions: list[dict[str, object]] = []
+        for step in steps:
+            item: dict[str, object] = {
+                "decision_id": step.reply.decision_id,
+                "kind": type(step.reply.decision).__name__.lower(),
+                "agent_generation": step.reply.agent_generation,
+                "agent_process_id": step.reply.agent_process_id,
+                "process_startup_ms": step.reply.process_startup_ms,
+                "decision_latency_ms": step.reply.decision_latency_ms,
+            }
+            if isinstance(step.result, OperationSnapshot):
+                item["operation_lifecycle"] = step.result.lifecycle.value
+                item["operation_phase"] = step.result.phase
+            decisions.append(item)
+        agent_process_ids = sorted({step.reply.agent_process_id for step in steps})
+        execution = {
+            "status": "passed",
+            "policy": "deterministic_scripted",
+            "policy_process_ids": agent_process_ids,
+            "operation_process_id": os.getpid(),
+            "separate_policy_process": all(value != os.getpid() for value in agent_process_ids),
+            "decision_count": len(steps),
+            "wait_decision_count": sum(
+                type(step.reply.decision).__name__ == "Wait" for step in steps
+            ),
+            "decisions": decisions,
+            "operation": {
+                "operation_id": operation.operation_id,
+                "request_id": operation.request_id,
+                "runtime_id": operation.runtime_id,
+                "capability": operation.capability,
+                "lifecycle": operation.lifecycle.value,
+                "motion_state": operation.motion_state.value,
+                "reason_code": operation.reason_code,
+            },
+            "claim_boundary": (
+                "The child policy selected public session decisions. Only the operation "
+                "host admitted motion, generated the mutation ID, and reconciled the result."
+            ),
+        }
+        if not execution["separate_policy_process"]:
+            raise RuntimeError("scripted policy did not run in a separate process")
+        if not isinstance(steps[-1].reply.decision, Stop):
+            raise RuntimeError("scripted policy did not stop after the terminal result")
+        return trial_result, execution
+    finally:
+        await runner.close()
+        await session.close()
 
 
 def _cost(trace: list[dict[str, object]], first: int, started: float) -> dict[str, object]:
@@ -587,14 +798,14 @@ def qualify(output_dir: Path, trace: list[dict[str, object]]) -> dict[str, objec
         if warm_validation["status"] != "passed":
             raise RuntimeError("cached mapping failed its fresh warm validation probe")
         warm_reference = _fresh_observation(node)
-        warm_trial = _reach_target(
-            node,
-            anchor,
-            gain=learned_gain,
-            target_y_px=float(warm_reference["y_px"]) + WARM_TARGET_OFFSET_PX,
-            calibration_source="validated_cached_mapping",
-            purpose="warm-held-out",
-            trace=trace,
+        warm_trial, agent_execution = asyncio.run(
+            _agent_reach(
+                node,
+                anchor,
+                gain=learned_gain,
+                target_y_px=float(warm_reference["y_px"]) + WARM_TARGET_OFFSET_PX,
+                trace=trace,
+            )
         )
         warm_trial["held_out_from_fit"] = True
         warm_trial["requested_offset_px"] = WARM_TARGET_OFFSET_PX
@@ -655,6 +866,7 @@ def qualify(output_dir: Path, trace: list[dict[str, object]]) -> dict[str, objec
                 "validation": warm_validation,
                 "validation_cost": warm_validation_cost,
                 "held_out_target": warm_trial,
+                "agent_execution": agent_execution,
             },
             "refusals": refusals,
             "safety_bounds": {

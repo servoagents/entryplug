@@ -13,6 +13,7 @@ from entryplug.agent import (
     AgentDecisionTimeout,
     AgentProcessError,
     AgentRunner,
+    AgentStartupTimeout,
     ScriptedExplorer,
     StaleAgentDecision,
     Stop,
@@ -59,6 +60,17 @@ class StopPolicy:
 
     def decide(self, _: Mapping[str, JsonValue]) -> Stop:
         return Stop(self._reason)
+
+
+class SlowStartingPolicy:
+    def __getstate__(self) -> dict[str, float]:
+        return {"delay": 0.1}
+
+    def __setstate__(self, state: dict[str, float]) -> None:
+        time.sleep(state["delay"])
+
+    def decide(self, _: Mapping[str, JsonValue]) -> Stop:
+        return Stop("ready")
 
 
 def _pid_arguments(value: Mapping[str, JsonValue]) -> Mapping[str, object]:
@@ -110,6 +122,9 @@ def test_async_policy_runs_in_child_and_dispatches_through_session() -> None:
 
             assert completed.lifecycle == Lifecycle.SUCCEEDED
             assert completed.result["pid"] != os.getpid()
+            assert step.reply.agent_process_id == completed.result["pid"]
+            assert step.reply.process_startup_ms is not None
+            assert step.reply.decision_latency_ms >= 0
             assert completed.request_id
             assert step.reply.runtime_id == "runtime-a"
         await session.close()
@@ -197,6 +212,43 @@ def test_policy_timeout_retires_child_without_canceling_accepted_work() -> None:
         assert runner.generation == 2
         await runner.close()
         await session.close()
+
+    _run(scenario)
+
+
+def test_process_startup_is_not_charged_to_the_decision_deadline() -> None:
+    async def scenario() -> None:
+        host = _pid_host()
+        runner = AgentRunner(
+            SlowStartingPolicy(),
+            decision_timeout_seconds=0.02,
+            startup_timeout_seconds=2.0,
+        )
+
+        reply = await runner.decide(host.observe())
+
+        assert reply.decision == Stop("ready")
+        await runner.close()
+        await host.close()
+
+    _run(scenario)
+
+
+def test_process_startup_has_a_separate_finite_deadline() -> None:
+    async def scenario() -> None:
+        host = _pid_host()
+        runner = AgentRunner(
+            SlowStartingPolicy(),
+            decision_timeout_seconds=1.0,
+            startup_timeout_seconds=0.02,
+        )
+
+        with pytest.raises(AgentStartupTimeout):
+            await runner.decide(host.observe())
+
+        assert runner.generation == 2
+        await runner.close()
+        await host.close()
 
     _run(scenario)
 

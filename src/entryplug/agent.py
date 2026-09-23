@@ -7,6 +7,8 @@ import inspect
 import json
 import math
 import multiprocessing
+import os
+import time
 import uuid
 from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass, field
@@ -32,6 +34,10 @@ class AgentBusyError(AgentError):
 
 class AgentDecisionTimeout(AgentError):
     """Raised after a policy exceeds its finite decision deadline."""
+
+
+class AgentStartupTimeout(AgentError):
+    """Raised when a new child process does not become ready in time."""
 
 
 class AgentProcessError(AgentError):
@@ -88,6 +94,9 @@ class DecisionReply:
     decision_id: str
     runtime_id: str
     agent_generation: int
+    agent_process_id: int
+    process_startup_ms: float | None
+    decision_latency_ms: float
     decision: Decision
 
 
@@ -232,6 +241,13 @@ def _decode_decision(value: object) -> Decision:
 
 def _agent_worker(connection: Connection, policy: AgentPolicy, generation: int) -> None:
     try:
+        connection.send(
+            {
+                "kind": "ready",
+                "generation": generation,
+                "process_id": os.getpid(),
+            }
+        )
         while True:
             request = connection.recv()
             if not isinstance(request, dict):
@@ -258,6 +274,7 @@ def _agent_worker(connection: Connection, policy: AgentPolicy, generation: int) 
                         "decision_id": decision_id,
                         "runtime_id": runtime_id,
                         "generation": generation,
+                        "process_id": os.getpid(),
                         "decision": encoded,
                     }
                 )
@@ -268,6 +285,7 @@ def _agent_worker(connection: Connection, policy: AgentPolicy, generation: int) 
                         "decision_id": decision_id,
                         "runtime_id": runtime_id,
                         "generation": generation,
+                        "process_id": os.getpid(),
                         "error_type": type(error).__name__,
                         "message": str(error)[:500],
                     }
@@ -299,14 +317,18 @@ class AgentRunner:
         policy: AgentPolicy,
         *,
         decision_timeout_seconds: float = 2.0,
+        startup_timeout_seconds: float = 10.0,
         maximum_wait_seconds: float = 5.0,
     ) -> None:
         if not math.isfinite(decision_timeout_seconds) or decision_timeout_seconds <= 0:
             raise ValueError("decision timeout must be finite and positive")
+        if not math.isfinite(startup_timeout_seconds) or startup_timeout_seconds <= 0:
+            raise ValueError("startup timeout must be finite and positive")
         if not math.isfinite(maximum_wait_seconds) or maximum_wait_seconds <= 0:
             raise ValueError("maximum wait must be finite and positive")
         self._policy = policy
         self._decision_timeout_seconds = decision_timeout_seconds
+        self._startup_timeout_seconds = startup_timeout_seconds
         self._maximum_wait_seconds = maximum_wait_seconds
         self._generation = 1
         self._process: BaseProcess | None = None
@@ -318,9 +340,9 @@ class AgentRunner:
     def generation(self) -> int:
         return self._generation
 
-    def _start_worker(self) -> tuple[BaseProcess, Connection]:
+    def _start_worker(self) -> tuple[BaseProcess, Connection, bool]:
         if self._process is not None and self._connection is not None:
-            return self._process, self._connection
+            return self._process, self._connection, False
         context = multiprocessing.get_context("spawn")
         parent, child = context.Pipe(duplex=True)
         process = context.Process(
@@ -338,7 +360,7 @@ class AgentRunner:
         child.close()
         self._process = process
         self._connection = parent
-        return process, parent
+        return process, parent, True
 
     def _detach_worker(self) -> tuple[BaseProcess | None, Connection | None]:
         process, connection = self._process, self._connection
@@ -383,8 +405,10 @@ class AgentRunner:
         self._decision_in_flight = True
         generation = self._generation
         decision_id = uuid.uuid4().hex
+        startup_started = time.monotonic()
+        process_startup_ms: float | None = None
         try:
-            process, connection = self._start_worker()
+            process, connection, started = self._start_worker()
             request = {
                 "kind": "decide",
                 "decision_id": decision_id,
@@ -393,6 +417,24 @@ class AgentRunner:
                 "view": public_view(view),
             }
             try:
+                if started:
+                    ready = await _receive(connection, self._startup_timeout_seconds)
+                    if ready is None:
+                        self._invalidate_worker()
+                        raise AgentStartupTimeout(
+                            f"agent process startup exceeded {self._startup_timeout_seconds:g} "
+                            "seconds"
+                        )
+                    if (
+                        not isinstance(ready, dict)
+                        or ready.get("kind") != "ready"
+                        or ready.get("generation") != generation
+                        or ready.get("process_id") != process.pid
+                    ):
+                        self._invalidate_worker()
+                        raise AgentProcessError("agent returned a malformed startup response")
+                    process_startup_ms = round((time.monotonic() - startup_started) * 1000, 3)
+                decision_started = time.monotonic()
                 connection.send(request)
                 response = await _receive(
                     connection,
@@ -414,6 +456,7 @@ class AgentRunner:
                 response.get("decision_id") != decision_id
                 or response.get("runtime_id") != view.runtime_id
                 or response.get("generation") != generation
+                or not isinstance(response.get("process_id"), int)
                 or generation != self._generation
             ):
                 self._invalidate_worker()
@@ -426,6 +469,9 @@ class AgentRunner:
                 decision_id=decision_id,
                 runtime_id=view.runtime_id,
                 agent_generation=generation,
+                agent_process_id=cast(int, response["process_id"]),
+                process_startup_ms=process_startup_ms,
+                decision_latency_ms=round((time.monotonic() - decision_started) * 1000, 3),
                 decision=_decode_decision(response.get("decision")),
             )
         finally:
