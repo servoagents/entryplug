@@ -325,7 +325,8 @@ def load_visual_binding(record: EvidenceRecord) -> CachedVisualBinding:
     validity = payload["validity_radians"]
     if not isinstance(jacobian, Mapping):
         raise ValueError("visual binding Jacobian must be an object")
-    if jacobian.get("shape") != (1, 1):
+    shape = jacobian.get("shape")
+    if not isinstance(shape, tuple) or shape != (1, 1):
         raise ValueError("visual binding Jacobian must have shape [1, 1]")
     values = jacobian.get("values")
     if not isinstance(values, tuple) or len(values) != 1:

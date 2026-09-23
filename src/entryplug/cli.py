@@ -38,7 +38,7 @@ def compatibility_profile() -> Path:
     suffix = "share/entryplug/deps/compatibility.json"
     for relative in distribution.files or ():
         if str(relative).replace("\\", "/").endswith(suffix):
-            installed_profile = Path(distribution.locate_file(relative))
+            installed_profile = Path(str(distribution.locate_file(relative)))
             if installed_profile.is_file():
                 return installed_profile
     raise FileNotFoundError("installed Entryplug distribution has no compatibility profile")

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import importlib.metadata
 import importlib.util
 import json
@@ -130,10 +131,9 @@ def _run_command(command: Sequence[str]) -> subprocess.CompletedProcess[str]:
 
 
 def _live_image_roundtrip() -> tuple[bool, str]:
-    import numpy as np
-    from cv_bridge import CvBridge
-
-    bridge = CvBridge()
+    np = importlib.import_module("numpy")
+    cv_bridge = importlib.import_module("cv_bridge")
+    bridge = cv_bridge.CvBridge()
     before = np.arange(18, dtype=np.uint8).reshape((2, 3, 3))
     message = bridge.cv2_to_imgmsg(before, encoding="rgb8")
     after = bridge.imgmsg_to_cv2(message, desired_encoding="rgb8")
