@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Sequence
 
 from entryplug.doctor import DoctorReport, default_report_path, run_doctor, write_report
+from entryplug.runtime import DEFAULT_HARBOR_IMAGE, run_harbor, supported_cases
 
 
 def source_root() -> Path | None:
@@ -51,6 +52,11 @@ def _parser() -> argparse.ArgumentParser:
     doctor = commands.add_parser("doctor", help="record read-only substrate qualification checks")
     doctor.add_argument("--json", action="store_true", help="emit the complete report as JSON")
     doctor.add_argument(
+        "--profile",
+        default="full",
+        help="readiness profile to evaluate (default: full)",
+    )
+    doctor.add_argument(
         "--output",
         type=Path,
         help="write evidence to this new file (default: runs/doctor/<runtime>/manifest.json)",
@@ -62,6 +68,16 @@ def _parser() -> argparse.ArgumentParser:
     )
 
     commands.add_parser("test", help="run ROS-independent tests with the selected Python")
+
+    up = commands.add_parser("up", help="run an isolated capability qualification case")
+    up.add_argument("--runtime", choices=("container",), required=True)
+    up.add_argument("--case", choices=supported_cases(), required=True)
+    up.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
+    up.add_argument(
+        "--build",
+        action="store_true",
+        help="explicitly build the pinned runtime image before starting",
+    )
     return parser
 
 
@@ -84,9 +100,13 @@ def _render_text(report: DoctorReport) -> str:
         "missing": "MISS",
         "blocked": "BLOCK",
         "error": "ERROR",
+        "out_of_scope": "N/A",
     }
     lines = [
-        f"entryplug doctor: {report.overall.upper()} ({report.profile_id})",
+        (
+            f"entryplug doctor: {report.overall.upper()} "
+            f"({report.profile_id}, readiness={report.readiness_profile})"
+        ),
         f"runtime: {report.runtime_id}",
         "",
     ]
@@ -110,11 +130,13 @@ def _render_text(report: DoctorReport) -> str:
 def _doctor(args: argparse.Namespace) -> int:
     root = source_root() or Path.cwd()
     try:
-        report = run_doctor(compatibility_profile())
+        report = run_doctor(
+            compatibility_profile(), readiness_profile=args.profile
+        )
         if not args.no_record:
             output = args.output or default_report_path(root, report)
             report = write_report(report, output)
-    except (OSError, ValueError) as error:
+    except (OSError, RuntimeError, ValueError) as error:
         print(f"entryplug doctor: {error}", file=sys.stderr)
         return 2
 
@@ -139,12 +161,31 @@ def _test(args: argparse.Namespace) -> int:
     return subprocess.run(command, cwd=root, env=environment, check=False).returncode
 
 
+def _up(args: argparse.Namespace) -> int:
+    root = source_root()
+    if root is None:
+        print("entryplug up: run this command from a source checkout", file=sys.stderr)
+        return 2
+    try:
+        result = run_harbor(root, image=args.image, build=args.build)
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"entryplug up: {error}", file=sys.stderr)
+        return 2
+    if result.evidence_path.is_dir():
+        print(f"evidence: {result.evidence_path}")
+    else:
+        print("entryplug up: no evidence was produced", file=sys.stderr)
+    return result.returncode
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.command == "doctor":
         return _doctor(args)
     if args.command == "test":
         return _test(args)
+    if args.command == "up":
+        return _up(args)
     raise AssertionError(f"unhandled command: {args.command}")
 
 

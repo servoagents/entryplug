@@ -16,7 +16,8 @@
     "colcon",
     "ros2",
     "cmake",
-    "ninja"
+    "ninja",
+    "Xvfb"
   ],
   "required_imports": [
     {
@@ -46,6 +47,10 @@
     {
       "distribution": "a2a-sdk",
       "module": "a2a"
+    },
+    {
+      "distribution": "openenv-core",
+      "module": "openenv"
     }
   ],
   "ros": {
@@ -54,14 +59,79 @@
       "mujoco_ros2_control",
       "joint_trajectory_controller",
       "rmw_zenoh_cpp",
-      "rmw_cyclonedds_cpp"
+      "rmw_cyclonedds_cpp",
+      "ros2controlcli"
+    ]
+  },
+  "readiness_profiles": {
+    "core": [
+      "host.architecture",
+      "python.core_version"
+    ],
+    "exports": [
+      "host.architecture",
+      "python.core_version",
+      "command.uv",
+      "import.mcp",
+      "import.a2a",
+      "profile.exports_lock"
+    ],
+    "full": "*",
+    "harbor": [
+      "host.os",
+      "host.architecture",
+      "python.core_version",
+      "python.version",
+      "python.executable",
+      "command.colcon",
+      "command.ros2",
+      "command.cmake",
+      "command.ninja",
+      "command.Xvfb",
+      "import.rclpy",
+      "import.cv_bridge",
+      "import.numpy",
+      "import.cv2",
+      "ros.environment",
+      "ros.package.mujoco_ros2_control",
+      "ros.package.joint_trajectory_controller",
+      "ros.package.rmw_zenoh_cpp",
+      "ros.package.ros2controlcli",
+      "ros.image_conversion",
+      "profile.harbor_lock"
+    ],
+    "openenv": [
+      "host.architecture",
+      "python.core_version",
+      "import.openenv",
+      "profile.openenv_lock"
     ]
   },
   "selection": {
-    "a2a_sdk": null,
-    "mcp_sdk": null,
-    "mujoco_ros2_control_commit": null,
-    "qualification": "unqualified",
-    "ros_apt_versions": null
+    "exports": {
+      "a2a_sdk": null,
+      "mcp_sdk": null,
+      "qualification": "unqualified"
+    },
+    "harbor": {
+      "container_base_image": "ros@sha256:c3706ef0a0aa45413c07803cf433602f543b22e45b4855f6fca955c2d8ecc4e8",
+      "mujoco_ros2_control_commit": "d5b1f019dc3b33f3d0270450506bd6e72bea1913",
+      "qualification": "qualified",
+      "renderer": "Xvfb 21.1.12 + Mesa llvmpipe 25.2.8",
+      "ros_apt_versions": {
+        "ros-jazzy-cv-bridge": "4.1.0-1noble.20260902.080510",
+        "ros-jazzy-joint-trajectory-controller": "4.42.1-1noble.20260905.073033",
+        "ros-jazzy-mujoco-ros2-control": "0.1.1-1noble.20260905.073749",
+        "ros-jazzy-mujoco-ros2-control-demos": "0.1.1-1noble.20260905.074828",
+        "ros-jazzy-rmw-cyclonedds-cpp": "2.2.4-1noble.20260902.041134",
+        "ros-jazzy-rmw-zenoh-cpp": "0.2.10-1noble.20260902.013525",
+        "ros-jazzy-ros2-controllers": "4.42.1-1noble.20260905.075205",
+        "ros-jazzy-ros2controlcli": "4.48.0-1noble.20260905.074402"
+      }
+    },
+    "openenv": {
+      "openenv_sdk": null,
+      "qualification": "unqualified"
+    }
   }
 }

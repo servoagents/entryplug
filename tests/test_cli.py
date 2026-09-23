@@ -25,7 +25,17 @@ def test_doctor_json_is_machine_readable(
     payload = json.loads(captured.out)
     assert status in {0, 1}
     assert payload["report_path"] == str(output)
-    assert json.loads(output.read_text(encoding="utf-8"))["schema_version"] == 1
+    assert json.loads(output.read_text(encoding="utf-8"))["schema_version"] == 2
+
+
+def test_doctor_accepts_readiness_profile(capsys: pytest.CaptureFixture[str]) -> None:
+    status = main(["doctor", "--profile", "core", "--json", "--no-record"])
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert status == 0
+    assert payload["readiness_profile"] == "core"
+    assert payload["counts"]["out_of_scope"] > 0
 
 
 def test_doctor_refuses_to_overwrite_evidence(

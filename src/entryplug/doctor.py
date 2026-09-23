@@ -21,6 +21,7 @@ FAIL = "fail"
 MISSING = "missing"
 BLOCKED = "blocked"
 ERROR = "error"
+OUT_OF_SCOPE = "out_of_scope"
 
 UNHEALTHY_STATUSES = frozenset({FAIL, MISSING, BLOCKED, ERROR})
 
@@ -45,6 +46,7 @@ class DoctorReport:
 
     schema_version: int
     profile_id: str
+    readiness_profile: str
     generated_at: str
     runtime_id: str
     overall: str
@@ -56,6 +58,7 @@ class DoctorReport:
         return {
             "schema_version": self.schema_version,
             "profile_id": self.profile_id,
+            "readiness_profile": self.readiness_profile,
             "generated_at": self.generated_at,
             "runtime_id": self.runtime_id,
             "overall": self.overall,
@@ -190,6 +193,18 @@ def _check_python(context: ProbeContext, profile: Mapping[str, object]) -> list[
     if context.python_base_executable != context.python_executable:
         executable_observation += f" (base: {context.python_base_executable})"
     return [
+        CheckResult(
+            check_id="python.core_version",
+            status=PASS if context.python_version >= (3, 12, 0) else FAIL,
+            summary="Core Python version",
+            expected="Python 3.12 or newer",
+            observed=actual_version,
+            remediation=(
+                "Use Python 3.12 or newer for the ROS independent core."
+                if context.python_version < (3, 12, 0)
+                else ""
+            ),
+        ),
         CheckResult(
             check_id="python.version",
             status=PASS if version_ok else FAIL,
@@ -411,29 +426,78 @@ def _check_image_conversion(context: ProbeContext) -> CheckResult:
     )
 
 
-def _check_version_selection(profile: Mapping[str, object]) -> CheckResult:
+def _check_version_selections(profile: Mapping[str, object]) -> list[CheckResult]:
     selection = _mapping(profile, "selection")
-    qualification = selection.get("qualification")
-    unresolved = sorted(
-        key for key, value in selection.items() if key != "qualification" and value is None
-    )
-    passed = qualification == "qualified" and not unresolved
-    observations = [f"qualification={qualification or 'missing'}"]
-    if unresolved:
-        observations.append(f"unresolved={','.join(unresolved)}")
-    return CheckResult(
-        check_id="profile.version_lock",
-        status=PASS if passed else BLOCKED,
-        summary="Exact dependency selection",
-        expected="qualified profile with no unresolved version fields",
-        observed="; ".join(observations),
-        detail="A set of present imports is not a qualified ROS/controller/SDK combination.",
-        remediation=(
-            "Complete the functional substrate spikes, record exact versions/commits, then mark "
-            "the compatibility profile qualified."
-            if not passed
-            else ""
-        ),
+    results: list[CheckResult] = []
+    for name in sorted(selection):
+        item = selection[name]
+        if not isinstance(item, dict):
+            raise ValueError(f"selection.{name} must be an object")
+        qualification = item.get("qualification")
+        unresolved = sorted(
+            key for key, value in item.items() if key != "qualification" and value is None
+        )
+        passed = qualification == "qualified" and not unresolved
+        observations = [f"qualification={qualification or 'missing'}"]
+        if unresolved:
+            observations.append(f"unresolved={','.join(unresolved)}")
+        results.append(
+            CheckResult(
+                check_id=f"profile.{name}_lock",
+                status=PASS if passed else BLOCKED,
+                summary=f"Exact {name} dependency selection",
+                expected="qualified selection with no unresolved version fields",
+                observed="; ".join(observations),
+                detail="Present imports alone do not qualify a dependency combination.",
+                remediation=(
+                    f"Complete the {name} checks, record exact versions, then mark the "
+                    "selection qualified."
+                    if not passed
+                    else ""
+                ),
+            )
+        )
+    return results
+
+
+def _scope_checks(
+    checks: Sequence[CheckResult],
+    profile: Mapping[str, object],
+    readiness_profile: str,
+) -> tuple[CheckResult, ...]:
+    profiles = _mapping(profile, "readiness_profiles")
+    requested = profiles.get(readiness_profile)
+    if requested is None:
+        available = ", ".join(sorted(str(name) for name in profiles))
+        raise ValueError(
+            f"unknown readiness profile {readiness_profile!r}; available: {available}"
+        )
+    if requested == "*":
+        return tuple(checks)
+    if not isinstance(requested, list) or not all(
+        isinstance(check_id, str) for check_id in requested
+    ):
+        raise ValueError(f"readiness_profiles.{readiness_profile} must be '*' or an array")
+
+    selected = set(requested)
+    known = {check.check_id for check in checks}
+    unknown = sorted(selected - known)
+    if unknown:
+        raise ValueError(
+            f"readiness profile {readiness_profile!r} has unknown checks: {', '.join(unknown)}"
+        )
+    return tuple(
+        check
+        if check.check_id in selected
+        else replace(
+            check,
+            status=OUT_OF_SCOPE,
+            required=False,
+            observed=f"not checked for {readiness_profile} readiness",
+            detail="",
+            remediation="",
+        )
+        for check in checks
     )
 
 
@@ -481,13 +545,14 @@ def run_doctor(
     *,
     context: ProbeContext | None = None,
     now: datetime | None = None,
+    readiness_profile: str = "full",
 ) -> DoctorReport:
     """Run all currently automated substrate checks without mutating the host."""
 
     profile_id, profile = load_profile(profile_path)
     context = context or ProbeContext.live()
     generated = now or datetime.now(UTC)
-    checks = tuple(
+    all_checks = tuple(
         [
             *_check_platform(context, profile),
             *_check_python(context, profile),
@@ -495,16 +560,18 @@ def run_doctor(
             *_check_imports(context, profile),
             *_check_ros_environment(context, profile),
             _check_image_conversion(context),
-            _check_version_selection(profile),
+            *_check_version_selections(profile),
         ]
     )
+    checks = _scope_checks(all_checks, profile, readiness_profile)
     counts = Counter(check.status for check in checks)
     unhealthy = any(check.required and check.status in UNHEALTHY_STATUSES for check in checks)
     stamp = generated.astimezone(UTC).isoformat().replace("+00:00", "Z")
     runtime_id = f"doctor-{generated.astimezone(UTC).strftime('%Y%m%dT%H%M%S.%fZ')}"
     return DoctorReport(
-        schema_version=1,
+        schema_version=2,
         profile_id=profile_id,
+        readiness_profile=readiness_profile,
         generated_at=stamp,
         runtime_id=runtime_id,
         overall="red" if unhealthy else "green",

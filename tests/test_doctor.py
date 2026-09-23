@@ -23,12 +23,31 @@ def _profile(path: Path) -> Path:
             {"distribution": "mcp", "module": "mcp"},
         ],
         "ros": {"distro": "jazzy", "required_packages": ["rmw_zenoh_cpp"]},
+        "readiness_profiles": {
+            "core": ["host.architecture", "python.core_version"],
+            "full": "*",
+            "harbor": [
+                "host.os",
+                "host.architecture",
+                "python.core_version",
+                "python.version",
+                "python.executable",
+                "command.uv",
+                "command.ros2",
+                "import.numpy",
+                "import.mcp",
+                "ros.environment",
+                "ros.package.rmw_zenoh_cpp",
+                "ros.image_conversion",
+                "profile.harbor_lock",
+            ],
+        },
         "selection": {
-            "a2a_sdk": "1.2.3",
-            "mcp_sdk": "1.2.3",
-            "mujoco_ros2_control_commit": "abc123",
-            "qualification": "qualified",
-            "ros_apt_versions": {"ros-jazzy-rclpy": "1.2.3"},
+            "harbor": {
+                "mujoco_ros2_control_commit": "abc123",
+                "qualification": "qualified",
+                "ros_apt_versions": {"ros-jazzy-rclpy": "1.2.3"},
+            }
         },
     }
     path.write_text(json.dumps(data), encoding="utf-8")
@@ -104,16 +123,44 @@ def test_healthy_prerequisites_are_green(tmp_path: Path) -> None:
 def test_unqualified_version_selection_cannot_be_green(tmp_path: Path) -> None:
     profile = _profile(tmp_path / "profile.json")
     data = json.loads(profile.read_text(encoding="utf-8"))
-    data["selection"]["qualification"] = "unqualified"
-    data["selection"]["mcp_sdk"] = None
+    data["selection"]["harbor"]["qualification"] = "unqualified"
+    data["selection"]["harbor"]["mujoco_ros2_control_commit"] = None
     profile.write_text(json.dumps(data), encoding="utf-8")
 
     report = run_doctor(profile, context=_context(healthy=True))
 
     assert report.overall == "red"
     by_id = {check.check_id: check for check in report.checks}
-    assert by_id["profile.version_lock"].status == "blocked"
-    assert "mcp_sdk" in by_id["profile.version_lock"].observed
+    assert by_id["profile.harbor_lock"].status == "blocked"
+    assert "mujoco_ros2_control_commit" in by_id["profile.harbor_lock"].observed
+
+
+def test_core_profile_does_not_pass_optional_checks(tmp_path: Path) -> None:
+    report = run_doctor(
+        _profile(tmp_path / "profile.json"),
+        context=_context(healthy=False),
+        readiness_profile="core",
+    )
+
+    assert report.overall == "green"
+    by_id = {check.check_id: check for check in report.checks}
+    assert by_id["host.architecture"].status == "pass"
+    assert by_id["python.core_version"].status == "pass"
+    assert by_id["import.mcp"].status == "out_of_scope"
+    assert by_id["import.mcp"].required is False
+
+
+def test_unknown_readiness_profile_is_rejected(tmp_path: Path) -> None:
+    try:
+        run_doctor(
+            _profile(tmp_path / "profile.json"),
+            context=_context(healthy=True),
+            readiness_profile="unknown",
+        )
+    except ValueError as error:
+        assert "unknown readiness profile" in str(error)
+    else:
+        raise AssertionError("unknown readiness profile was accepted")
 
 
 def test_ros_owned_python_package_cannot_be_shadowed(tmp_path: Path) -> None:
