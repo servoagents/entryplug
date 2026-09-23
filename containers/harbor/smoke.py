@@ -10,10 +10,11 @@ import math
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 import cv2
 import numpy as np
@@ -28,7 +29,6 @@ from rclpy.parameter import Parameter
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image, JointState
 from trajectory_msgs.msg import JointTrajectoryPoint
-
 
 JOINTS = ("joint1", "joint2")
 COMPLETION_DELTA = (0.02, -0.02)
@@ -189,7 +189,7 @@ def _wait_stationary(
 
 
 def _target(before: dict[str, float], delta: tuple[float, float]) -> dict[str, float]:
-    return {name: before[name] + change for name, change in zip(JOINTS, delta)}
+    return {name: before[name] + change for name, change in zip(JOINTS, delta, strict=True)}
 
 
 def _goal(node: Observer, target: dict[str, float], duration_s: float) -> Any:
@@ -237,10 +237,11 @@ def _wait_position(
 ) -> dict[str, float]:
     _spin_until(
         node,
-        lambda: node.joints is not None
-        and all(
-            abs(_positions(node.joints)[name] - target[name]) <= tolerance
-            for name in JOINTS
+        lambda: (
+            node.joints is not None
+            and all(
+                abs(_positions(node.joints)[name] - target[name]) <= tolerance for name in JOINTS
+            )
         ),
         timeout,
         label,
@@ -340,7 +341,7 @@ def _completion_case(node: Observer, output_dir: Path) -> dict[str, object]:
     after_frame = node.frame
     assert after_frame is not None
     observed_delta = {name: after[name] - before[name] for name in JOINTS}
-    for name, requested in zip(JOINTS, COMPLETION_DELTA):
+    for name, requested in zip(JOINTS, COMPLETION_DELTA, strict=True):
         observed = observed_delta[name]
         if observed * requested <= 0 or abs(observed) < abs(requested) * 0.5:
             raise RuntimeError(f"{name} feedback did not show the commanded movement")
@@ -367,9 +368,7 @@ def _completion_case(node: Observer, output_dir: Path) -> dict[str, object]:
         },
         "timing_ms": {
             "native_result": round((completed - submitted) * 1000, 3),
-            "effect_feedback": round(
-                (effect_frame.received_monotonic - submitted) * 1000, 3
-            ),
+            "effect_feedback": round((effect_frame.received_monotonic - submitted) * 1000, 3),
         },
     }
 
@@ -416,9 +415,7 @@ def _cancellation_case(node: Observer) -> dict[str, object]:
         "stationary": stationary,
         "hold": hold,
         "timing_ms": {
-            "cancel_acknowledgment": round(
-                (cancel_acknowledged - cancel_requested) * 1000, 3
-            ),
+            "cancel_acknowledgment": round((cancel_acknowledged - cancel_requested) * 1000, 3),
             "submitted_to_cancel_request": round((cancel_requested - submitted) * 1000, 3),
         },
         "claim_boundary": "Cancel acknowledgment was not treated as proof of stopped motion.",
@@ -439,10 +436,11 @@ def _lost_result_case(node: Observer) -> dict[str, object]:
     after = _wait_position(node, target, label="settled lost-result joint effect")
     observed = time.monotonic()
     observed_delta = {name: after[name] - before[name] for name in JOINTS}
-    for name, requested in zip(JOINTS, LOST_RESULT_DELTA):
-        if observed_delta[name] * requested <= 0 or abs(observed_delta[name]) < abs(
-            requested
-        ) * 0.5:
+    for name, requested in zip(JOINTS, LOST_RESULT_DELTA, strict=True):
+        if (
+            observed_delta[name] * requested <= 0
+            or abs(observed_delta[name]) < abs(requested) * 0.5
+        ):
             raise RuntimeError(f"{name} feedback did not show the lost-result movement")
     hold = _observe_hold(node)
     return {
@@ -456,9 +454,7 @@ def _lost_result_case(node: Observer) -> dict[str, object]:
         "observed_delta": observed_delta,
         "stationary": stationary,
         "hold": hold,
-        "timing_ms": {
-            "submitted_to_observed_effect": round((observed - submitted) * 1000, 3)
-        },
+        "timing_ms": {"submitted_to_observed_effect": round((observed - submitted) * 1000, 3)},
         "claim_boundary": "No native completion status is claimed and the command was not retried.",
     }
 
@@ -510,10 +506,11 @@ def _client_death_case(node: Observer, output_dir: Path) -> dict[str, object]:
     after = _wait_position(node, target, label="settled client-death joint effect")
     effect_observed = time.monotonic()
     observed_delta = {name: after[name] - before[name] for name in JOINTS}
-    for name, requested in zip(JOINTS, CLIENT_DEATH_DELTA):
-        if observed_delta[name] * requested <= 0 or abs(observed_delta[name]) < abs(
-            requested
-        ) * 0.5:
+    for name, requested in zip(JOINTS, CLIENT_DEATH_DELTA, strict=True):
+        if (
+            observed_delta[name] * requested <= 0
+            or abs(observed_delta[name]) < abs(requested) * 0.5
+        ):
             raise RuntimeError(f"{name} feedback did not show the client-death movement")
     hold = _observe_hold(node)
     after_frame = node.frame

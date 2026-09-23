@@ -11,10 +11,10 @@ import shutil
 import subprocess
 import sys
 from collections import Counter
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Mapping, Sequence
 
 PASS = "pass"
 FAIL = "fail"
@@ -186,9 +186,9 @@ def _check_python(context: ProbeContext, profile: Mapping[str, object]) -> list[
     expected_executable = _string(python_profile, "executable")
     actual_version = ".".join(str(part) for part in context.python_version)
     version_ok = context.python_version[:2] == (expected_major, expected_minor)
-    executable_ok = Path(context.python_base_executable).resolve() == Path(
-        expected_executable
-    ).resolve()
+    executable_ok = (
+        Path(context.python_base_executable).resolve() == Path(expected_executable).resolve()
+    )
     executable_observation = context.python_executable
     if context.python_base_executable != context.python_executable:
         executable_observation += f" (base: {context.python_base_executable})"
@@ -258,9 +258,7 @@ def _check_commands(context: ProbeContext, profile: Mapping[str, object]) -> lis
     return results
 
 
-def _module_version(
-    context: ProbeContext, distribution: str, module: str
-) -> tuple[str, str]:
+def _module_version(context: ProbeContext, distribution: str, module: str) -> tuple[str, str]:
     spec = context.find_spec(module)
     if spec is None:
         return "", ""
@@ -469,9 +467,7 @@ def _scope_checks(
     requested = profiles.get(readiness_profile)
     if requested is None:
         available = ", ".join(sorted(str(name) for name in profiles))
-        raise ValueError(
-            f"unknown readiness profile {readiness_profile!r}; available: {available}"
-        )
+        raise ValueError(f"unknown readiness profile {readiness_profile!r}; available: {available}")
     if requested == "*":
         return tuple(checks)
     if not isinstance(requested, list) or not all(

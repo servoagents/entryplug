@@ -8,8 +8,8 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from entryplug.doctor import DoctorReport, default_report_path, run_doctor, write_report
 from entryplug.runtime import DEFAULT_HARBOR_IMAGE, run_harbor, supported_cases
@@ -130,9 +130,7 @@ def _render_text(report: DoctorReport) -> str:
 def _doctor(args: argparse.Namespace) -> int:
     root = source_root() or Path.cwd()
     try:
-        report = run_doctor(
-            compatibility_profile(), readiness_profile=args.profile
-        )
+        report = run_doctor(compatibility_profile(), readiness_profile=args.profile)
         if not args.no_record:
             output = args.output or default_report_path(root, report)
             report = write_report(report, output)

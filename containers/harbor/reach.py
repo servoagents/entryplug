@@ -11,12 +11,10 @@ import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import rclpy
 from action_msgs.msg import GoalStatus
-
 from smoke import (
     JOINTS,
     Frame,
@@ -31,7 +29,6 @@ from smoke import (
     _write_create_only,
     _write_png_create_only,
 )
-
 
 CONTROL_JOINT = "joint2"
 SUPPLIED_GAIN_PX_PER_RADIAN = 125.0
@@ -57,9 +54,7 @@ def _marker(frame: Frame) -> dict[str, object]:
             f"red marker detector requires packed rgb8, got {frame.encoding!r} "
             f"with step {frame.step}"
         )
-    rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape(
-        (frame.height, frame.width, 3)
-    )
+    rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape((frame.height, frame.width, 3))
     red = rgb[:, :, 0].astype(np.int16)
     green = rgb[:, :, 1].astype(np.int16)
     blue = rgb[:, :, 2].astype(np.int16)
@@ -130,9 +125,7 @@ def _execute_absolute(
     trace: list[dict[str, object]],
 ) -> dict[str, object]:
     before_positions = _current_positions(node)
-    requested_delta = {
-        name: float(target[name] - before_positions[name]) for name in JOINTS
-    }
+    requested_delta = {name: float(target[name] - before_positions[name]) for name in JOINTS}
     maximum_delta = max(abs(value) for value in requested_delta.values())
     if maximum_delta > MAX_ACTION_DELTA_RADIANS + 1e-9:
         raise RuntimeError(
@@ -160,21 +153,11 @@ def _execute_absolute(
         "purpose": purpose,
         "goal_id": _goal_id(handle),
         "native_status": result.status,
-        "before_positions_radians": {
-            name: _round(before_positions[name]) for name in JOINTS
-        },
-        "commanded_positions_radians": {
-            name: _round(float(target[name])) for name in JOINTS
-        },
-        "requested_delta_radians": {
-            name: _round(requested_delta[name]) for name in JOINTS
-        },
-        "after_positions_radians": {
-            name: _round(after_positions[name]) for name in JOINTS
-        },
-        "observed_delta_radians": {
-            name: _round(observed_delta[name]) for name in JOINTS
-        },
+        "before_positions_radians": {name: _round(before_positions[name]) for name in JOINTS},
+        "commanded_positions_radians": {name: _round(float(target[name])) for name in JOINTS},
+        "requested_delta_radians": {name: _round(requested_delta[name]) for name in JOINTS},
+        "after_positions_radians": {name: _round(after_positions[name]) for name in JOINTS},
+        "observed_delta_radians": {name: _round(observed_delta[name]) for name in JOINTS},
         "before_feature": before_feature,
         "after_feature": after_feature,
         "observed_feature_delta_px": {
@@ -184,9 +167,7 @@ def _execute_absolute(
         "stationary_from_public_feedback": stationary,
         "timing_ms": {
             "submitted_to_native_result": _round((native_result - submitted) * 1000),
-            "submitted_to_post_motion_observation": _round(
-                (time.monotonic() - submitted) * 1000
-            ),
+            "submitted_to_post_motion_observation": _round((time.monotonic() - submitted) * 1000),
         },
         "application_timestamp_available": False,
     }
@@ -221,24 +202,16 @@ def _establish_visibility_anchor(
         "goal_id": _goal_id(handle),
         "native_status": result.status,
         "before_positions_radians": {name: _round(before[name]) for name in JOINTS},
-        "commanded_positions_radians": {
-            name: _round(float(target[name])) for name in JOINTS
-        },
-        "requested_delta_radians": {
-            name: _round(target[name] - before[name]) for name in JOINTS
-        },
+        "commanded_positions_radians": {name: _round(float(target[name])) for name in JOINTS},
+        "requested_delta_radians": {name: _round(target[name] - before[name]) for name in JOINTS},
         "after_positions_radians": {name: _round(after[name]) for name in JOINTS},
-        "observed_delta_radians": {
-            name: _round(after[name] - before[name]) for name in JOINTS
-        },
+        "observed_delta_radians": {name: _round(after[name] - before[name]) for name in JOINTS},
         "before_feature": {"available": False, "reason": "occluded_at_rest_pose"},
         "after_feature": feature,
         "stationary_from_public_feedback": stationary,
         "timing_ms": {
             "submitted_to_native_result": _round((native_result - submitted) * 1000),
-            "submitted_to_post_motion_observation": _round(
-                (time.monotonic() - submitted) * 1000
-            ),
+            "submitted_to_post_motion_observation": _round((time.monotonic() - submitted) * 1000),
         },
         "application_timestamp_available": False,
     }
@@ -314,14 +287,11 @@ def _fit_gain(probes: list[dict[str, object]]) -> dict[str, object]:
     denominator = sum(value * value for value in commands)
     if denominator <= 0:
         raise RuntimeError("probe set cannot identify a visual mapping")
-    gain = sum(
-        command * effect
-        for command, effect in zip(commands, effects, strict=True)
-    ) / denominator
-    residuals = [
-        effect - gain * command
-        for command, effect in zip(commands, effects, strict=True)
-    ]
+    gain = (
+        sum(command * effect for command, effect in zip(commands, effects, strict=True))
+        / denominator
+    )
+    residuals = [effect - gain * command for command, effect in zip(commands, effects, strict=True)]
     if not math.isfinite(gain) or abs(gain) < MIN_USEFUL_GAIN_PX_PER_RADIAN:
         raise RuntimeError(f"learned visual gain is unusable: {gain}")
     return {
@@ -343,8 +313,7 @@ def _validate_gain(
     noise_range_px: float,
 ) -> dict[str, object]:
     errors = [
-        float(probe["observed_feature_delta_px"])
-        - gain * float(probe["requested_delta_radians"])
+        float(probe["observed_feature_delta_px"]) - gain * float(probe["requested_delta_radians"])
         for probe in probes
     ]
     tolerance = max(2.5, noise_range_px * 2.0)
@@ -440,8 +409,7 @@ def _reach_target(
     final_error = target_y_px - float(observation["y_px"])
     action_items = trace[first_trace:]
     travel = sum(
-        abs(float(item["requested_delta_radians"][CONTROL_JOINT]))
-        for item in action_items
+        abs(float(item["requested_delta_radians"][CONTROL_JOINT])) for item in action_items
     )
     return {
         "status": "passed" if abs(final_error) <= TARGET_TOLERANCE_PX else "failed",
@@ -465,10 +433,7 @@ def _cost(trace: list[dict[str, object]], first: int, started: float) -> dict[st
     return {
         "action_count": len(actions),
         "commanded_travel_radians": _round(
-            sum(
-                abs(float(item["requested_delta_radians"][CONTROL_JOINT]))
-                for item in actions
-            )
+            sum(abs(float(item["requested_delta_radians"][CONTROL_JOINT])) for item in actions)
         ),
         "wall_time_ms": _round((time.monotonic() - started) * 1000),
     }
@@ -498,9 +463,7 @@ def _refusals(gain: float, trace: list[dict[str, object]]) -> dict[str, object]:
     requested_y_px = gain * (LOCAL_REQUEST_LIMIT_RADIANS + 0.08)
     outside = _screen_request("y", requested_y_px, gain)
     outside["commands_applied"] = 0
-    refusals_correct = all(
-        item["status"] == "refused" for item in (horizontal, outside)
-    )
+    refusals_correct = all(item["status"] == "refused" for item in (horizontal, outside))
     return {
         "status": "passed" if refusals_correct and len(trace) == before else "failed",
         "horizontal_target": horizontal,
@@ -590,9 +553,7 @@ def qualify(output_dir: Path, trace: list[dict[str, object]]) -> dict[str, objec
 
         held_out: list[dict[str, object]] = []
         for index, offset in enumerate(HELD_OUT_OFFSETS_PX):
-            _return_to_anchor(
-                node, anchor, purpose=f"held-out-{index + 1}:anchor", trace=trace
-            )
+            _return_to_anchor(node, anchor, purpose=f"held-out-{index + 1}:anchor", trace=trace)
             reference = _fresh_observation(node)
             trial = _reach_target(
                 node,
@@ -645,9 +606,7 @@ def qualify(output_dir: Path, trace: list[dict[str, object]]) -> dict[str, objec
 
         reaching_passed = all(item["status"] == "passed" for item in held_out)
         overall_passed = (
-            reaching_passed
-            and warm_trial["status"] == "passed"
-            and refusals["status"] == "passed"
+            reaching_passed and warm_trial["status"] == "passed" and refusals["status"] == "passed"
         )
         if not overall_passed:
             raise RuntimeError("one or more held out reaching or refusal cases failed")

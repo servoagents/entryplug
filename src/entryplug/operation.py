@@ -170,9 +170,7 @@ class OperationContext:
 
 
 ValidateArguments = Callable[[Mapping[str, JsonValue]], Mapping[str, object]]
-RunCapability = Callable[
-    [OperationContext, Mapping[str, JsonValue]], Awaitable[OperationResult]
-]
+RunCapability = Callable[[OperationContext, Mapping[str, JsonValue]], Awaitable[OperationResult]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,10 +283,7 @@ class OperationHost:
             )
             for spec in sorted(self._specs.values(), key=lambda item: item.name)
         )
-        recent = tuple(
-            self._snapshot(item)
-            for item in tuple(self._operations.values())[-16:]
-        )
+        recent = tuple(self._snapshot(item) for item in tuple(self._operations.values())[-16:])
         return RuntimeView(
             runtime_id=self.runtime_id,
             revision=self._revision,
@@ -338,9 +333,7 @@ class OperationHost:
         if not request_id:
             raise AdmissionError("INVALID_ARGUMENT", "request ID must be nonempty")
         raw_json, raw_arguments = _json_object(arguments, "capability arguments")
-        fingerprint = hashlib.sha256(
-            f"{capability}\0{raw_json}".encode()
-        ).hexdigest()
+        fingerprint = hashlib.sha256(f"{capability}\0{raw_json}".encode()).hexdigest()
         key = (expected_runtime_id, self._principal, request_id)
         previous = self._requests.get(key)
         if previous is not None:
@@ -518,9 +511,7 @@ class OperationHost:
         except KeyError as error:
             raise KeyError(f"unknown operation: {operation_id}") from error
 
-    async def wait(
-        self, operation_id: str, timeout_seconds: float
-    ) -> OperationSnapshot:
+    async def wait(self, operation_id: str, timeout_seconds: float) -> OperationSnapshot:
         if not math.isfinite(timeout_seconds) or timeout_seconds < 0:
             raise ValueError("wait timeout must be finite and nonnegative")
         operation = self._operation(operation_id)
@@ -541,9 +532,7 @@ class OperationHost:
             self._revision += 1
         return self._snapshot(operation)
 
-    async def inspect(
-        self, reference: str, detail: str = "summary"
-    ) -> Mapping[str, JsonValue]:
+    async def inspect(self, reference: str, detail: str = "summary") -> Mapping[str, JsonValue]:
         if detail not in {"summary", "result"}:
             raise ValueError("inspect detail must be 'summary' or 'result'")
         snapshot = self._snapshot(self._operation(reference))
@@ -565,9 +554,7 @@ class OperationHost:
             return tuple(self._snapshot(item) for item in self._operations.values())
         self._closed = True
         active = [
-            item
-            for item in self._operations.values()
-            if item.lifecycle not in TERMINAL_LIFECYCLES
+            item for item in self._operations.values() if item.lifecycle not in TERMINAL_LIFECYCLES
         ]
         for operation in active:
             await self.cancel(operation.operation_id)

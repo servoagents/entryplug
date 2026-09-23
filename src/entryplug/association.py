@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Mapping, Sequence
 
 from entryplug.evidence import EvidenceRecord, JsonValue
-
 
 VISUAL_BINDING_KIND = "visual_binding.v1"
 
@@ -22,6 +21,9 @@ class AssociationProfile:
     validation_floor_px: float = 2.5
     noise_multiplier: float = 2.0
     minimum_shuffle_gap_px: float = 0.5
+
+
+DEFAULT_ASSOCIATION_PROFILE = AssociationProfile()
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,27 +108,24 @@ def _gain(commands: Sequence[float], effects: Sequence[float]) -> float:
     denominator = sum(command * command for command in commands)
     if denominator <= 0:
         raise ValueError("association commands cannot all be zero")
-    return sum(
-        command * effect
-        for command, effect in zip(commands, effects, strict=True)
-    ) / denominator
+    return (
+        sum(command * effect for command, effect in zip(commands, effects, strict=True))
+        / denominator
+    )
 
 
 def _rmse(predicted: Sequence[float], observed: Sequence[float]) -> float:
     if len(predicted) != len(observed):
         raise ValueError("predicted and observed values must have equal length")
     return math.sqrt(
-        sum(
-            (actual - estimate) ** 2
-            for estimate, actual in zip(predicted, observed, strict=True)
-        )
+        sum((actual - estimate) ** 2 for estimate, actual in zip(predicted, observed, strict=True))
         / len(predicted)
     )
 
 
 def assess_candidate(
     evidence: CandidateEvidence,
-    profile: AssociationProfile = AssociationProfile(),
+    profile: AssociationProfile = DEFAULT_ASSOCIATION_PROFILE,
 ) -> CandidateAssessment:
     """Fit one candidate and test it without using source role labels."""
 
@@ -157,9 +156,7 @@ def assess_candidate(
     fit_rmse = _rmse(fit_predictions, fit_effects)
     validation_errors = tuple(
         observed - predicted
-        for predicted, observed in zip(
-            validation_predictions, validation_effects, strict=True
-        )
+        for predicted, observed in zip(validation_predictions, validation_effects, strict=True)
     )
     maximum_validation_error = max(abs(error) for error in validation_errors)
     tolerance = max(
@@ -201,7 +198,7 @@ def assess_candidate(
 
 def select_candidate(
     evidence: Sequence[CandidateEvidence],
-    profile: AssociationProfile = AssociationProfile(),
+    profile: AssociationProfile = DEFAULT_ASSOCIATION_PROFILE,
 ) -> dict[str, object]:
     """Select only when one independently identified lineage remains."""
 
@@ -237,7 +234,7 @@ def select_candidate(
 
 def metadata_only_selection(
     evidence: Sequence[CandidateEvidence],
-    profile: AssociationProfile = AssociationProfile(),
+    profile: AssociationProfile = DEFAULT_ASSOCIATION_PROFILE,
 ) -> dict[str, object]:
     """Show what freshness and lineage metadata can decide without interventions."""
 
@@ -341,8 +338,7 @@ def load_visual_binding(record: EvidenceRecord) -> CachedVisualBinding:
     lineage_id = payload["lineage_id"]
     timing_method_id = payload["timing_method_id"]
     if not all(
-        isinstance(value, str) and value
-        for value in (source_id, lineage_id, timing_method_id)
+        isinstance(value, str) and value for value in (source_id, lineage_id, timing_method_id)
     ):
         raise ValueError("visual binding identifiers must be nonempty strings")
     numeric = (
@@ -353,9 +349,7 @@ def load_visual_binding(record: EvidenceRecord) -> CachedVisualBinding:
         payload["maximum_age_ms"],
     )
     if not all(
-        not isinstance(value, bool)
-        and isinstance(value, (int, float))
-        and math.isfinite(value)
+        not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
         for value in numeric
     ):
         raise ValueError("visual binding values must be finite numbers")
@@ -388,17 +382,14 @@ def validate_cached_binding(
     candidate_lineages: Mapping[str, str],
     candidate_maximum_ages_ms: Mapping[str, float],
     candidate_noise_ranges_px: Mapping[str, float],
-    profile: AssociationProfile = AssociationProfile(),
+    profile: AssociationProfile = DEFAULT_ASSOCIATION_PROFILE,
 ) -> dict[str, object]:
     """Recheck cached geometry and reject mismatches or new ambiguity."""
 
     commands = _finite(commands_radians, "reuse commands")
     if len(commands) < 2 or min(commands) >= 0 or max(commands) <= 0:
         raise ValueError("reuse requires at least two signed probes")
-    if (
-        min(commands) < binding.validity_min_radians
-        or max(commands) > binding.validity_max_radians
-    ):
+    if min(commands) < binding.validity_min_radians or max(commands) > binding.validity_max_radians:
         raise ValueError("reuse probes exceed the cached validity region")
     candidate_ids = set(candidate_effects_px)
     if not candidate_ids or any(not candidate_id for candidate_id in candidate_ids):
@@ -436,8 +427,7 @@ def validate_cached_binding(
         if not math.isfinite(age) or age < 0 or not math.isfinite(noise) or noise < 0:
             raise ValueError("reuse candidate age and noise must be finite and nonnegative")
         maximum_error = max(
-            abs(actual - expected)
-            for actual, expected in zip(effects, predicted, strict=True)
+            abs(actual - expected) for actual, expected in zip(effects, predicted, strict=True)
         )
         tolerance = max(profile.validation_floor_px, noise * profile.noise_multiplier)
         signal_to_noise = max(abs(value) for value in predicted) / max(noise, 0.25)
@@ -475,9 +465,7 @@ def validate_cached_binding(
         "matching_candidate_ids": matching_candidates,
         "matching_independent_lineage_count": len(matching_lineages),
     }
-    selected = next(
-        item for item in assessments if item["candidate_id"] == binding.candidate_id
-    )
+    selected = next(item for item in assessments if item["candidate_id"] == binding.candidate_id)
     if not selected["eligible"]:
         return {**base, "status": "refused", "reason_code": "cached_model_invalid"}
     if matching_lineages != {binding.lineage_id}:

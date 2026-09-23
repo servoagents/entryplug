@@ -69,14 +69,10 @@ def _spectator_panel(rgb: np.ndarray) -> np.ndarray:
     def band_center(mask: np.ndarray, use_maximum: bool) -> tuple[int, int]:
         rows, columns = np.nonzero(mask)
         if len(rows) < 20:
-            raise RuntimeError(
-                "spectator articulation marker could not find arm pixels"
-            )
+            raise RuntimeError("spectator articulation marker could not find arm pixels")
         edge = int(np.max(rows) if use_maximum else np.min(rows))
         band = np.abs(rows - edge) <= max(2, height // 120)
-        return int(round(float(np.mean(columns[band])))), int(
-            round(float(np.mean(rows[band])))
-        )
+        return int(round(float(np.mean(columns[band])))), int(round(float(np.mean(rows[band]))))
 
     cv2.rectangle(panel, (0, 0), (width, 42), (0, 0, 0), -1)
     cv2.rectangle(panel, (0, height - 34), (width, height), (0, 0, 0), -1)
@@ -132,9 +128,7 @@ def _spectator_panel(rgb: np.ndarray) -> np.ndarray:
             0.5,
             (255, 255, 255),
         )
-        _put_outlined_text(
-            panel, "base", (base[0] + 12, base[1] + 5), 0.4, (255, 255, 255)
-        )
+        _put_outlined_text(panel, "base", (base[0] + 12, base[1] + 5), 0.4, (255, 255, 255))
         _put_outlined_text(
             panel,
             "elbow",

@@ -136,16 +136,12 @@ def test_motion_is_single_owner_while_read_only_work_remains_available() -> None
     async def scenario() -> None:
         release = asyncio.Event()
 
-        async def move(
-            context: OperationContext, _: Mapping[str, JsonValue]
-        ) -> OperationResult:
+        async def move(context: OperationContext, _: Mapping[str, JsonValue]) -> OperationResult:
             context.report("execute", MotionState.MOVING)
             await release.wait()
             return OperationResult(Lifecycle.SUCCEEDED, MotionState.HOLDING)
 
-        async def read(
-            _: OperationContext, arguments: Mapping[str, JsonValue]
-        ) -> OperationResult:
+        async def read(_: OperationContext, arguments: Mapping[str, JsonValue]) -> OperationResult:
             return OperationResult(
                 Lifecycle.SUCCEEDED, MotionState.IDLE, {"value": arguments["value"]}
             )
@@ -188,11 +184,7 @@ def test_wait_timeout_does_not_cancel_and_cancel_requires_handler_confirmation()
             return OperationResult(Lifecycle.CANCELED, MotionState.HOLDING)
 
         host = OperationHost(
-            (
-                CapabilitySpec(
-                    "move", "1", "Move", True, 1.0, 0.2, _arguments, cancellable
-                ),
-            ),
+            (CapabilitySpec("move", "1", "Move", True, 1.0, 0.2, _arguments, cancellable),),
             runtime_id="runtime-a",
         )
         operation = await host.start(
@@ -222,11 +214,7 @@ def test_cancel_before_worker_start_is_not_overwritten_by_running_state() -> Non
             return OperationResult(Lifecycle.CANCELED, MotionState.HOLDING)
 
         host = OperationHost(
-            (
-                CapabilitySpec(
-                    "move", "1", "Move", True, 1.0, 0.2, _arguments, cancellable
-                ),
-            ),
+            (CapabilitySpec("move", "1", "Move", True, 1.0, 0.2, _arguments, cancellable),),
             runtime_id="runtime-a",
         )
         operation = await host.start(
@@ -251,15 +239,11 @@ def test_rejected_validation_is_deduplicated_without_revalidating() -> None:
             validations += 1
             raise ValueError("fixture rejected the value")
 
-        async def unused(
-            _: OperationContext, __: Mapping[str, JsonValue]
-        ) -> OperationResult:
+        async def unused(_: OperationContext, __: Mapping[str, JsonValue]) -> OperationResult:
             raise AssertionError("rejected work must not run")
 
         host = OperationHost(
-            (
-                CapabilitySpec("move", "1", "Move", True, 1.0, 0.1, reject, unused),
-            ),
+            (CapabilitySpec("move", "1", "Move", True, 1.0, 0.1, reject, unused),),
             runtime_id="runtime-a",
         )
         for _ in range(2):
@@ -288,11 +272,7 @@ def test_deadline_with_confirmed_stop_is_failed_not_canceled() -> None:
             return OperationResult(Lifecycle.CANCELED, MotionState.HOLDING)
 
         host = OperationHost(
-            (
-                CapabilitySpec(
-                    "move", "1", "Move", True, 0.02, 0.1, _arguments, deadline_stop
-                ),
-            ),
+            (CapabilitySpec("move", "1", "Move", True, 0.02, 0.1, _arguments, deadline_stop),),
             runtime_id="runtime-a",
         )
         operation = await host.start(
@@ -320,11 +300,7 @@ def test_stale_runtime_and_request_limit_reject_before_effects_but_cancel_surviv
             return OperationResult(Lifecycle.CANCELED, MotionState.HOLDING)
 
         host = OperationHost(
-            (
-                CapabilitySpec(
-                    "move", "1", "Move", True, 1.0, 0.2, _arguments, cancellable
-                ),
-            ),
+            (CapabilitySpec("move", "1", "Move", True, 1.0, 0.2, _arguments, cancellable),),
             runtime_id="runtime-new",
             maximum_requests=2,
         )
@@ -351,16 +327,12 @@ def test_stale_runtime_and_request_limit_reject_before_effects_but_cancel_surviv
 
 def test_unconfirmed_deadline_inhibits_later_motion_without_blocking_reads() -> None:
     async def scenario() -> None:
-        async def hung(
-            context: OperationContext, _: Mapping[str, JsonValue]
-        ) -> OperationResult:
+        async def hung(context: OperationContext, _: Mapping[str, JsonValue]) -> OperationResult:
             context.report("execute", MotionState.MOVING)
             await asyncio.Event().wait()
             raise AssertionError("unreachable")
 
-        async def read(
-            _: OperationContext, arguments: Mapping[str, JsonValue]
-        ) -> OperationResult:
+        async def read(_: OperationContext, arguments: Mapping[str, JsonValue]) -> OperationResult:
             return OperationResult(
                 Lifecycle.SUCCEEDED, MotionState.IDLE, {"value": arguments["value"]}
             )
@@ -397,16 +369,12 @@ def test_detached_session_does_not_cancel_runtime_owned_work() -> None:
     async def scenario() -> None:
         release = asyncio.Event()
 
-        async def move(
-            _: OperationContext, __: Mapping[str, JsonValue]
-        ) -> OperationResult:
+        async def move(_: OperationContext, __: Mapping[str, JsonValue]) -> OperationResult:
             await release.wait()
             return OperationResult(Lifecycle.SUCCEEDED, MotionState.HOLDING)
 
         host = OperationHost(
-            (
-                CapabilitySpec("move", "1", "Move", True, 1.0, 0.1, _arguments, move),
-            ),
+            (CapabilitySpec("move", "1", "Move", True, 1.0, 0.1, _arguments, move),),
             runtime_id="runtime-a",
         )
         session = Session(host, owns_runtime=False)

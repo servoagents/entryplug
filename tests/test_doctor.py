@@ -3,10 +3,10 @@ from __future__ import annotations
 import importlib.metadata
 import json
 import subprocess
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Sequence
 
 from entryplug.doctor import ProbeContext, read_os_release, run_doctor, write_report
 

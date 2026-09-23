@@ -5,11 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Mapping, Protocol, Sequence, cast
-
+from typing import Protocol, cast
 
 JsonScalar = None | bool | int | float | str
 JsonValue = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
@@ -84,9 +84,8 @@ class EvidenceRecord:
     def __post_init__(self) -> None:
         if not self.kind or not self.created_at:
             raise ValueError("evidence kind and creation time must be nonempty")
-        if (
-            not self.evidence_refs
-            or not all(isinstance(item, str) and item for item in self.evidence_refs)
+        if not self.evidence_refs or not all(
+            isinstance(item, str) and item for item in self.evidence_refs
         ):
             raise ValueError("evidence references must be nonempty")
         checked_context = _json_object(self.context, "context")
@@ -132,7 +131,7 @@ class EvidenceRecord:
         payload: Mapping[str, JsonValue],
         evidence_refs: Sequence[str],
         created_at: str,
-    ) -> "EvidenceRecord":
+    ) -> EvidenceRecord:
         refs = tuple(evidence_refs)
         checked_context = _json_object(context, "context")
         checked_payload = _json_object(payload, "payload")
@@ -163,7 +162,7 @@ class EvidenceRecord:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, object]) -> "EvidenceRecord":
+    def from_dict(cls, value: Mapping[str, object]) -> EvidenceRecord:
         expected = {
             "key",
             "kind",
@@ -299,9 +298,11 @@ class SqliteEvidenceCache:
         return tuple(self._decode(row[0]) for row in rows)
 
     def load(self, key: str) -> EvidenceRecord | None:
-        row = self._open().execute(
-            "SELECT record_json FROM evidence_records WHERE key = ?", (key,)
-        ).fetchone()
+        row = (
+            self._open()
+            .execute("SELECT record_json FROM evidence_records WHERE key = ?", (key,))
+            .fetchone()
+        )
         return None if row is None else self._decode(row[0])
 
     def store(self, record: EvidenceRecord) -> str:

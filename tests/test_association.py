@@ -100,9 +100,7 @@ def test_nonfinite_or_unsigned_probe_evidence_is_rejected() -> None:
     with pytest.raises(ValueError, match="finite"):
         assess_candidate(replace(_controlled(), fit_effects_px=(1.0, 2.0, float("nan"))))
     with pytest.raises(ValueError, match="both command signs"):
-        assess_candidate(
-            replace(_controlled(), fit_commands_radians=(0.01, 0.02, 0.03, 0.04))
-        )
+        assess_candidate(replace(_controlled(), fit_commands_radians=(0.01, 0.02, 0.03, 0.04)))
 
 
 def test_empty_provenance_and_duplicate_candidate_ids_are_rejected() -> None:

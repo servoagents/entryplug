@@ -17,18 +17,6 @@ import cv2
 import numpy as np
 import rclpy
 from rclpy.qos import qos_profile_sensor_data
-from sensor_msgs.msg import Image
-
-from entryplug.association import (
-    AssociationProfile,
-    CandidateEvidence,
-    load_visual_binding,
-    make_visual_binding_record,
-    metadata_only_selection,
-    select_candidate,
-    validate_cached_binding,
-)
-from entryplug.evidence import EvidenceQuery, SqliteEvidenceCache
 from reach import (
     Frame,
     Observer,
@@ -43,7 +31,18 @@ from reach import (
     _write_png_create_only,
     _write_trace,
 )
+from sensor_msgs.msg import Image
 
+from entryplug.association import (
+    AssociationProfile,
+    CandidateEvidence,
+    load_visual_binding,
+    make_visual_binding_record,
+    metadata_only_selection,
+    select_candidate,
+    validate_cached_binding,
+)
+from entryplug.evidence import EvidenceQuery, SqliteEvidenceCache
 
 SOLVER_SEED = 947
 SOURCE_NAME_SEED = 7043
@@ -94,6 +93,7 @@ class MirrorsObserver(Observer):
         if len(self.mirror_frames) > 256:
             del self.mirror_frames[:128]
 
+
 def _opaque_ids() -> tuple[list[str], list[str]]:
     generator = random.Random(SOURCE_NAME_SEED)
     candidate_ids = [f"view-{generator.getrandbits(32):08x}" for _ in range(4)]
@@ -122,9 +122,7 @@ def _fresh_mirror_observation(
         frames.append(frame)
         last_sequence = frame.sequence
     if len(observations) != samples:
-        raise TimeoutError(
-            f"received {len(observations)} of {samples} fresh mirror camera samples"
-        )
+        raise TimeoutError(f"received {len(observations)} of {samples} fresh mirror camera samples")
     x_values = [float(item["x_px"]) for item in observations]
     y_values = [float(item["y_px"]) for item in observations]
     last = observations[-1]
@@ -216,12 +214,9 @@ def _find_frame(frames: list[Frame], sequence: int, label: str) -> Frame:
 def _frame_rgb(frame: Frame) -> np.ndarray:
     if frame.encoding != "rgb8" or frame.step != frame.width * 3:
         raise RuntimeError(
-            f"review images require packed rgb8, got {frame.encoding!r} "
-            f"with step {frame.step}"
+            f"review images require packed rgb8, got {frame.encoding!r} with step {frame.step}"
         )
-    return np.frombuffer(frame.data, dtype=np.uint8).reshape(
-        (frame.height, frame.width, 3)
-    ).copy()
+    return np.frombuffer(frame.data, dtype=np.uint8).reshape((frame.height, frame.width, 3)).copy()
 
 
 def _annotated(frame: Frame, feature: dict[str, object], label: str) -> np.ndarray:
@@ -321,10 +316,7 @@ def _probe_trace_panel(
         1,
         cv2.LINE_AA,
     )
-    legend = (
-        "CYAN expected from fitted gain   GREEN controlled camera   "
-        "ORANGE independent camera"
-    )
+    legend = "CYAN expected from fitted gain   GREEN controlled camera   ORANGE independent camera"
     cv2.putText(
         panel,
         legend,
@@ -338,12 +330,8 @@ def _probe_trace_panel(
 
     commands = [float(record["command_radians"]) for record in records]
     expected = [gain_px_per_radian * command for command in commands]
-    controlled = [
-        float(record["candidate_effects_px"][controlled_id]) for record in records
-    ]
-    independent = [
-        float(record["candidate_effects_px"][independent_id]) for record in records
-    ]
+    controlled = [float(record["candidate_effects_px"][controlled_id]) for record in records]
+    independent = [float(record["candidate_effects_px"][independent_id]) for record in records]
     start_times = [float(record["probe_started_ms"]) for record in records]
     minimum_time, maximum_time = min(start_times), max(start_times)
     time_span = max(1.0, maximum_time - minimum_time)
@@ -378,7 +366,7 @@ def _probe_trace_panel(
     )
     for values, color in series:
         points = [point(index, value) for index, value in enumerate(values)]
-        for first, second in zip(points, points[1:]):
+        for first, second in zip(points, points[1:], strict=False):
             cv2.line(panel, first, second, color, 2, cv2.LINE_AA)
         for x, y in points:
             cv2.circle(panel, (x, y), 4, color, -1, cv2.LINE_AA)
@@ -459,9 +447,7 @@ def qualify(
         _spin_until(
             node,
             lambda: (
-                node.frame is not None
-                and node.mirror_frame is not None
-                and node.joints is not None
+                node.frame is not None and node.mirror_frame is not None and node.joints is not None
             ),
             30.0,
             "two candidate cameras and joint topics",
@@ -470,9 +456,7 @@ def qualify(
             raise TimeoutError("trajectory action server was unavailable")
         assert node.frame is not None
         controlled_at_rest = node.frame
-        _write_png_create_only(
-            output_dir / "controlled-at-rest.raw.png", controlled_at_rest
-        )
+        _write_png_create_only(output_dir / "controlled-at-rest.raw.png", controlled_at_rest)
         anchor, visibility_anchor = _establish_visibility_anchor(node, trace)
         controlled_anchor_feature = visibility_anchor["after_feature"]
         controlled_anchor = _find_frame(
@@ -480,9 +464,7 @@ def qualify(
             int(controlled_anchor_feature["last_frame_sequence"]),
             "controlled anchor",
         )
-        _write_png_create_only(
-            output_dir / "controlled-anchor.raw.png", controlled_anchor
-        )
+        _write_png_create_only(output_dir / "controlled-anchor.raw.png", controlled_anchor)
         direct_noise = _no_action_noise(node)
 
         _spin_until(
@@ -497,9 +479,7 @@ def qualify(
             int(mirror_preview_feature["last_frame_sequence"]),
             "mirror preview",
         )
-        _write_png_create_only(
-            output_dir / "independent-camera-preview.raw.png", mirror_preview
-        )
+        _write_png_create_only(output_dir / "independent-camera-preview.raw.png", mirror_preview)
         independent_noise = _mirror_noise(node)
 
         candidate_ids, lineage_ids = _opaque_ids()
@@ -535,9 +515,7 @@ def qualify(
         direct_pairs: list[dict[str, object]] = []
         acquisition_started = time.monotonic()
         for index, command in enumerate(fit_commands):
-            requested_gap = solver.uniform(
-                MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS
-            )
+            requested_gap = solver.uniform(MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS)
             actual_gap = _wait_probe_gap(node, requested_gap)
             probe_started_ms = _round((time.monotonic() - started) * 1000)
             independent_before = _fresh_mirror_observation(node)
@@ -575,9 +553,7 @@ def qualify(
                     ),
                 }
             )
-            direct_ages.append(
-                float(trace_item["after_feature"]["last_receive_age_ms"])
-            )
+            direct_ages.append(float(trace_item["after_feature"]["last_receive_age_ms"]))
             independent_ages.append(
                 max(
                     float(independent_before["last_receive_age_ms"]),
@@ -632,9 +608,7 @@ def qualify(
         delayed_validation: list[dict[str, object]] = []
         validation_records: list[dict[str, object]] = []
         for index, command in enumerate(validation_commands):
-            requested_gap = solver.uniform(
-                MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS
-            )
+            requested_gap = solver.uniform(MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS)
             actual_gap = _wait_probe_gap(node, requested_gap)
             probe_started_ms = _round((time.monotonic() - started) * 1000)
             independent_before = _fresh_mirror_observation(node)
@@ -672,9 +646,7 @@ def qualify(
                     ),
                 }
             )
-            direct_ages.append(
-                float(trace_item["after_feature"]["last_receive_age_ms"])
-            )
+            direct_ages.append(float(trace_item["after_feature"]["last_receive_age_ms"]))
             independent_ages.append(
                 max(
                     float(independent_before["last_receive_age_ms"]),
@@ -724,9 +696,7 @@ def qualify(
             validation_records.append(record)
             public_events.append(record)
 
-        maximum_delay_ms = max(
-            float(item["delay_ms"]) for item in delayed_fit + delayed_validation
-        )
+        maximum_delay_ms = max(float(item["delay_ms"]) for item in delayed_fit + delayed_validation)
         controlled = CandidateEvidence(
             candidate_id=controlled_id,
             lineage_id=controlled_lineage,
@@ -757,9 +727,7 @@ def qualify(
         profile = AssociationProfile()
         metadata_baseline = metadata_only_selection(candidates, profile)
         selection = select_candidate(candidates, profile)
-        acquisition_duration_ms = _round(
-            (time.monotonic() - acquisition_started) * 1000
-        )
+        acquisition_duration_ms = _round((time.monotonic() - acquisition_started) * 1000)
 
         ambiguous = replace(
             controlled,
@@ -777,17 +745,13 @@ def qualify(
         )
 
         controlled_assessment = next(
-            item
-            for item in selection["assessments"]
-            if item["candidate_id"] == controlled_id
+            item for item in selection["assessments"] if item["candidate_id"] == controlled_id
         )
         binding_record = make_visual_binding_record(
             context=BINDING_CONTEXT,
             candidate_id=controlled_id,
             lineage_id=controlled_lineage,
-            gain_px_per_radian=float(
-                controlled_assessment["gain_px_per_radian"]
-            ),
+            gain_px_per_radian=float(controlled_assessment["gain_px_per_radian"]),
             validity_radians=(
                 min(FIT_PROBES_RADIANS + VALIDATION_PROBES_RADIANS),
                 max(FIT_PROBES_RADIANS + VALIDATION_PROBES_RADIANS),
@@ -825,9 +789,7 @@ def qualify(
         reuse_independent_ages: list[float] = []
         reuse_records: list[dict[str, object]] = []
         for index, command in enumerate(reuse_commands):
-            requested_gap = solver.uniform(
-                MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS
-            )
+            requested_gap = solver.uniform(MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS)
             actual_gap = _wait_probe_gap(node, requested_gap)
             probe_started_ms = _round((time.monotonic() - started) * 1000)
             independent_before = _fresh_mirror_observation(node)
@@ -843,8 +805,7 @@ def qualify(
             )
             direct_effect = float(probe["observed_feature_delta_px"])
             independent_effect = _round(
-                float(independent_after["y_px"])
-                - float(independent_before["y_px"])
+                float(independent_after["y_px"]) - float(independent_before["y_px"])
             )
             trace_item = next(
                 item for item in trace if item.get("request_id") == probe["request_id"]
@@ -885,9 +846,7 @@ def qualify(
             )
             reuse_direct.append(direct_effect)
             reuse_independent.append(independent_effect)
-            reuse_direct_ages.append(
-                float(trace_item["after_feature"]["last_receive_age_ms"])
-            )
+            reuse_direct_ages.append(float(trace_item["after_feature"]["last_receive_age_ms"]))
             reuse_independent_ages.append(
                 max(
                     float(independent_before["last_receive_age_ms"]),
@@ -959,9 +918,7 @@ def qualify(
             },
             "checked_reuse": {
                 "probe_count": len(reuse_commands),
-                "command_travel_radians": _round(
-                    sum(abs(value) for value in reuse_commands)
-                ),
+                "command_travel_radians": _round(sum(abs(value) for value in reuse_commands)),
                 "duration_ms": reuse_duration_ms,
             },
         }
@@ -973,9 +930,7 @@ def qualify(
             }
         )
 
-        representative_direct = max(
-            direct_pairs, key=lambda item: abs(float(item["effect_px"]))
-        )
+        representative_direct = max(direct_pairs, key=lambda item: abs(float(item["effect_px"])))
         direct_before_feature = representative_direct["before_feature"]
         direct_after_feature = representative_direct["after_feature"]
         direct_before_frame = representative_direct["before_frame"]
@@ -1026,9 +981,7 @@ def qualify(
             independent_id,
             float(controlled_assessment["gain_px_per_radian"]),
         )
-        _write_rgb_png_create_only(
-            output_dir / "probe-response-trace.observer.png", trace_panel
-        )
+        _write_rgb_png_create_only(output_dir / "probe-response-trace.observer.png", trace_panel)
         _write_agent_views_panel(
             output_dir / "agent-views.observer.png",
             controlled_anchor,
@@ -1070,18 +1023,12 @@ def qualify(
                 },
                 "controlled-anchor.raw.png": {
                     "kind": "raw",
-                    "meaning": (
-                        "controlled camera at the visible local operating anchor"
-                    ),
-                    "expected": (
-                        "a measurable red patch appears beyond the blue forearm"
-                    ),
+                    "meaning": ("controlled camera at the visible local operating anchor"),
+                    "expected": ("a measurable red patch appears beyond the blue forearm"),
                 },
                 "controlled-probe-before.raw.png": {
                     "kind": "raw",
-                    "meaning": (
-                        "controlled camera immediately before a representative probe"
-                    ),
+                    "meaning": ("controlled camera immediately before a representative probe"),
                 },
                 "controlled-probe-after.raw.png": {
                     "kind": "raw",
@@ -1089,9 +1036,7 @@ def qualify(
                 },
                 "independent-camera-preview.raw.png": {
                     "kind": "raw",
-                    "meaning": (
-                        "second MuJoCo camera on the independently driven mechanism"
-                    ),
+                    "meaning": ("second MuJoCo camera on the independently driven mechanism"),
                 },
                 "independent-probe-before.raw.png": {
                     "kind": "raw",
@@ -1139,15 +1084,11 @@ def qualify(
                 },
                 "hall-of-mirrors-demo.observer.png": {
                     "kind": "observer_only_composite",
-                    "meaning": (
-                        "spectator overview, two candidate views, and response trace"
-                    ),
+                    "meaning": ("spectator overview, two candidate views, and response trace"),
                 },
                 "observer-report.json": {
                     "kind": "evaluator_record",
-                    "meaning": (
-                        "hashes report inputs and records the process boundary"
-                    ),
+                    "meaning": ("hashes report inputs and records the process boundary"),
                 },
             },
         }
@@ -1160,22 +1101,14 @@ def qualify(
             independent_id: "independent_rendered_camera",
             ambiguous_id: "negative_test_indistinguishable_clone",
         }
-        assessments = {
-            item["candidate_id"]: item for item in selection["assessments"]
-        }
+        assessments = {item["candidate_id"]: item for item in selection["assessments"]}
         gates = {
-            "controlled_source_selected": (
-                selection.get("candidate_id") == controlled_id
-            ),
+            "controlled_source_selected": (selection.get("candidate_id") == controlled_id),
             "metadata_alone_refused": metadata_baseline["status"] == "refused",
-            "delayed_path_rejected_as_stale": "stale"
-            in assessments[delayed_id]["reasons"],
-            "delayed_path_preserved_lineage": (
-                delayed.lineage_id == controlled.lineage_id
-            ),
+            "delayed_path_rejected_as_stale": "stale" in assessments[delayed_id]["reasons"],
+            "delayed_path_preserved_lineage": (delayed.lineage_id == controlled.lineage_id),
             "independent_source_rejected": not assessments[independent_id]["eligible"],
-            "ambiguous_sources_refused": ambiguity_check.get("reason_code")
-            == "ambiguous_sources",
+            "ambiguous_sources_refused": ambiguity_check.get("reason_code") == "ambiguous_sources",
             "two_rendered_camera_topics_observed": (
                 node.frame is not None and node.mirror_frame is not None
             ),
@@ -1260,9 +1193,7 @@ def qualify(
                 "randomized_pre_probe_gaps": True,
                 "minimum_requested_gap_ms": MINIMUM_PROBE_GAP_SECONDS * 1000,
                 "maximum_requested_gap_ms": MAXIMUM_PROBE_GAP_SECONDS * 1000,
-                "actual_gap_ms": [
-                    record["pre_probe_gap_ms"] for record in all_probe_records
-                ],
+                "actual_gap_ms": [record["pre_probe_gap_ms"] for record in all_probe_records],
                 "fixture_motion_schedule_available_to_solver": False,
                 "fixture_motion_schedule_periodic": False,
             },
@@ -1270,8 +1201,7 @@ def qualify(
             "validation_probes": validation_records,
             "safety": {
                 "maximum_probe_radians": max(
-                    abs(value)
-                    for value in fit_commands + validation_commands + reuse_commands
+                    abs(value) for value in fit_commands + validation_commands + reuse_commands
                 ),
                 "all_native_actions_succeeded": all(
                     int(item["native_status"]) == 4 for item in trace

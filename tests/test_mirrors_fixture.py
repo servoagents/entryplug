@@ -4,7 +4,6 @@ import ast
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[1]
 SCENE = ROOT / "containers" / "harbor" / "mirrors_scene.xml"
 MIRRORS = ROOT / "containers" / "harbor" / "mirrors.py"

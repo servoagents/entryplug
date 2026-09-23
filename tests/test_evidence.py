@@ -37,9 +37,7 @@ def _record(created_at: str = "2026-09-23T12:00:00+00:00") -> EvidenceRecord:
 
 
 @pytest.fixture(params=("memory", "sqlite"))
-def cache_factory(
-    request: pytest.FixtureRequest, tmp_path: Path
-) -> Callable[[], EvidenceCache]:
+def cache_factory(request: pytest.FixtureRequest, tmp_path: Path) -> Callable[[], EvidenceCache]:
     if request.param == "memory":
         return MemoryEvidenceCache
     return lambda: SqliteEvidenceCache(tmp_path / "evidence.sqlite3")

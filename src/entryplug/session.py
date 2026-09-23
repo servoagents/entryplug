@@ -36,9 +36,7 @@ class Session:
             expected_runtime_id=self._host.runtime_id,
         )
 
-    async def wait(
-        self, operation: str | OperationSnapshot, timeout_s: float
-    ) -> OperationSnapshot:
+    async def wait(self, operation: str | OperationSnapshot, timeout_s: float) -> OperationSnapshot:
         self._require_open()
         return await self._host.wait(self._reference(operation), timeout_s)
 
@@ -60,7 +58,7 @@ class Session:
             return await self._host.close()
         return ()
 
-    async def __aenter__(self) -> "Session":
+    async def __aenter__(self) -> Session:
         self._require_open()
         return self
 

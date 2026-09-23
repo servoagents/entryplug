@@ -10,7 +10,6 @@ from launch.actions import Shutdown
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 
-
 ROOT = Path("/workspace/entryplug/containers/harbor")
 
 
@@ -31,9 +30,7 @@ def description() -> LaunchDescription:
                 output="both",
                 parameters=[
                     {
-                        "robot_description": ParameterValue(
-                            robot_description, value_type=str
-                        ),
+                        "robot_description": ParameterValue(robot_description, value_type=str),
                         "use_sim_time": True,
                     }
                 ],

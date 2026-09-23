@@ -5,11 +5,10 @@ from __future__ import annotations
 import os
 import subprocess
 import uuid
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Callable, Sequence
-
 
 DEFAULT_HARBOR_IMAGE = "entryplug-harbor:jazzy"
 
@@ -113,9 +112,7 @@ def run_harbor(
             text=True,
         )
         if inspected.returncode != 0:
-            raise FileNotFoundError(
-                f"container image {image!r} is unavailable; rerun with --build"
-            )
+            raise FileNotFoundError(f"container image {image!r} is unavailable; rerun with --build")
 
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     run_id = f"harbor-{case}-{stamp}-{uuid.uuid4().hex[:8]}"
