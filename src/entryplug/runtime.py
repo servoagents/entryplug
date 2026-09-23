@@ -129,4 +129,4 @@ def run_harbor(
 
 
 def supported_cases() -> Sequence[str]:
-    return ("render-smoke", "reach")
+    return ("render-smoke", "reach", "mirrors")

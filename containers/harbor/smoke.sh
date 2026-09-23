@@ -106,6 +106,11 @@ case "${case_name}" in
       --output "${run_dir}/reach.json"
     case_status=$?
     ;;
+  mirrors)
+    python3 /workspace/entryplug/containers/harbor/mirrors.py \
+      --output "${run_dir}/mirrors.json"
+    case_status=$?
+    ;;
   *)
     echo "unsupported Harbor case: ${case_name}" >&2
     case_status=2

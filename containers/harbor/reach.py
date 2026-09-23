@@ -90,6 +90,7 @@ def _fresh_observation(
         else (node.frame.sequence if node.frame is not None else 0)
     )
     observations: list[dict[str, object]] = []
+    frames: list[Frame] = []
     last_sequence = start_sequence
     deadline = time.monotonic() + 4.0
     while rclpy.ok() and time.monotonic() < deadline and len(observations) < samples:
@@ -98,6 +99,7 @@ def _fresh_observation(
         if frame is None or frame.sequence <= last_sequence:
             continue
         observations.append(_marker(frame))
+        frames.append(frame)
         last_sequence = frame.sequence
     if len(observations) != samples:
         raise TimeoutError(f"received {len(observations)} of {samples} fresh camera samples")
@@ -112,6 +114,9 @@ def _fresh_observation(
         "first_frame_sequence": observations[0]["frame"]["sequence"],
         "last_frame_sequence": observations[-1]["frame"]["sequence"],
         "last_frame": observations[-1]["frame"],
+        "last_receive_age_ms": _round(
+            max(0.0, (time.monotonic() - frames[-1].received_monotonic) * 1000)
+        ),
         "marker_area_px": observations[-1]["area_px"],
         "bounding_box_px": observations[-1]["bounding_box_px"],
     }

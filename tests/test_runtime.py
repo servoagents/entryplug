@@ -38,7 +38,7 @@ def test_harbor_run_drops_privilege_and_only_mounts_evidence(tmp_path: Path) -> 
 def test_harbor_exposes_reaching_and_rejects_unknown_cases_before_side_effects(
     tmp_path: Path,
 ) -> None:
-    assert supported_cases() == ("render-smoke", "reach")
+    assert supported_cases() == ("render-smoke", "reach", "mirrors")
 
     def runner(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
         raise AssertionError(f"unexpected runtime call: {command}")
