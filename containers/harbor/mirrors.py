@@ -26,8 +26,6 @@ from entryplug.association import (
     select_candidate,
 )
 from reach import (
-    FIT_PROBES_RADIANS,
-    VALIDATION_PROBES_RADIANS,
     Frame,
     Observer,
     _establish_visibility_anchor,
@@ -46,6 +44,10 @@ from reach import (
 SOLVER_SEED = 947
 SOURCE_NAME_SEED = 7043
 DELAY_SECONDS = 0.36
+FIT_PROBES_RADIANS = (0.018, -0.031, 0.047, -0.022, 0.036, -0.044)
+VALIDATION_PROBES_RADIANS = (0.028, -0.049, 0.041, -0.034)
+MINIMUM_PROBE_GAP_SECONDS = 0.12
+MAXIMUM_PROBE_GAP_SECONDS = 0.62
 
 
 class MirrorsObserver(Observer):
@@ -80,7 +82,6 @@ class MirrorsObserver(Observer):
         self.mirror_frames.append(frame)
         if len(self.mirror_frames) > 256:
             del self.mirror_frames[:128]
-
 
 def _opaque_ids() -> tuple[list[str], list[str]]:
     generator = random.Random(SOURCE_NAME_SEED)
@@ -159,6 +160,17 @@ def _mirror_noise(node: MirrorsObserver, samples: int = 8) -> dict[str, object]:
     }
 
 
+def _wait_probe_gap(node: MirrorsObserver, seconds: float) -> float:
+    started = time.monotonic()
+    _spin_until(
+        node,
+        lambda: time.monotonic() - started >= seconds,
+        seconds + 1.0,
+        "randomized pre-probe gap",
+    )
+    return _round(time.monotonic() - started)
+
+
 def _deliver_delayed_copy(
     node: MirrorsObserver,
     probe: dict[str, object],
@@ -190,10 +202,19 @@ def _find_frame(frames: list[Frame], sequence: int, label: str) -> Frame:
     raise RuntimeError(f"{label} frame sequence {sequence} is no longer retained")
 
 
-def _annotated(frame: Frame, feature: dict[str, object], label: str) -> np.ndarray:
-    rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape(
+def _frame_rgb(frame: Frame) -> np.ndarray:
+    if frame.encoding != "rgb8" or frame.step != frame.width * 3:
+        raise RuntimeError(
+            f"review images require packed rgb8, got {frame.encoding!r} "
+            f"with step {frame.step}"
+        )
+    return np.frombuffer(frame.data, dtype=np.uint8).reshape(
         (frame.height, frame.width, 3)
     ).copy()
+
+
+def _annotated(frame: Frame, feature: dict[str, object], label: str) -> np.ndarray:
+    rgb = _frame_rgb(frame)
     box = feature["bounding_box_px"]
     left, top = int(box["left"]), int(box["top"])
     right, bottom = int(box["right"]), int(box["bottom"])
@@ -212,6 +233,14 @@ def _annotated(frame: Frame, feature: dict[str, object], label: str) -> np.ndarr
         cv2.LINE_AA,
     )
     return rgb
+
+
+def _write_rgb_png_create_only(path: Path, rgb: np.ndarray) -> None:
+    encoded, contents = cv2.imencode(".png", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
+    if not encoded:
+        raise RuntimeError("OpenCV could not encode the review image")
+    with path.open("xb") as stream:
+        stream.write(contents.tobytes())
 
 
 def _write_review_pair(
@@ -245,11 +274,151 @@ def _write_review_pair(
         1,
         cv2.LINE_AA,
     )
-    encoded, contents = cv2.imencode(".png", cv2.cvtColor(review, cv2.COLOR_RGB2BGR))
-    if not encoded:
-        raise RuntimeError("OpenCV could not encode the review image")
-    with path.open("xb") as stream:
-        stream.write(contents.tobytes())
+    _write_rgb_png_create_only(path, review)
+
+
+def _probe_trace_panel(
+    records: list[dict[str, object]],
+    controlled_id: str,
+    independent_id: str,
+    gain_px_per_radian: float,
+) -> np.ndarray:
+    width, height = 1280, 300
+    panel = np.full((height, width, 3), (17, 24, 39), dtype=np.uint8)
+    white = (240, 244, 248)
+    muted = (148, 163, 184)
+    expected_color = (56, 189, 248)
+    controlled_color = (52, 211, 153)
+    independent_color = (251, 146, 60)
+    cv2.putText(
+        panel,
+        "OBSERVER ONLY: PROBE RESPONSE OVER WALL TIME",
+        (24, 31),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.72,
+        white,
+        2,
+        cv2.LINE_AA,
+    )
+    cv2.putText(
+        panel,
+        "ONE FRAME IS AMBIGUOUS; THE PROBE SEQUENCE DISAMBIGUATES",
+        (665, 29),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.48,
+        white,
+        1,
+        cv2.LINE_AA,
+    )
+    legend = (
+        "CYAN expected from fitted gain   GREEN controlled camera   "
+        "ORANGE independent camera"
+    )
+    cv2.putText(
+        panel,
+        legend,
+        (24, 57),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.5,
+        muted,
+        1,
+        cv2.LINE_AA,
+    )
+
+    commands = [float(record["command_radians"]) for record in records]
+    expected = [gain_px_per_radian * command for command in commands]
+    controlled = [
+        float(record["candidate_effects_px"][controlled_id]) for record in records
+    ]
+    independent = [
+        float(record["candidate_effects_px"][independent_id]) for record in records
+    ]
+    start_times = [float(record["probe_started_ms"]) for record in records]
+    minimum_time, maximum_time = min(start_times), max(start_times)
+    time_span = max(1.0, maximum_time - minimum_time)
+    maximum_effect = max(
+        1.0,
+        *(abs(value) for value in expected + controlled + independent),
+    )
+    left, right = 70, width - 35
+    top, bottom = 75, 235
+    center_y = (top + bottom) // 2
+    cv2.line(panel, (left, center_y), (right, center_y), (71, 85, 105), 1)
+    cv2.putText(
+        panel,
+        "0 px",
+        (15, center_y + 5),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.4,
+        muted,
+        1,
+        cv2.LINE_AA,
+    )
+
+    def point(index: int, value: float) -> tuple[int, int]:
+        x = left + int((start_times[index] - minimum_time) / time_span * (right - left))
+        y = center_y - int(value / maximum_effect * (bottom - top) / 2)
+        return x, y
+
+    series = (
+        (expected, expected_color),
+        (controlled, controlled_color),
+        (independent, independent_color),
+    )
+    for values, color in series:
+        points = [point(index, value) for index, value in enumerate(values)]
+        for first, second in zip(points, points[1:]):
+            cv2.line(panel, first, second, color, 2, cv2.LINE_AA)
+        for x, y in points:
+            cv2.circle(panel, (x, y), 4, color, -1, cv2.LINE_AA)
+
+    for index, record in enumerate(records):
+        x, _ = point(index, 0.0)
+        stage = "F" if record["event"] == "fit_probe" else "V"
+        label = f"{stage}{int(record['index'])} {commands[index]:+.3f}"
+        cv2.putText(
+            panel,
+            label,
+            (max(4, x - 32), 259),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.35,
+            white,
+            1,
+            cv2.LINE_AA,
+        )
+        gap_ms = float(record["pre_probe_gap_ms"])
+        cv2.putText(
+            panel,
+            f"gap {gap_ms:.0f}ms",
+            (max(4, x - 32), 278),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.3,
+            muted,
+            1,
+            cv2.LINE_AA,
+        )
+    return panel
+
+
+def _write_agent_views_panel(
+    path: Path,
+    controlled_frame: Frame,
+    controlled_feature: dict[str, object],
+    independent_frame: Frame,
+    independent_feature: dict[str, object],
+) -> None:
+    canvas = np.full((600, 400, 3), (8, 13, 24), dtype=np.uint8)
+    controlled = cv2.resize(
+        _annotated(controlled_frame, controlled_feature, "AGENT VIEW A"),
+        (400, 300),
+    )
+    independent = cv2.resize(
+        _annotated(independent_frame, independent_feature, "AGENT VIEW B"),
+        (400, 300),
+    )
+    canvas[0:300, 0:400] = controlled
+    canvas[300:600, 0:400] = independent
+    _write_rgb_png_create_only(path, canvas)
 
 
 def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
@@ -280,7 +449,7 @@ def qualify(
                 and node.joints is not None
             ),
             30.0,
-            "two cameras and joint topics",
+            "two candidate cameras and joint topics",
         )
         if not node.action.wait_for_server(timeout_sec=15.0):
             raise TimeoutError("trajectory action server was unavailable")
@@ -350,6 +519,11 @@ def qualify(
         independent_pairs: list[dict[str, object]] = []
         direct_pairs: list[dict[str, object]] = []
         for index, command in enumerate(fit_commands):
+            requested_gap = solver.uniform(
+                MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS
+            )
+            actual_gap = _wait_probe_gap(node, requested_gap)
+            probe_started_ms = _round((time.monotonic() - started) * 1000)
             independent_before = _fresh_mirror_observation(node)
             probe = _measure_probe(
                 node,
@@ -419,6 +593,9 @@ def qualify(
                 "event": "fit_probe",
                 "index": index + 1,
                 "command_radians": command,
+                "pre_probe_gap_ms": _round(actual_gap * 1000),
+                "probe_started_ms": probe_started_ms,
+                "probe_completed_ms": _round((time.monotonic() - started) * 1000),
                 "request_id": probe["request_id"],
                 "goal_id": probe["goal_id"],
                 "candidate_effects_px": {
@@ -439,6 +616,11 @@ def qualify(
         delayed_validation: list[dict[str, object]] = []
         validation_records: list[dict[str, object]] = []
         for index, command in enumerate(validation_commands):
+            requested_gap = solver.uniform(
+                MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS
+            )
+            actual_gap = _wait_probe_gap(node, requested_gap)
+            probe_started_ms = _round((time.monotonic() - started) * 1000)
             independent_before = _fresh_mirror_observation(node)
             probe = _measure_probe(
                 node,
@@ -508,6 +690,9 @@ def qualify(
                 "event": "validation_probe",
                 "index": index + 1,
                 "command_radians": command,
+                "pre_probe_gap_ms": _round(actual_gap * 1000),
+                "probe_started_ms": probe_started_ms,
+                "probe_completed_ms": _round((time.monotonic() - started) * 1000),
                 "request_id": probe["request_id"],
                 "goal_id": probe["goal_id"],
                 "candidate_effects_px": {
@@ -618,10 +803,44 @@ def qualify(
                 f"LATER: RED CENTROID DY {independent_delta:+.1f} PX",
             ),
         )
+        controlled_assessment = next(
+            item
+            for item in selection["assessments"]
+            if item["candidate_id"] == controlled_id
+        )
+        all_probe_records = fit_records + validation_records
+        trace_panel = _probe_trace_panel(
+            all_probe_records,
+            controlled_id,
+            independent_id,
+            float(controlled_assessment["gain_px_per_radian"]),
+        )
+        _write_rgb_png_create_only(
+            output_dir / "probe-response-trace.observer.png", trace_panel
+        )
+        _write_agent_views_panel(
+            output_dir / "agent-views.observer.png",
+            controlled_anchor,
+            controlled_anchor_feature,
+            mirror_preview,
+            mirror_preview_feature,
+        )
 
         image_manifest = {
-            "schema_version": 1,
+            "schema_version": 2,
             "raw_files_are_unmodified_sensor_captures": True,
+            "information_boundary": {
+                "association_inputs": [
+                    "/camera/color/image_raw",
+                    "/camera/mirror/image_raw",
+                ],
+                "observer_only_topic": "/camera/spectator/image_raw",
+                "observer_capture_process": "spectator_capture.py",
+                "observer_report_process": "mirrors_report.py",
+                "observer_topic_subscribed_by_agent_process": False,
+                "observer_images_used_by_solver": False,
+                "role_labels_used_by_solver": False,
+            },
             "visual_key": {
                 "blue_shape": "forearm carrying the camera, seen in perspective",
                 "red_shape": "upper arm exposed behind the blue forearm",
@@ -685,6 +904,40 @@ def qualify(
                         "independent-probe-after.raw.png",
                     ],
                 },
+                "agent-views.observer.png": {
+                    "kind": "observer_only",
+                    "meaning": "two candidate views annotated after association",
+                },
+                "spectator-overview.observer.png": {
+                    "kind": "observer_only",
+                    "meaning": (
+                        "external view with derived articulation markers and truth "
+                        "labels, withheld from association"
+                    ),
+                },
+                "spectator-overview.raw.png": {
+                    "kind": "observer_only_raw",
+                    "meaning": "unmodified external camera capture",
+                },
+                "probe-response-trace.observer.png": {
+                    "kind": "observer_only",
+                    "meaning": (
+                        "post-evaluation comparison of expected, controlled, and "
+                        "independent responses over the randomized probe sequence"
+                    ),
+                },
+                "hall-of-mirrors-demo.observer.png": {
+                    "kind": "observer_only_composite",
+                    "meaning": (
+                        "spectator overview, two candidate views, and response trace"
+                    ),
+                },
+                "observer-report.json": {
+                    "kind": "evaluator_record",
+                    "meaning": (
+                        "hashes report inputs and records the process boundary"
+                    ),
+                },
             },
         }
         _write_create_only(output_dir / "images.json", image_manifest)
@@ -715,6 +968,10 @@ def qualify(
             "two_rendered_camera_topics_observed": (
                 node.frame is not None and node.mirror_frame is not None
             ),
+            "observer_camera_withheld_from_selection": (
+                "/camera/spectator/image_raw"
+                not in image_manifest["information_boundary"]["association_inputs"]
+            ),
         }
         if not all(gates.values()):
             failed = [name for name, passed in gates.items() if not passed]
@@ -727,9 +984,12 @@ def qualify(
             "gates": gates,
             "selected_role": role_map[str(selection["candidate_id"])],
             "truth_boundary": (
-                "Source roles and the mirror driver schedule are fixture evaluation "
-                "data; they were not inputs to candidate assessment or selection."
+                "Source roles, the spectator camera, and the mirror driver schedule "
+                "are fixture evaluation data; they were not inputs to candidate "
+                "assessment or selection. The association process does not subscribe "
+                "to the spectator topic."
             ),
+            "private_fixture_schedule": "mirror-schedule.private.jsonl",
         }
         summary = {
             "schema_version": 2,
@@ -743,6 +1003,7 @@ def qualify(
             "interfaces": {
                 "controlled_camera_topic": "/camera/color/image_raw",
                 "independent_camera_topic": "/camera/mirror/image_raw",
+                "observer_only_camera_topic": "/camera/spectator/image_raw",
                 "joint_topic": "/joint_states",
                 "trajectory_action": "/trajectory_controller/follow_joint_trajectory",
             },
@@ -768,6 +1029,16 @@ def qualify(
             },
             "probe_count": len(fit_commands),
             "validation_probe_count": len(validation_commands),
+            "probe_timing": {
+                "randomized_pre_probe_gaps": True,
+                "minimum_requested_gap_ms": MINIMUM_PROBE_GAP_SECONDS * 1000,
+                "maximum_requested_gap_ms": MAXIMUM_PROBE_GAP_SECONDS * 1000,
+                "actual_gap_ms": [
+                    record["pre_probe_gap_ms"] for record in all_probe_records
+                ],
+                "fixture_motion_schedule_available_to_solver": False,
+                "fixture_motion_schedule_periodic": False,
+            },
             "fit_probes": fit_records,
             "validation_probes": validation_records,
             "safety": {
@@ -781,6 +1052,12 @@ def qualify(
             },
             "artifacts": {
                 "image_manifest": "images.json",
+                "observer_demo": "hall-of-mirrors-demo.observer.png",
+                "observer_agent_views": "agent-views.observer.png",
+                "observer_probe_trace": "probe-response-trace.observer.png",
+                "observer_overview": "spectator-overview.observer.png",
+                "observer_report": "observer-report.json",
+                "private_fixture_schedule": "mirror-schedule.private.jsonl",
                 "public_events": "public.jsonl",
                 "private_evaluation": "evaluation.jsonl",
                 "action_trace": "trace.jsonl",
@@ -788,8 +1065,10 @@ def qualify(
             "timing_ms": {"total": _round((time.monotonic() - started) * 1000)},
             "claim_boundary": (
                 "Both candidate sources are real MuJoCo camera renders. The second "
-                "mechanism follows a fixture-owned schedule independent of Entryplug "
-                "probes. This qualifies local source association in this two-camera "
+                "mechanism follows a hidden nonperiodic fixture schedule, while probe "
+                "order and timing are randomized independently. The external overview "
+                "is captured after association by an evaluator-only process. This "
+                "qualifies local source association in this "
                 "Harbor fixture, not general causal identification."
             ),
         }

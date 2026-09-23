@@ -16,3 +16,9 @@
           info_topic: /camera/mirror/camera_info
           image_topic: /camera/mirror/image_raw
           depth_topic: /camera/mirror/depth_raw
+        spectator_camera:
+          policy: streaming
+          frame_name: spectator_camera_mujoco_frame
+          info_topic: /camera/spectator/camera_info
+          image_topic: /camera/spectator/image_raw
+          depth_topic: /camera/spectator/depth_raw

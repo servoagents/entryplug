@@ -22,6 +22,9 @@
       castshadow="false"/>
     <geom name="floor" type="plane" pos="0 0 -2.5" size="0 0 0.01"
       contype="1" conaffinity="0" material="groundplane"/>
+    <camera name="spectator_camera" fovy="52" mode="fixed"
+      resolution="640 480" pos="3.6 1.25 3.0"
+      xyaxes="0 1 0 -0.755689 0 0.654931"/>
 
     <body name="upperarm">
       <inertial pos="0.5 0 0" quat="0.5 0.5 0.5 0.5" mass="27"

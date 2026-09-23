@@ -110,6 +110,7 @@ if [[ "${case_name}" == mirrors ]]; then
     exit 1
   fi
   python3 /workspace/entryplug/containers/harbor/mirror_driver.py \
+    --evaluation-output "${run_dir}/mirror-schedule.private.jsonl" \
     >"${run_dir}/mirror-driver.log" 2>&1 &
   owned_pids+=("$!")
 fi
@@ -136,6 +137,18 @@ case "${case_name}" in
     case_status=2
     ;;
 esac
+if [[ "${case_name}" == mirrors && "${case_status}" -eq 0 ]]; then
+  python3 /workspace/entryplug/containers/harbor/spectator_capture.py \
+    --output "${run_dir}/spectator-overview.raw.png" \
+    >"${run_dir}/spectator-capture.log" 2>&1
+  case_status=$?
+fi
+if [[ "${case_name}" == mirrors && "${case_status}" -eq 0 ]]; then
+  python3 /workspace/entryplug/containers/harbor/mirrors_report.py \
+    --run-dir "${run_dir}" \
+    >"${run_dir}/observer-report.log" 2>&1
+  case_status=$?
+fi
 ./entryplug doctor --profile harbor --json --output "${run_dir}/doctor.json" \
   >"${run_dir}/doctor-stdout.json"
 doctor_status=$?

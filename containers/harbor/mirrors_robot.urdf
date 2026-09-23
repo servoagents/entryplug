@@ -8,6 +8,13 @@
   <link name="mirror_upperarm"/>
   <link name="mirror_forearm"/>
   <link name="mirror_camera_color_mujoco_frame"/>
+  <link name="spectator_camera_mujoco_frame"/>
+
+  <joint name="spectator_camera_joint" type="fixed">
+    <parent link="world"/>
+    <child link="spectator_camera_mujoco_frame"/>
+    <origin xyz="3.6 1.25 3.0"/>
+  </joint>
 
   <joint name="joint1" type="revolute">
     <parent link="world"/>
@@ -96,6 +103,12 @@
       <param name="info_topic">/camera/mirror/camera_info</param>
       <param name="image_topic">/camera/mirror/image_raw</param>
       <param name="depth_topic">/camera/mirror/depth_raw</param>
+    </sensor>
+    <sensor name="spectator_camera">
+      <param name="frame_name">spectator_camera_mujoco_frame</param>
+      <param name="info_topic">/camera/spectator/camera_info</param>
+      <param name="image_topic">/camera/spectator/image_raw</param>
+      <param name="depth_topic">/camera/spectator/depth_raw</param>
     </sensor>
   </ros2_control>
 </robot>
