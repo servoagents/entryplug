@@ -532,6 +532,9 @@ class AgentRunner:
                 decision_latency_ms=round((time.monotonic() - decision_started) * 1000, 3),
                 decision=_decode_decision(response.get("decision")),
             )
+        except asyncio.CancelledError:
+            self._invalidate_worker()
+            raise
         finally:
             self._decision_in_flight = False
 
@@ -654,3 +657,68 @@ class ScriptedExplorer:
         if lifecycle in _TERMINAL_LIFECYCLES:
             return Stop(f"{self._capability} finished with {lifecycle}")
         return Wait(operation_id, self._wait_seconds)
+
+
+class CatalogInspectingExplorer:
+    """Choose an offered configured capability, then inspect its terminal result."""
+
+    def __init__(
+        self,
+        options: Mapping[str, Mapping[str, object]],
+        *,
+        wait_seconds: float = 0.25,
+    ) -> None:
+        if not options:
+            raise ValueError("catalog explorer requires at least one capability option")
+        self._options = {
+            _nonempty(name, "capability"): _json_object(arguments, "action arguments")
+            for name, arguments in options.items()
+        }
+        if not math.isfinite(wait_seconds) or wait_seconds <= 0:
+            raise ValueError("catalog wait must be finite and positive")
+        self._wait_seconds = wait_seconds
+        self._capability: str | None = None
+        self._known_operations: set[str] = set()
+        self._inspection_requested = False
+
+    def decide(self, view: Mapping[str, JsonValue]) -> Decision:
+        operations = view.get("operations")
+        capabilities = view.get("capabilities")
+        if not isinstance(operations, list) or not isinstance(capabilities, list):
+            raise ValueError("public view has no operation or capability catalog")
+
+        if self._capability is None:
+            offered = {
+                str(item["name"])
+                for item in capabilities
+                if isinstance(item, dict) and isinstance(item.get("name"), str)
+            }
+            matches = sorted(offered.intersection(self._options))
+            if not matches:
+                return Stop("no configured capability is offered")
+            self._capability = matches[0]
+            self._known_operations = {
+                str(item["operation_id"])
+                for item in operations
+                if isinstance(item, dict) and isinstance(item.get("operation_id"), str)
+            }
+            return Act(self._capability, self._options[self._capability])
+
+        candidates = [
+            item
+            for item in operations
+            if isinstance(item, dict)
+            and item.get("capability") == self._capability
+            and item.get("operation_id") not in self._known_operations
+        ]
+        if not candidates:
+            return Stop("submitted catalog operation is absent from the public view")
+        operation = candidates[-1]
+        operation_id = _nonempty(operation.get("operation_id"), "operation ID")
+        lifecycle = operation.get("lifecycle")
+        if lifecycle not in _TERMINAL_LIFECYCLES:
+            return Wait(operation_id, self._wait_seconds)
+        if not self._inspection_requested:
+            self._inspection_requested = True
+            return Inspect(operation_id, "result")
+        return Stop(f"inspected {self._capability} result after {lifecycle}")

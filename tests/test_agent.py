@@ -280,6 +280,26 @@ def test_runner_allows_only_one_outstanding_decision() -> None:
     _run(scenario)
 
 
+def test_canceling_an_outstanding_decision_retires_its_child() -> None:
+    async def scenario() -> None:
+        host = _pid_host()
+        runner = AgentRunner(SlowActPolicy())
+        pending = asyncio.create_task(runner.decide(host.observe()))
+        await asyncio.sleep(0.02)
+
+        pending.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await pending
+
+        assert runner.generation == 2
+        await runner.replace(StopPolicy("replacement"))
+        assert (await runner.decide(host.observe())).decision == Stop("replacement")
+        await runner.close()
+        await host.close()
+
+    _run(scenario)
+
+
 def test_crashed_policy_is_retired_and_cannot_reply_later() -> None:
     async def scenario() -> None:
         host = _pid_host()

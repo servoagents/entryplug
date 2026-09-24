@@ -17,6 +17,12 @@ class Session:
         self._owns_runtime = owns_runtime
         self._closed = False
 
+    @property
+    def owns_runtime(self) -> bool:
+        """Whether closing this session also closes its operation host."""
+
+        return self._owns_runtime
+
     async def observe(self) -> RuntimeView:
         self._require_open()
         return self._host.observe()
