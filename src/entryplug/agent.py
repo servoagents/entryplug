@@ -10,7 +10,7 @@ import multiprocessing
 import os
 import time
 import uuid
-from collections.abc import Awaitable, Mapping
+from collections.abc import Awaitable, Mapping, Sequence
 from dataclasses import dataclass, field
 from multiprocessing.connection import Connection
 from multiprocessing.process import BaseProcess
@@ -106,6 +106,64 @@ class AgentStep:
 
     reply: DecisionReply
     result: OperationSnapshot | Mapping[str, JsonValue] | None
+
+
+def agent_execution_record(
+    steps: Sequence[AgentStep],
+    operation: OperationSnapshot,
+    *,
+    policy: str,
+) -> dict[str, object]:
+    """Build bounded public evidence for one completed agent-driven operation."""
+
+    if not policy:
+        raise ValueError("policy name must be nonempty")
+    if not steps:
+        raise ValueError("agent execution must contain at least one decision")
+    if not isinstance(steps[-1].reply.decision, Stop):
+        raise ValueError("agent execution must end with a stop decision")
+    process_ids = sorted({step.reply.agent_process_id for step in steps})
+    if any(process_id == os.getpid() for process_id in process_ids):
+        raise ValueError("agent policy did not run in a separate process")
+
+    decisions: list[dict[str, object]] = []
+    for step in steps:
+        item: dict[str, object] = {
+            "decision_id": step.reply.decision_id,
+            "kind": type(step.reply.decision).__name__.lower(),
+            "agent_generation": step.reply.agent_generation,
+            "agent_process_id": step.reply.agent_process_id,
+            "process_startup_ms": step.reply.process_startup_ms,
+            "decision_latency_ms": step.reply.decision_latency_ms,
+        }
+        if isinstance(step.result, OperationSnapshot):
+            item["operation_lifecycle"] = step.result.lifecycle.value
+            item["operation_phase"] = step.result.phase
+        decisions.append(item)
+
+    return {
+        "status": "passed",
+        "policy": policy,
+        "policy_process_ids": process_ids,
+        "operation_process_id": os.getpid(),
+        "separate_policy_process": True,
+        "decision_count": len(steps),
+        "wait_decision_count": sum(isinstance(step.reply.decision, Wait) for step in steps),
+        "decisions": decisions,
+        "operation": {
+            "operation_id": operation.operation_id,
+            "request_id": operation.request_id,
+            "runtime_id": operation.runtime_id,
+            "capability": operation.capability,
+            "lifecycle": operation.lifecycle.value,
+            "motion_state": operation.motion_state.value,
+            "reason_code": operation.reason_code,
+        },
+        "claim_boundary": (
+            "The child policy selected public session decisions. Only the operation "
+            "host admitted work, generated mutation IDs, and recorded terminal results."
+        ),
+    }
 
 
 def _plain(value: object) -> object:

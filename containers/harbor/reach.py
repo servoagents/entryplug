@@ -7,7 +7,6 @@ import argparse
 import asyncio
 import json
 import math
-import os
 import statistics
 import time
 import uuid
@@ -33,7 +32,7 @@ from smoke import (
     _write_png_create_only,
 )
 
-from entryplug.agent import AgentRunner, ScriptedExplorer, Stop
+from entryplug.agent import AgentRunner, ScriptedExplorer, agent_execution_record
 from entryplug.evidence import JsonValue
 from entryplug.operation import (
     CapabilitySpec,
@@ -42,7 +41,6 @@ from entryplug.operation import (
     OperationContext,
     OperationHost,
     OperationResult,
-    OperationSnapshot,
 )
 from entryplug.session import Session
 
@@ -589,50 +587,15 @@ async def _agent_reach(
                 f"agent visual reach finished as {operation.lifecycle.value}: "
                 f"{operation.reason_code}"
             )
-        decisions: list[dict[str, object]] = []
-        for step in steps:
-            item: dict[str, object] = {
-                "decision_id": step.reply.decision_id,
-                "kind": type(step.reply.decision).__name__.lower(),
-                "agent_generation": step.reply.agent_generation,
-                "agent_process_id": step.reply.agent_process_id,
-                "process_startup_ms": step.reply.process_startup_ms,
-                "decision_latency_ms": step.reply.decision_latency_ms,
-            }
-            if isinstance(step.result, OperationSnapshot):
-                item["operation_lifecycle"] = step.result.lifecycle.value
-                item["operation_phase"] = step.result.phase
-            decisions.append(item)
-        agent_process_ids = sorted({step.reply.agent_process_id for step in steps})
-        execution = {
-            "status": "passed",
-            "policy": "deterministic_scripted",
-            "policy_process_ids": agent_process_ids,
-            "operation_process_id": os.getpid(),
-            "separate_policy_process": all(value != os.getpid() for value in agent_process_ids),
-            "decision_count": len(steps),
-            "wait_decision_count": sum(
-                type(step.reply.decision).__name__ == "Wait" for step in steps
-            ),
-            "decisions": decisions,
-            "operation": {
-                "operation_id": operation.operation_id,
-                "request_id": operation.request_id,
-                "runtime_id": operation.runtime_id,
-                "capability": operation.capability,
-                "lifecycle": operation.lifecycle.value,
-                "motion_state": operation.motion_state.value,
-                "reason_code": operation.reason_code,
-            },
-            "claim_boundary": (
-                "The child policy selected public session decisions. Only the operation "
-                "host admitted motion, generated the mutation ID, and reconciled the result."
-            ),
-        }
-        if not execution["separate_policy_process"]:
-            raise RuntimeError("scripted policy did not run in a separate process")
-        if not isinstance(steps[-1].reply.decision, Stop):
-            raise RuntimeError("scripted policy did not stop after the terminal result")
+        execution = agent_execution_record(
+            steps,
+            operation,
+            policy="deterministic_scripted",
+        )
+        execution["claim_boundary"] = (
+            "The child policy selected public session decisions. Only the operation host "
+            "admitted motion, generated the mutation ID, and reconciled the result."
+        )
         return trial_result, execution
     finally:
         await runner.close()

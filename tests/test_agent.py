@@ -18,6 +18,7 @@ from entryplug.agent import (
     StaleAgentDecision,
     Stop,
     Wait,
+    agent_execution_record,
 )
 from entryplug.evidence import JsonValue
 from entryplug.operation import (
@@ -168,6 +169,13 @@ def test_scripted_explorer_acts_waits_in_code_and_stops_on_result() -> None:
         assert any(isinstance(step.reply.decision, Wait) for step in steps)
         assert isinstance(steps[-1].reply.decision, Stop)
         assert host.observe().operations[-1].result == {"pid": 42}
+        record = agent_execution_record(
+            steps,
+            host.observe().operations[-1],
+            policy="scripted_test",
+        )
+        assert record["separate_policy_process"] is True
+        assert record["wait_decision_count"] == 1
         await session.close()
 
     _run(scenario)
