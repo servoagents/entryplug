@@ -3,6 +3,7 @@ set -euo pipefail
 
 run_dir=${1:?usage: entryplug-harbor-smoke RUN_DIRECTORY}
 case_name=${2:-render-smoke}
+reuse_run=${3:-}
 if [[ -e "${run_dir}" ]]; then
   echo "refusing to overwrite existing evidence: ${run_dir}" >&2
   exit 2
@@ -128,8 +129,14 @@ case "${case_name}" in
     case_status=$?
     ;;
   mirrors)
-    python3 /workspace/entryplug/containers/harbor/mirrors.py \
-      --output "${run_dir}/mirrors.json"
+    declare -a mirrors_args=(--output "${run_dir}/mirrors.json")
+    if [[ -n "${reuse_run}" ]]; then
+      mirrors_args+=(
+        --reuse-cache
+        "/workspace/entryplug/runs/${reuse_run}/evidence-cache.private.sqlite3"
+      )
+    fi
+    python3 /workspace/entryplug/containers/harbor/mirrors.py "${mirrors_args[@]}"
     case_status=$?
     ;;
   *)

@@ -35,6 +35,70 @@ def test_harbor_run_drops_privilege_and_only_mounts_evidence(tmp_path: Path) -> 
     assert command[-1] == "reach"
 
 
+def test_harbor_mounts_prior_mirror_evidence_read_only(tmp_path: Path) -> None:
+    run_id = "harbor-mirrors-prior"
+    cache = tmp_path / "runs" / run_id / "evidence-cache.private.sqlite3"
+    cache.parent.mkdir(parents=True)
+    cache.touch()
+
+    command = harbor_run_command(
+        tmp_path,
+        "entryplug:test",
+        "harbor-mirrors-current",
+        "mirrors",
+        run_id,
+    )
+
+    expected_mount = (
+        f"type=bind,src={cache.resolve()},"
+        f"dst=/workspace/entryplug/runs/{run_id}/evidence-cache.private.sqlite3,readonly"
+    )
+    assert expected_mount in command
+    assert command[-3:] == [
+        "/workspace/entryplug/runs/harbor-mirrors-current",
+        "mirrors",
+        run_id,
+    ]
+
+
+def test_harbor_rejects_unsafe_or_inapplicable_reuse_before_side_effects(
+    tmp_path: Path,
+) -> None:
+    def runner(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        raise AssertionError(f"unexpected runtime call: {command}")
+
+    for case, run_id in (("mirrors", "../escape"), ("reach", "prior")):
+        try:
+            run_harbor(tmp_path, case=case, reuse_from=run_id, runner=runner)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("an invalid reuse source was accepted")
+    assert not (tmp_path / "runs").exists()
+
+
+def test_harbor_rejects_reuse_cache_symlink_outside_runs(tmp_path: Path) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "evidence-cache.private.sqlite3").touch()
+    runs = tmp_path / "runs"
+    runs.mkdir()
+    (runs / "linked-run").symlink_to(outside, target_is_directory=True)
+
+    try:
+        harbor_run_command(
+            tmp_path,
+            "entryplug:test",
+            "current",
+            "mirrors",
+            "linked-run",
+        )
+    except ValueError as error:
+        assert "outside the runs directory" in str(error)
+    else:
+        raise AssertionError("a reuse cache outside runs was accepted")
+
+
 def test_harbor_exposes_reaching_and_rejects_unknown_cases_before_side_effects(
     tmp_path: Path,
 ) -> None:

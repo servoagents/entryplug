@@ -38,7 +38,9 @@ from sensor_msgs.msg import Image
 
 from entryplug.agent import AgentRunner, ScriptedExplorer, agent_execution_record
 from entryplug.association import (
+    VISUAL_BINDING_KIND,
     AssociationProfile,
+    CachedVisualBinding,
     CandidateEvidence,
     load_visual_binding,
     make_visual_binding_record,
@@ -390,6 +392,7 @@ def _probe_trace_panel(
             "fit_probe": "F",
             "validation_probe": "V",
             "reuse_probe": "R",
+            "cross_episode_reuse_probe": "C",
         }[str(record["event"])]
         label = f"{stage}{int(record['index'])} {commands[index]:+.3f}"
         cv2.putText(
@@ -586,10 +589,181 @@ async def _agent_association(
         await session.close()
 
 
+def _collect_reuse_probes(
+    node: MirrorsObserver,
+    anchor: dict[str, float],
+    commands: list[float],
+    *,
+    event: str,
+    purpose_prefix: str,
+    started: float,
+    solver: random.Random,
+    trace: list[dict[str, object]],
+    public_events: list[dict[str, object]],
+    controlled_id: str,
+    delayed_id: str,
+    independent_id: str,
+    direct_pairs: list[dict[str, object]],
+    independent_pairs: list[dict[str, object]],
+) -> dict[str, object]:
+    direct: list[float] = []
+    independent: list[float] = []
+    delayed: list[dict[str, object]] = []
+    direct_ages: list[float] = []
+    independent_ages: list[float] = []
+    records: list[dict[str, object]] = []
+    for index, command in enumerate(commands):
+        requested_gap = solver.uniform(MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS)
+        actual_gap = _wait_probe_gap(node, requested_gap)
+        probe_started_ms = _round((time.monotonic() - started) * 1000)
+        independent_before = _fresh_mirror_observation(node)
+        probe = _measure_probe(
+            node,
+            anchor,
+            command,
+            purpose=f"{purpose_prefix}-{index + 1}",
+            trace=trace,
+        )
+        independent_after = _fresh_mirror_observation(
+            node, after_sequence=int(independent_before["last_frame_sequence"])
+        )
+        direct_effect = float(probe["observed_feature_delta_px"])
+        independent_effect = _round(
+            float(independent_after["y_px"]) - float(independent_before["y_px"])
+        )
+        trace_item = next(item for item in trace if item.get("request_id") == probe["request_id"])
+        direct_pairs.append(
+            {
+                "effect_px": direct_effect,
+                "before_feature": trace_item["before_feature"],
+                "after_feature": trace_item["after_feature"],
+                "before_frame": _find_frame(
+                    node.frames,
+                    int(trace_item["before_feature"]["last_frame_sequence"]),
+                    f"controlled {event} before",
+                ),
+                "after_frame": _find_frame(
+                    node.frames,
+                    int(trace_item["after_feature"]["last_frame_sequence"]),
+                    f"controlled {event} after",
+                ),
+            }
+        )
+        independent_pairs.append(
+            {
+                "effect_px": independent_effect,
+                "before": independent_before,
+                "after": independent_after,
+                "before_frame": _find_frame(
+                    node.mirror_frames,
+                    int(independent_before["last_frame_sequence"]),
+                    f"independent {event} before",
+                ),
+                "after_frame": _find_frame(
+                    node.mirror_frames,
+                    int(independent_after["last_frame_sequence"]),
+                    f"independent {event} after",
+                ),
+            }
+        )
+        direct.append(direct_effect)
+        independent.append(independent_effect)
+        direct_ages.append(float(trace_item["after_feature"]["last_receive_age_ms"]))
+        independent_ages.append(
+            max(
+                float(independent_before["last_receive_age_ms"]),
+                float(independent_after["last_receive_age_ms"]),
+            )
+        )
+        delayed_copy = _deliver_delayed_copy(node, probe, trace_item)
+        delayed.append(delayed_copy)
+        record = {
+            "event": event,
+            "index": index + 1,
+            "command_radians": command,
+            "pre_probe_gap_ms": _round(actual_gap * 1000),
+            "probe_started_ms": probe_started_ms,
+            "probe_completed_ms": _round((time.monotonic() - started) * 1000),
+            "request_id": probe["request_id"],
+            "goal_id": probe["goal_id"],
+            "candidate_effects_px": {
+                controlled_id: direct_effect,
+                delayed_id: delayed_copy["effect_px"],
+                independent_id: independent_effect,
+            },
+            "independent_sample_ids": {
+                "before": independent_before["last_frame_sequence"],
+                "after": independent_after["last_frame_sequence"],
+            },
+        }
+        records.append(record)
+        public_events.append(record)
+    return {
+        "direct": direct,
+        "independent": independent,
+        "delayed": delayed,
+        "direct_ages": direct_ages,
+        "independent_ages": independent_ages,
+        "records": records,
+    }
+
+
+def _validate_reuse_measurements(
+    binding: CachedVisualBinding,
+    commands: list[float],
+    measurements: dict[str, object],
+    *,
+    controlled_id: str,
+    controlled_lineage: str,
+    delayed_id: str,
+    independent_id: str,
+    independent_lineage: str,
+    direct_noise: dict[str, object],
+    independent_noise: dict[str, object],
+    profile: AssociationProfile,
+) -> dict[str, object]:
+    direct = measurements["direct"]
+    independent = measurements["independent"]
+    delayed = measurements["delayed"]
+    direct_ages = measurements["direct_ages"]
+    independent_ages = measurements["independent_ages"]
+    assert isinstance(direct, list)
+    assert isinstance(independent, list)
+    assert isinstance(delayed, list)
+    assert isinstance(direct_ages, list)
+    assert isinstance(independent_ages, list)
+    return validate_cached_binding(
+        binding,
+        commands_radians=commands,
+        candidate_effects_px={
+            controlled_id: direct,
+            delayed_id: direct,
+            independent_id: independent,
+        },
+        candidate_lineages={
+            controlled_id: controlled_lineage,
+            delayed_id: controlled_lineage,
+            independent_id: independent_lineage,
+        },
+        candidate_maximum_ages_ms={
+            controlled_id: max(direct_ages),
+            delayed_id: max(float(item["delay_ms"]) for item in delayed),
+            independent_id: max(independent_ages),
+        },
+        candidate_noise_ranges_px={
+            controlled_id: float(direct_noise["y_range_px"]),
+            delayed_id: float(direct_noise["y_range_px"]),
+            independent_id: float(independent_noise["y_range_px"]),
+        },
+        profile=profile,
+    )
+
+
 def qualify(
     output_dir: Path,
     trace: list[dict[str, object]],
     public_events: list[dict[str, object]],
+    reuse_cache_path: Path | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     started = time.monotonic()
     node = MirrorsObserver()
@@ -655,14 +829,124 @@ def qualify(
         solver.shuffle(fit_commands)
         solver.shuffle(validation_commands)
 
+        profile = AssociationProfile()
+        independent_pairs: list[dict[str, object]] = []
+        direct_pairs: list[dict[str, object]] = []
+        cross_episode_reuse: dict[str, object] | None = None
+        cross_commands: list[float] = []
+        cross_records: list[dict[str, object]] = []
+        cross_delayed: list[dict[str, object]] = []
+        if reuse_cache_path is not None:
+            source_hash_before = hashlib.sha256(reuse_cache_path.read_bytes()).hexdigest()
+            prior_cache = SqliteEvidenceCache(reuse_cache_path, read_only=True)
+            try:
+                prior_candidates = prior_cache.find(
+                    EvidenceQuery(kind=VISUAL_BINDING_KIND, context=BINDING_CONTEXT),
+                    limit=1,
+                )
+                if prior_candidates:
+                    prior_record = prior_cache.load(prior_candidates[0].key)
+                else:
+                    prior_record = None
+            finally:
+                prior_cache.close()
+
+            if prior_record is None:
+                cross_episode_reuse = {
+                    "status": "miss",
+                    "reason_code": "no_compatible_binding",
+                    "cache_hit_granted_readiness": False,
+                    "fallback": "full_reacquisition",
+                }
+            else:
+                prior_binding = load_visual_binding(prior_record)
+                cross_started = time.monotonic()
+                cross_commands = list(REUSE_PROBES_RADIANS)
+                cross_solver = random.Random(SOLVER_SEED + 101)
+                cross_solver.shuffle(cross_commands)
+                cross_measurements = _collect_reuse_probes(
+                    node,
+                    anchor,
+                    cross_commands,
+                    event="cross_episode_reuse_probe",
+                    purpose_prefix="mirrors-cross-episode-reuse",
+                    started=started,
+                    solver=cross_solver,
+                    trace=trace,
+                    public_events=public_events,
+                    controlled_id=controlled_id,
+                    delayed_id=delayed_id,
+                    independent_id=independent_id,
+                    direct_pairs=direct_pairs,
+                    independent_pairs=independent_pairs,
+                )
+                cross_result = _validate_reuse_measurements(
+                    prior_binding,
+                    cross_commands,
+                    cross_measurements,
+                    controlled_id=controlled_id,
+                    controlled_lineage=controlled_lineage,
+                    delayed_id=delayed_id,
+                    independent_id=independent_id,
+                    independent_lineage=independent_lineage,
+                    direct_noise=direct_noise,
+                    independent_noise=independent_noise,
+                    profile=profile,
+                )
+                invalidated_result = _validate_reuse_measurements(
+                    replace(
+                        prior_binding,
+                        gain_px_per_radian=-prior_binding.gain_px_per_radian,
+                    ),
+                    cross_commands,
+                    cross_measurements,
+                    controlled_id=controlled_id,
+                    controlled_lineage=controlled_lineage,
+                    delayed_id=delayed_id,
+                    independent_id=independent_id,
+                    independent_lineage=independent_lineage,
+                    direct_noise=direct_noise,
+                    independent_noise=independent_noise,
+                    profile=profile,
+                )
+                cross_records = cross_measurements["records"]
+                cross_delayed = cross_measurements["delayed"]
+                assert isinstance(cross_records, list)
+                assert isinstance(cross_delayed, list)
+                cross_episode_reuse = {
+                    "status": cross_result["status"],
+                    "source_cache": str(reuse_cache_path),
+                    "source_evidence_key": prior_record.key,
+                    "cache_hit_granted_readiness": False,
+                    "validation": cross_result,
+                    "invalidation_negative_test": invalidated_result,
+                    "checked_reuse": {
+                        "probe_count": len(cross_commands),
+                        "command_travel_radians": _round(
+                            sum(abs(value) for value in cross_commands)
+                        ),
+                        "duration_ms": _round((time.monotonic() - cross_started) * 1000),
+                    },
+                    "fallback": (
+                        None if cross_result["status"] == "reused" else "full_reacquisition"
+                    ),
+                }
+            source_hash_after = hashlib.sha256(reuse_cache_path.read_bytes()).hexdigest()
+            cross_episode_reuse["source_cache_sha256"] = source_hash_before
+            cross_episode_reuse["source_cache_unchanged"] = source_hash_after == source_hash_before
+            public_events.append(
+                {
+                    "event": "cross_episode_reuse_result",
+                    "result": cross_episode_reuse,
+                }
+            )
+
         direct_fit: list[float] = []
         independent_fit: list[float] = []
         independent_ages: list[float] = []
         delayed_fit: list[dict[str, object]] = []
         direct_ages: list[float] = []
         fit_records: list[dict[str, object]] = []
-        independent_pairs: list[dict[str, object]] = []
-        direct_pairs: list[dict[str, object]] = []
         acquisition_started = time.monotonic()
         for index, command in enumerate(fit_commands):
             requested_gap = solver.uniform(MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS)
@@ -874,7 +1158,6 @@ def qualify(
         )
         candidates = [controlled, delayed, independent]
         random.Random(SOURCE_NAME_SEED + 2).shuffle(candidates)
-        profile = AssociationProfile()
         metadata_baseline = metadata_only_selection(candidates, profile)
         selection, agent_execution = asyncio.run(_agent_association(candidates, profile))
         acquisition_duration_ms = _round((time.monotonic() - acquisition_started) * 1000)
@@ -933,126 +1216,39 @@ def qualify(
         reuse_started = time.monotonic()
         reuse_commands = list(REUSE_PROBES_RADIANS)
         solver.shuffle(reuse_commands)
-        reuse_direct: list[float] = []
-        reuse_independent: list[float] = []
-        reuse_delayed: list[dict[str, object]] = []
-        reuse_direct_ages: list[float] = []
-        reuse_independent_ages: list[float] = []
-        reuse_records: list[dict[str, object]] = []
-        for index, command in enumerate(reuse_commands):
-            requested_gap = solver.uniform(MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS)
-            actual_gap = _wait_probe_gap(node, requested_gap)
-            probe_started_ms = _round((time.monotonic() - started) * 1000)
-            independent_before = _fresh_mirror_observation(node)
-            probe = _measure_probe(
-                node,
-                anchor,
-                command,
-                purpose=f"mirrors-reuse-{index + 1}",
-                trace=trace,
-            )
-            independent_after = _fresh_mirror_observation(
-                node, after_sequence=int(independent_before["last_frame_sequence"])
-            )
-            direct_effect = float(probe["observed_feature_delta_px"])
-            independent_effect = _round(
-                float(independent_after["y_px"]) - float(independent_before["y_px"])
-            )
-            trace_item = next(
-                item for item in trace if item.get("request_id") == probe["request_id"]
-            )
-            direct_pairs.append(
-                {
-                    "effect_px": direct_effect,
-                    "before_feature": trace_item["before_feature"],
-                    "after_feature": trace_item["after_feature"],
-                    "before_frame": _find_frame(
-                        node.frames,
-                        int(trace_item["before_feature"]["last_frame_sequence"]),
-                        "controlled reuse probe before",
-                    ),
-                    "after_frame": _find_frame(
-                        node.frames,
-                        int(trace_item["after_feature"]["last_frame_sequence"]),
-                        "controlled reuse probe after",
-                    ),
-                }
-            )
-            independent_pairs.append(
-                {
-                    "effect_px": independent_effect,
-                    "before": independent_before,
-                    "after": independent_after,
-                    "before_frame": _find_frame(
-                        node.mirror_frames,
-                        int(independent_before["last_frame_sequence"]),
-                        "independent reuse interval before",
-                    ),
-                    "after_frame": _find_frame(
-                        node.mirror_frames,
-                        int(independent_after["last_frame_sequence"]),
-                        "independent reuse interval after",
-                    ),
-                }
-            )
-            reuse_direct.append(direct_effect)
-            reuse_independent.append(independent_effect)
-            reuse_direct_ages.append(float(trace_item["after_feature"]["last_receive_age_ms"]))
-            reuse_independent_ages.append(
-                max(
-                    float(independent_before["last_receive_age_ms"]),
-                    float(independent_after["last_receive_age_ms"]),
-                )
-            )
-            delayed_copy = _deliver_delayed_copy(node, probe, trace_item)
-            reuse_delayed.append(delayed_copy)
-            record = {
-                "event": "reuse_probe",
-                "index": index + 1,
-                "command_radians": command,
-                "pre_probe_gap_ms": _round(actual_gap * 1000),
-                "probe_started_ms": probe_started_ms,
-                "probe_completed_ms": _round((time.monotonic() - started) * 1000),
-                "request_id": probe["request_id"],
-                "goal_id": probe["goal_id"],
-                "candidate_effects_px": {
-                    controlled_id: direct_effect,
-                    delayed_id: delayed_copy["effect_px"],
-                    independent_id: independent_effect,
-                },
-                "independent_sample_ids": {
-                    "before": independent_before["last_frame_sequence"],
-                    "after": independent_after["last_frame_sequence"],
-                },
-            }
-            reuse_records.append(record)
-            public_events.append(record)
-
-        checked_reuse = validate_cached_binding(
+        reuse_measurements = _collect_reuse_probes(
+            node,
+            anchor,
+            reuse_commands,
+            event="reuse_probe",
+            purpose_prefix="mirrors-reuse",
+            started=started,
+            solver=solver,
+            trace=trace,
+            public_events=public_events,
+            controlled_id=controlled_id,
+            delayed_id=delayed_id,
+            independent_id=independent_id,
+            direct_pairs=direct_pairs,
+            independent_pairs=independent_pairs,
+        )
+        checked_reuse = _validate_reuse_measurements(
             cached_binding,
-            commands_radians=reuse_commands,
-            candidate_effects_px={
-                controlled_id: reuse_direct,
-                delayed_id: reuse_direct,
-                independent_id: reuse_independent,
-            },
-            candidate_lineages={
-                controlled_id: controlled_lineage,
-                delayed_id: controlled_lineage,
-                independent_id: independent_lineage,
-            },
-            candidate_maximum_ages_ms={
-                controlled_id: max(reuse_direct_ages),
-                delayed_id: max(float(item["delay_ms"]) for item in reuse_delayed),
-                independent_id: max(reuse_independent_ages),
-            },
-            candidate_noise_ranges_px={
-                controlled_id: float(direct_noise["y_range_px"]),
-                delayed_id: float(direct_noise["y_range_px"]),
-                independent_id: float(independent_noise["y_range_px"]),
-            },
+            reuse_commands,
+            reuse_measurements,
+            controlled_id=controlled_id,
+            controlled_lineage=controlled_lineage,
+            delayed_id=delayed_id,
+            independent_id=independent_id,
+            independent_lineage=independent_lineage,
+            direct_noise=direct_noise,
+            independent_noise=independent_noise,
             profile=profile,
         )
+        reuse_records = reuse_measurements["records"]
+        reuse_delayed = reuse_measurements["delayed"]
+        assert isinstance(reuse_records, list)
+        assert isinstance(reuse_delayed, list)
         reuse_duration_ms = _round((time.monotonic() - reuse_started) * 1000)
         reuse_work = {
             "scope": "warm reuse within one live fixture episode",
@@ -1073,6 +1269,23 @@ def qualify(
                 "duration_ms": reuse_duration_ms,
             },
         }
+        if cross_episode_reuse is not None:
+            cross_episode_reuse["full_reacquisition"] = {
+                "probe_count": len(fit_commands) + len(validation_commands),
+                "command_travel_radians": _round(
+                    sum(abs(value) for value in fit_commands + validation_commands)
+                ),
+                "duration_ms": acquisition_duration_ms,
+                "selected_candidate_id": selection.get("candidate_id"),
+            }
+            negative_result = cross_episode_reuse.get("invalidation_negative_test")
+            cross_episode_reuse["recovery_check"] = {
+                "invalidated_binding_refused": (
+                    isinstance(negative_result, dict) and negative_result.get("status") == "refused"
+                ),
+                "next_action_after_refusal": "full_reacquisition",
+                "full_reacquisition_lane_executed": True,
+            }
         public_events.append(
             {
                 "event": "checked_reuse_result",
@@ -1125,7 +1338,7 @@ def qualify(
                 f"LATER: RED CENTROID DY {independent_delta:+.1f} PX",
             ),
         )
-        all_probe_records = fit_records + validation_records + reuse_records
+        all_probe_records = cross_records + fit_records + validation_records + reuse_records
         trace_panel = _probe_trace_panel(
             all_probe_records,
             controlled_id,
@@ -1286,6 +1499,37 @@ def qualify(
                 and agent_execution["operation"]["lifecycle"] == "succeeded"
             ),
         }
+        if cross_episode_reuse is not None:
+            cross_checked = cross_episode_reuse.get("checked_reuse")
+            cross_full = cross_episode_reuse["full_reacquisition"]
+            recovery_check = cross_episode_reuse["recovery_check"]
+            gates.update(
+                {
+                    "cross_episode_binding_revalidated": (
+                        cross_episode_reuse["status"] == "reused"
+                    ),
+                    "prior_evidence_cache_unchanged": bool(
+                        cross_episode_reuse["source_cache_unchanged"]
+                    ),
+                    "invalidated_cross_episode_binding_refused": (
+                        isinstance(recovery_check, dict)
+                        and bool(recovery_check["invalidated_binding_refused"])
+                    ),
+                    "cross_episode_reuse_reduced_probe_count": (
+                        isinstance(cross_checked, dict)
+                        and int(cross_checked["probe_count"]) < int(cross_full["probe_count"])
+                    ),
+                    "cross_episode_reuse_reduced_command_travel": (
+                        isinstance(cross_checked, dict)
+                        and float(cross_checked["command_travel_radians"])
+                        < float(cross_full["command_travel_radians"])
+                    ),
+                    "cross_episode_reuse_reduced_setup_time": (
+                        isinstance(cross_checked, dict)
+                        and float(cross_checked["duration_ms"]) < float(cross_full["duration_ms"])
+                    ),
+                }
+            )
         if not all(gates.values()):
             failed = [name for name, passed in gates.items() if not passed]
             raise RuntimeError(f"association gates failed: {', '.join(failed)}")
@@ -1303,7 +1547,11 @@ def qualify(
                 "to the spectator topic."
             ),
             "private_fixture_schedule": "mirror-schedule.private.jsonl",
-            "reuse_scope": "warm reuse within one live fixture episode",
+            "reuse_scope": (
+                "explicit checked cross-episode reuse and warm within-episode reuse"
+                if cross_episode_reuse is not None
+                else "warm reuse within one live fixture episode"
+            ),
         }
         summary = {
             "schema_version": 2,
@@ -1337,7 +1585,7 @@ def qualify(
                 "maximum_measured_delivery_ms": _round(maximum_delay_ms),
                 "capture_stamps_preserved": all(
                     bool(item["capture_stamps_preserved"])
-                    for item in delayed_fit + delayed_validation + reuse_delayed
+                    for item in delayed_fit + delayed_validation + cross_delayed + reuse_delayed
                 ),
                 "same_lineage_as_controlled": True,
                 "treated_as_independent_evidence": False,
@@ -1346,6 +1594,7 @@ def qualify(
             "validation_probe_count": len(validation_commands),
             "reuse_probe_count": len(reuse_commands),
             "checked_reuse": reuse_work,
+            "cross_episode_reuse": cross_episode_reuse,
             "probe_timing": {
                 "randomized_pre_probe_gaps": True,
                 "minimum_requested_gap_ms": MINIMUM_PROBE_GAP_SECONDS * 1000,
@@ -1358,7 +1607,11 @@ def qualify(
             "validation_probes": validation_records,
             "safety": {
                 "maximum_probe_radians": max(
-                    abs(value) for value in fit_commands + validation_commands + reuse_commands
+                    abs(value)
+                    for value in fit_commands
+                    + validation_commands
+                    + cross_commands
+                    + reuse_commands
                 ),
                 "all_native_actions_succeeded": all(
                     int(item["native_status"]) == 4 for item in trace
@@ -1385,8 +1638,10 @@ def qualify(
                 "order and timing are randomized independently. The external overview "
                 "is captured after association by an evaluator-only process. This "
                 "qualifies local source association and checked within-episode reuse "
-                "in this Harbor fixture. It does not yet qualify cross-episode reuse, "
-                "invalidation recovery, or general causal identification."
+                "in this Harbor fixture. When an explicit prior cache is supplied, it "
+                "also qualifies read-only cross-episode revalidation and the refusal "
+                "path for an invalidated model. It does not qualify general causal "
+                "identification."
             ),
         }
         return summary, evaluation
@@ -1397,6 +1652,7 @@ def qualify(
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--reuse-cache", type=Path)
     args = parser.parse_args()
     trace: list[dict[str, object]] = []
     public_events: list[dict[str, object]] = []
@@ -1404,7 +1660,12 @@ def main() -> int:
     rclpy.init()
     try:
         try:
-            payload, evaluation = qualify(args.output.parent, trace, public_events)
+            payload, evaluation = qualify(
+                args.output.parent,
+                trace,
+                public_events,
+                reuse_cache_path=args.reuse_cache,
+            )
         except Exception as error:  # preserve failure evidence at the process boundary
             payload = {
                 "schema_version": 2,

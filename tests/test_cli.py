@@ -14,6 +14,22 @@ def test_test_command_forwards_pytest_options() -> None:
     assert args.pytest_args == ["-q", "tests/test_cli.py"]
 
 
+def test_up_accepts_an_explicit_prior_mirrors_run() -> None:
+    args = _parse_args(
+        [
+            "up",
+            "--runtime",
+            "container",
+            "--case",
+            "mirrors",
+            "--reuse-from",
+            "harbor-mirrors-prior",
+        ]
+    )
+
+    assert args.reuse_from == "harbor-mirrors-prior"
+
+
 def test_doctor_json_is_machine_readable(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

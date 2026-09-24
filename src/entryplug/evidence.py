@@ -252,8 +252,17 @@ class MemoryEvidenceCache:
 class SqliteEvidenceCache:
     """SQLite implementation of the same bounded immutable cache contract."""
 
-    def __init__(self, path: Path) -> None:
-        self._connection: sqlite3.Connection | None = sqlite3.connect(path)
+    def __init__(self, path: Path, *, read_only: bool = False) -> None:
+        self._read_only = read_only
+        self._connection: sqlite3.Connection | None
+        if read_only:
+            if not path.is_file():
+                raise FileNotFoundError(f"evidence cache does not exist: {path}")
+            uri = f"{path.resolve().as_uri()}?mode=ro&immutable=1"
+            self._connection = sqlite3.connect(uri, uri=True)
+            return
+
+        self._connection = sqlite3.connect(path)
         self._connection.execute(
             """
             CREATE TABLE IF NOT EXISTS evidence_records (
@@ -306,6 +315,8 @@ class SqliteEvidenceCache:
         return None if row is None else self._decode(row[0])
 
     def store(self, record: EvidenceRecord) -> str:
+        if self._read_only:
+            raise PermissionError("evidence cache is read only")
         encoded = _canonical(record.to_dict(), "evidence record")
         with self._open():
             self._open().execute(

@@ -74,6 +74,11 @@ def _parser() -> argparse.ArgumentParser:
     up.add_argument("--case", choices=supported_cases(), required=True)
     up.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
     up.add_argument(
+        "--reuse-from",
+        metavar="RUN_ID",
+        help="recheck a prior mirrors run's cached binding before reacquiring",
+    )
+    up.add_argument(
         "--build",
         action="store_true",
         help="explicitly build the pinned runtime image before starting",
@@ -165,7 +170,13 @@ def _up(args: argparse.Namespace) -> int:
         print("entryplug up: run this command from a source checkout", file=sys.stderr)
         return 2
     try:
-        result = run_harbor(root, image=args.image, case=args.case, build=args.build)
+        result = run_harbor(
+            root,
+            image=args.image,
+            case=args.case,
+            reuse_from=args.reuse_from,
+            build=args.build,
+        )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"entryplug up: {error}", file=sys.stderr)
         return 2

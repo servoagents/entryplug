@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import uuid
 from collections.abc import Callable, Sequence
@@ -41,13 +42,17 @@ def harbor_build_command(root: Path, image: str, uid: int, gid: int) -> list[str
 
 
 def harbor_run_command(
-    root: Path, image: str, run_id: str, case: str = "render-smoke"
+    root: Path,
+    image: str,
+    run_id: str,
+    case: str = "render-smoke",
+    reuse_from: str | None = None,
 ) -> list[str]:
     """Construct the least-privilege command for a self-contained Harbor case."""
 
     runs = (root / "runs").resolve()
     container_run = f"/workspace/entryplug/runs/{run_id}"
-    return [
+    command = [
         "docker",
         "run",
         "--rm",
@@ -72,11 +77,41 @@ def harbor_run_command(
         "RMW_IMPLEMENTATION=rmw_zenoh_cpp",
         "--mount",
         f"type=bind,src={runs},dst=/workspace/entryplug/runs",
-        image,
-        "/usr/local/bin/entryplug-harbor-smoke",
-        container_run,
-        case,
     ]
+    if reuse_from is not None:
+        source = _reuse_cache_path(root, case, reuse_from)
+        container_source = f"/workspace/entryplug/runs/{reuse_from}/evidence-cache.private.sqlite3"
+        command.extend(
+            (
+                "--mount",
+                f"type=bind,src={source},dst={container_source},readonly",
+            )
+        )
+    command.extend(
+        (
+            image,
+            "/usr/local/bin/entryplug-harbor-smoke",
+            container_run,
+            case,
+        )
+    )
+    if reuse_from is not None:
+        command.append(reuse_from)
+    return command
+
+
+def _reuse_cache_path(root: Path, case: str, reuse_from: str) -> Path:
+    if case != "mirrors":
+        raise ValueError("prior evidence reuse is only supported by the mirrors case")
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", reuse_from) is None:
+        raise ValueError("reuse run ID contains unsupported characters")
+    runs = (root / "runs").resolve()
+    cache = (runs / reuse_from / "evidence-cache.private.sqlite3").resolve()
+    if not cache.is_relative_to(runs):
+        raise ValueError("reuse cache resolves outside the runs directory")
+    if not cache.is_file():
+        raise FileNotFoundError(f"prior evidence cache is unavailable: {cache}")
+    return cache
 
 
 def run_harbor(
@@ -84,6 +119,7 @@ def run_harbor(
     *,
     image: str = DEFAULT_HARBOR_IMAGE,
     case: str = "render-smoke",
+    reuse_from: str | None = None,
     build: bool = False,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> RuntimeResult:
@@ -91,6 +127,8 @@ def run_harbor(
 
     if case not in supported_cases():
         raise ValueError(f"unsupported Harbor case: {case}")
+    if reuse_from is not None:
+        _reuse_cache_path(root, case, reuse_from)
     runs = root / "runs"
     runs.mkdir(parents=True, exist_ok=True)
     if build:
@@ -117,7 +155,7 @@ def run_harbor(
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     run_id = f"harbor-{case}-{stamp}-{uuid.uuid4().hex[:8]}"
     completed = runner(
-        harbor_run_command(root, image, run_id, case),
+        harbor_run_command(root, image, run_id, case, reuse_from),
         cwd=root,
         check=False,
         text=True,

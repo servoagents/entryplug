@@ -108,3 +108,27 @@ def test_query_bounds_are_enforced(
     with pytest.raises(ValueError, match="between 1 and 100"):
         cache.find(query, limit=101)
     cache.close()
+
+
+def test_sqlite_cache_can_be_reopened_without_write_authority(tmp_path: Path) -> None:
+    path = tmp_path / "evidence.sqlite3"
+    writable = SqliteEvidenceCache(path)
+    record = _record()
+    writable.store(record)
+    writable.close()
+    original = path.read_bytes()
+
+    read_only = SqliteEvidenceCache(path, read_only=True)
+    query = EvidenceQuery(kind=record.kind, context=record.context)
+    assert read_only.find(query) == (record,)
+    assert read_only.load(record.key) == record
+    with pytest.raises(PermissionError, match="read only"):
+        read_only.store(record)
+    read_only.close()
+
+    assert path.read_bytes() == original
+
+
+def test_read_only_sqlite_cache_requires_existing_file(tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="does not exist"):
+        SqliteEvidenceCache(tmp_path / "missing.sqlite3", read_only=True)
