@@ -58,24 +58,26 @@ from entryplug.operation import (
     OperationHost,
     OperationResult,
 )
+from entryplug.qualification import HARBOR_MIRRORS_V1
 from entryplug.seeding import derive_experiment_seed, validate_experiment_seed
 from entryplug.session import Session
 
 DEFAULT_SOLVER_SEED = 947
 DEFAULT_SOURCE_NAME_SEED = 7043
 DEFAULT_FIXTURE_SEED = 3119
-DELAY_SECONDS = 0.36
-FIT_PROBES_RADIANS = (0.018, -0.031, 0.047, -0.022, 0.036, -0.044)
-VALIDATION_PROBES_RADIANS = (0.028, -0.049, 0.041, -0.034)
-REUSE_PROBES_RADIANS = (-0.027, 0.023)
-REUSE_CONFIRMATION_PROBES_RADIANS = (0.041, -0.043)
-MINIMUM_PROBE_GAP_SECONDS = 0.12
-MAXIMUM_PROBE_GAP_SECONDS = 0.62
+DELAY_SECONDS = HARBOR_MIRRORS_V1.delayed_path_seconds
+FIT_PROBES_RADIANS = HARBOR_MIRRORS_V1.fit_probes_radians
+VALIDATION_PROBES_RADIANS = HARBOR_MIRRORS_V1.validation_probes_radians
+REUSE_PROBES_RADIANS = HARBOR_MIRRORS_V1.reuse_probes_radians
+REUSE_CONFIRMATION_PROBES_RADIANS = HARBOR_MIRRORS_V1.reuse_confirmation_probes_radians
+MINIMUM_PROBE_GAP_SECONDS = HARBOR_MIRRORS_V1.minimum_probe_gap_seconds
+MAXIMUM_PROBE_GAP_SECONDS = HARBOR_MIRRORS_V1.maximum_probe_gap_seconds
 BINDING_CONTEXT = {
     "task": "visual_reach",
     "model_version": "scalar-jacobian-v1",
     "fixture": "harbor-mirrors-v1",
     "source_convention": "red-centroid-y-v1",
+    "qualification_profile": HARBOR_MIRRORS_V1.profile_id,
 }
 
 
@@ -881,7 +883,7 @@ def qualify(
         solver.shuffle(fit_commands)
         solver.shuffle(validation_commands)
 
-        profile = AssociationProfile()
+        profile = HARBOR_MIRRORS_V1.association
         independent_pairs: list[dict[str, object]] = []
         direct_pairs: list[dict[str, object]] = []
         cross_episode_reuse: dict[str, object] | None = None
@@ -1766,6 +1768,11 @@ def qualify(
             "schema_version": 2,
             "status": "passed",
             "recorded_at": datetime.now(UTC).isoformat(),
+            "qualification_profile": {
+                "profile_id": HARBOR_MIRRORS_V1.profile_id,
+                "digest": HARBOR_MIRRORS_V1.digest,
+                "contract": HARBOR_MIRRORS_V1.to_dict(),
+            },
             "seeds": {
                 "experiment": experiment_seed,
                 "solver": solver_seed,
