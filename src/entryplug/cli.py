@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from entryplug.doctor import DoctorReport, default_report_path, run_doctor, write_report
+from entryplug.pilot import run_mirrors_pilot
 from entryplug.runtime import DEFAULT_HARBOR_IMAGE, run_harbor, supported_cases
 
 
@@ -87,6 +88,16 @@ def _parser() -> argparse.ArgumentParser:
         "--build",
         action="store_true",
         help="explicitly build the pinned runtime image before starting",
+    )
+
+    pilot = commands.add_parser("pilot", help="run a declared Hall of Mirrors seed suite")
+    pilot.add_argument("--runtime", choices=("container",), required=True)
+    pilot.add_argument("--phase", choices=("development", "holdout"), required=True)
+    pilot.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
+    pilot.add_argument(
+        "--build",
+        action="store_true",
+        help="explicitly build the pinned runtime image before the first episode",
     )
     return parser
 
@@ -193,6 +204,28 @@ def _up(args: argparse.Namespace) -> int:
     return result.returncode
 
 
+def _pilot(args: argparse.Namespace) -> int:
+    root = source_root()
+    if root is None:
+        print("entryplug pilot: run this command from a source checkout", file=sys.stderr)
+        return 2
+    try:
+        result = run_mirrors_pilot(
+            root,
+            phase=args.phase,
+            image=args.image,
+            build=args.build,
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"entryplug pilot: {error}", file=sys.stderr)
+        return 2
+    print(
+        f"mirror pilot: {result.passed_count}/{result.episode_count} passed\n"
+        f"evidence: {result.evidence_path}"
+    )
+    return 0 if result.passed else 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.command == "doctor":
@@ -201,6 +234,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _test(args)
     if args.command == "up":
         return _up(args)
+    if args.command == "pilot":
+        return _pilot(args)
     raise AssertionError(f"unhandled command: {args.command}")
 
 

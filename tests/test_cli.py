@@ -46,6 +46,13 @@ def test_up_accepts_a_reproducible_mirrors_seed() -> None:
     assert args.seed == 31415
 
 
+def test_pilot_selects_a_frozen_seed_suite() -> None:
+    args = _parse_args(["pilot", "--runtime", "container", "--phase", "holdout", "--build"])
+
+    assert args.phase == "holdout"
+    assert args.build is True
+
+
 def test_doctor_json_is_machine_readable(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

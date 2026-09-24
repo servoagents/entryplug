@@ -157,6 +157,7 @@ def run_harbor(
     reuse_from: str | None = None,
     seed: int | None = None,
     build: bool = False,
+    capture_output: bool = False,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> RuntimeResult:
     """Build when requested, then run a Harbor qualification case."""
@@ -192,13 +193,22 @@ def run_harbor(
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     seed_label = f"-s{seed}" if seed is not None else ""
     run_id = f"harbor-{case}{seed_label}-{stamp}-{uuid.uuid4().hex[:8]}"
+    output_options: dict[str, object] = {}
+    if capture_output:
+        output_options = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT}
     completed = runner(
         harbor_run_command(root, image, run_id, case, reuse_from, seed),
         cwd=root,
         check=False,
         text=True,
+        **output_options,
     )
-    return RuntimeResult(completed.returncode, run_id, runs / run_id)
+    evidence_path = runs / run_id
+    if capture_output and completed.stdout is not None:
+        evidence_path.mkdir(parents=True, exist_ok=True)
+        with (evidence_path / "launcher.log").open("x", encoding="utf-8") as stream:
+            stream.write(completed.stdout)
+    return RuntimeResult(completed.returncode, run_id, evidence_path)
 
 
 def supported_cases() -> Sequence[str]:
