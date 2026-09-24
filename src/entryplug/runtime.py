@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from entryplug.seeding import validate_experiment_seed
+
 DEFAULT_HARBOR_IMAGE = "entryplug-harbor:jazzy"
 
 
@@ -48,10 +50,12 @@ def harbor_run_command(
     run_id: str,
     case: str = "render-smoke",
     reuse_from: str | None = None,
+    seed: int | None = None,
 ) -> list[str]:
     """Construct the least-privilege command for a self-contained Harbor case."""
 
     runs = (root / "runs").resolve()
+    _validate_case_seed(case, seed)
     container_run = f"/workspace/entryplug/runs/{run_id}"
     command = [
         "docker",
@@ -80,7 +84,7 @@ def harbor_run_command(
         f"type=bind,src={runs},dst=/workspace/entryplug/runs",
     ]
     if reuse_from is not None:
-        source = _reuse_cache_path(root, case, reuse_from)
+        source = _reuse_cache_path(root, case, reuse_from, seed)
         container_source = f"/workspace/entryplug/runs/{reuse_from}/evidence-cache.private.sqlite3"
         command.extend(
             (
@@ -98,10 +102,27 @@ def harbor_run_command(
     )
     if reuse_from is not None:
         command.append(reuse_from)
+    if seed is not None:
+        if reuse_from is None:
+            command.append("")
+        command.append(str(seed))
     return command
 
 
-def _reuse_cache_path(root: Path, case: str, reuse_from: str) -> Path:
+def _validate_case_seed(case: str, seed: int | None) -> None:
+    if seed is None:
+        return
+    if case != "mirrors":
+        raise ValueError("experiment seeds are only supported by the mirrors case")
+    validate_experiment_seed(seed)
+
+
+def _reuse_cache_path(
+    root: Path,
+    case: str,
+    reuse_from: str,
+    seed: int | None = None,
+) -> Path:
     if case != "mirrors":
         raise ValueError("prior evidence reuse is only supported by the mirrors case")
     if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", reuse_from) is None:
@@ -121,6 +142,10 @@ def _reuse_cache_path(root: Path, case: str, reuse_from: str) -> Path:
         raise ValueError(f"prior mirrors result is unreadable: {summary}") from error
     if not isinstance(result, dict) or result.get("status") != "passed":
         raise ValueError("prior mirrors run did not pass qualification")
+    recorded_seeds = result.get("seeds")
+    recorded_seed = recorded_seeds.get("experiment") if isinstance(recorded_seeds, dict) else None
+    if recorded_seed != seed:
+        raise ValueError("prior mirrors run used a different experiment seed")
     return cache
 
 
@@ -130,6 +155,7 @@ def run_harbor(
     image: str = DEFAULT_HARBOR_IMAGE,
     case: str = "render-smoke",
     reuse_from: str | None = None,
+    seed: int | None = None,
     build: bool = False,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> RuntimeResult:
@@ -137,8 +163,9 @@ def run_harbor(
 
     if case not in supported_cases():
         raise ValueError(f"unsupported Harbor case: {case}")
+    _validate_case_seed(case, seed)
     if reuse_from is not None:
-        _reuse_cache_path(root, case, reuse_from)
+        _reuse_cache_path(root, case, reuse_from, seed)
     runs = root / "runs"
     runs.mkdir(parents=True, exist_ok=True)
     if build:
@@ -163,9 +190,10 @@ def run_harbor(
             raise FileNotFoundError(f"container image {image!r} is unavailable; rerun with --build")
 
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    run_id = f"harbor-{case}-{stamp}-{uuid.uuid4().hex[:8]}"
+    seed_label = f"-s{seed}" if seed is not None else ""
+    run_id = f"harbor-{case}{seed_label}-{stamp}-{uuid.uuid4().hex[:8]}"
     completed = runner(
-        harbor_run_command(root, image, run_id, case, reuse_from),
+        harbor_run_command(root, image, run_id, case, reuse_from, seed),
         cwd=root,
         check=False,
         text=True,

@@ -66,6 +66,13 @@ def test_spectator_capture_runs_only_after_association_process() -> None:
     assert association < spectator < report
 
 
+def test_experiment_seed_reaches_fixture_and_association_processes() -> None:
+    script = SMOKE.read_text(encoding="utf-8")
+
+    assert 'mirror_driver_args+=(--experiment-seed "${experiment_seed}")' in script
+    assert 'mirrors_args+=(--experiment-seed "${experiment_seed}")' in script
+
+
 def test_mirrors_scene_keeps_floor_below_the_probe_motion() -> None:
     floor = _scene().find(".//geom[@name='floor']")
 

@@ -58,10 +58,12 @@ from entryplug.operation import (
     OperationHost,
     OperationResult,
 )
+from entryplug.seeding import derive_experiment_seed, validate_experiment_seed
 from entryplug.session import Session
 
-SOLVER_SEED = 947
-SOURCE_NAME_SEED = 7043
+DEFAULT_SOLVER_SEED = 947
+DEFAULT_SOURCE_NAME_SEED = 7043
+DEFAULT_FIXTURE_SEED = 3119
 DELAY_SECONDS = 0.36
 FIT_PROBES_RADIANS = (0.018, -0.031, 0.047, -0.022, 0.036, -0.044)
 VALIDATION_PROBES_RADIANS = (0.028, -0.049, 0.041, -0.034)
@@ -111,8 +113,8 @@ class MirrorsObserver(Observer):
             del self.mirror_frames[:128]
 
 
-def _opaque_ids() -> tuple[list[str], list[str]]:
-    generator = random.Random(SOURCE_NAME_SEED)
+def _opaque_ids(source_name_seed: int) -> tuple[list[str], list[str]]:
+    generator = random.Random(source_name_seed)
     candidate_ids = [f"view-{generator.getrandbits(32):08x}" for _ in range(4)]
     lineage_ids = [f"lineage-{generator.getrandbits(48):012x}" for _ in range(3)]
     return candidate_ids, lineage_ids
@@ -802,8 +804,20 @@ def qualify(
     trace: list[dict[str, object]],
     public_events: list[dict[str, object]],
     reuse_cache_path: Path | None = None,
+    experiment_seed: int | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     started = time.monotonic()
+    if experiment_seed is None:
+        solver_seed = DEFAULT_SOLVER_SEED
+        source_name_seed = DEFAULT_SOURCE_NAME_SEED
+        fixture_seed = DEFAULT_FIXTURE_SEED
+        cross_reuse_seed = DEFAULT_SOLVER_SEED + 101
+    else:
+        validate_experiment_seed(experiment_seed)
+        solver_seed = derive_experiment_seed(experiment_seed, "solver")
+        source_name_seed = derive_experiment_seed(experiment_seed, "source_names")
+        fixture_seed = derive_experiment_seed(experiment_seed, "independent_fixture")
+        cross_reuse_seed = derive_experiment_seed(experiment_seed, "cross_reuse")
     node = MirrorsObserver()
     try:
         _spin_until(
@@ -844,7 +858,7 @@ def qualify(
         _write_png_create_only(output_dir / "independent-camera-preview.raw.png", mirror_preview)
         independent_noise = _mirror_noise(node)
 
-        candidate_ids, lineage_ids = _opaque_ids()
+        candidate_ids, lineage_ids = _opaque_ids(source_name_seed)
         controlled_id, delayed_id, independent_id, ambiguous_id = candidate_ids
         controlled_lineage, independent_lineage, ambiguous_lineage = lineage_ids
         catalog = [
@@ -852,7 +866,7 @@ def qualify(
             {"candidate_id": delayed_id, "lineage_id": controlled_lineage},
             {"candidate_id": independent_id, "lineage_id": independent_lineage},
         ]
-        random.Random(SOURCE_NAME_SEED + 1).shuffle(catalog)
+        random.Random(source_name_seed + 1).shuffle(catalog)
         public_events.append(
             {
                 "event": "candidate_catalog",
@@ -861,7 +875,7 @@ def qualify(
             }
         )
 
-        solver = random.Random(SOLVER_SEED)
+        solver = random.Random(solver_seed)
         fit_commands = list(FIT_PROBES_RADIANS)
         validation_commands = list(VALIDATION_PROBES_RADIANS)
         solver.shuffle(fit_commands)
@@ -900,7 +914,7 @@ def qualify(
                 prior_binding = load_visual_binding(prior_record)
                 cross_started = time.monotonic()
                 cross_commands = list(REUSE_PROBES_RADIANS)
-                cross_solver = random.Random(SOLVER_SEED + 101)
+                cross_solver = random.Random(cross_reuse_seed)
                 cross_solver.shuffle(cross_commands)
                 cross_measurements = _collect_reuse_probes(
                     node,
@@ -1236,7 +1250,7 @@ def qualify(
             validation_effects_px=tuple(independent_validation),
         )
         candidates = [controlled, delayed, independent]
-        random.Random(SOURCE_NAME_SEED + 2).shuffle(candidates)
+        random.Random(source_name_seed + 2).shuffle(candidates)
         physical_acquisition_duration_ms = _round((time.monotonic() - acquisition_started) * 1000)
         input_digest = _candidate_input_digest(candidates, profile)
         handwritten_started = time.monotonic()
@@ -1753,9 +1767,15 @@ def qualify(
             "status": "passed",
             "recorded_at": datetime.now(UTC).isoformat(),
             "seeds": {
-                "solver": SOLVER_SEED,
-                "source_names": SOURCE_NAME_SEED,
+                "experiment": experiment_seed,
+                "solver": solver_seed,
+                "source_names": source_name_seed,
+                "independent_fixture": fixture_seed,
                 "independent": True,
+                "scope": (
+                    "Controls random choices through separate streams; ROS scheduling, "
+                    "camera arrival, and wall time are not bitwise deterministic."
+                ),
             },
             "interfaces": {
                 "controlled_camera_topic": "/camera/color/image_raw",
@@ -1851,6 +1871,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--reuse-cache", type=Path)
+    parser.add_argument("--experiment-seed", type=int)
     args = parser.parse_args()
     trace: list[dict[str, object]] = []
     public_events: list[dict[str, object]] = []
@@ -1863,6 +1884,7 @@ def main() -> int:
                 trace,
                 public_events,
                 reuse_cache_path=args.reuse_cache,
+                experiment_seed=args.experiment_seed,
             )
         except Exception as error:  # preserve failure evidence at the process boundary
             payload = {

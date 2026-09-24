@@ -13,11 +13,18 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 
-FIXTURE_SEED = 3119
+from entryplug.seeding import derive_experiment_seed
+
+DEFAULT_FIXTURE_SEED = 3119
 
 
 class MirrorDriver(Node):
-    def __init__(self, evaluation_output: Path) -> None:
+    def __init__(
+        self,
+        evaluation_output: Path,
+        fixture_seed: int,
+        experiment_seed: int | None,
+    ) -> None:
         super().__init__("entryplug_mirror_fixture_driver")
         self._evidence = evaluation_output.open("x", encoding="utf-8")
         self._event_index = 0
@@ -25,7 +32,8 @@ class MirrorDriver(Node):
             {
                 "event": "fixture_schedule_started",
                 "generator": "python_random_mt19937",
-                "seed": FIXTURE_SEED,
+                "experiment_seed": experiment_seed,
+                "fixture_seed": fixture_seed,
                 "probe_topics_subscribed": [],
                 "command_topic": "/mirror_controller/commands",
             }
@@ -33,7 +41,7 @@ class MirrorDriver(Node):
         self._publisher = self.create_publisher(
             Float64MultiArray, "/mirror_controller/commands", 10
         )
-        self._random = random.Random(FIXTURE_SEED)
+        self._random = random.Random(fixture_seed)
         self._timer = None
         self._publish_next()
 
@@ -72,9 +80,15 @@ class MirrorDriver(Node):
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--evaluation-output", type=Path, required=True)
+    parser.add_argument("--experiment-seed", type=int)
     args = parser.parse_args()
+    fixture_seed = (
+        DEFAULT_FIXTURE_SEED
+        if args.experiment_seed is None
+        else derive_experiment_seed(args.experiment_seed, "independent_fixture")
+    )
     rclpy.init()
-    node = MirrorDriver(args.evaluation_output)
+    node = MirrorDriver(args.evaluation_output, fixture_seed, args.experiment_seed)
     try:
         rclpy.spin(node)
     finally:

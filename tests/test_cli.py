@@ -30,6 +30,22 @@ def test_up_accepts_an_explicit_prior_mirrors_run() -> None:
     assert args.reuse_from == "harbor-mirrors-prior"
 
 
+def test_up_accepts_a_reproducible_mirrors_seed() -> None:
+    args = _parse_args(
+        [
+            "up",
+            "--runtime",
+            "container",
+            "--case",
+            "mirrors",
+            "--seed",
+            "31415",
+        ]
+    )
+
+    assert args.seed == 31415
+
+
 def test_doctor_json_is_machine_readable(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

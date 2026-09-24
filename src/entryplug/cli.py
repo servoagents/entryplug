@@ -79,6 +79,11 @@ def _parser() -> argparse.ArgumentParser:
         help="recheck a prior mirrors run's cached binding before reacquiring",
     )
     up.add_argument(
+        "--seed",
+        type=int,
+        help="set deterministic Hall of Mirrors random streams",
+    )
+    up.add_argument(
         "--build",
         action="store_true",
         help="explicitly build the pinned runtime image before starting",
@@ -175,6 +180,7 @@ def _up(args: argparse.Namespace) -> int:
             image=args.image,
             case=args.case,
             reuse_from=args.reuse_from,
+            seed=args.seed,
             build=args.build,
         )
     except (OSError, RuntimeError, ValueError) as error:

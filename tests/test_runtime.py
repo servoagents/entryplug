@@ -66,6 +66,23 @@ def test_harbor_mounts_prior_mirror_evidence_read_only(tmp_path: Path) -> None:
     ]
 
 
+def test_harbor_passes_seed_as_a_separate_mirrors_argument(tmp_path: Path) -> None:
+    command = harbor_run_command(
+        tmp_path,
+        "entryplug:test",
+        "harbor-mirrors-current",
+        "mirrors",
+        seed=31415,
+    )
+
+    assert command[-4:] == [
+        "/workspace/entryplug/runs/harbor-mirrors-current",
+        "mirrors",
+        "",
+        "31415",
+    ]
+
+
 def test_harbor_rejects_unsafe_or_inapplicable_reuse_before_side_effects(
     tmp_path: Path,
 ) -> None:
@@ -129,6 +146,71 @@ def test_harbor_rejects_evidence_from_a_failed_mirrors_run(tmp_path: Path) -> No
         assert "did not pass qualification" in str(error)
     else:
         raise AssertionError("evidence from a failed run was accepted")
+
+
+def test_harbor_rejects_reuse_from_a_different_experiment_seed(tmp_path: Path) -> None:
+    prior = tmp_path / "runs" / "seeded-run"
+    prior.mkdir(parents=True)
+    (prior / "evidence-cache.private.sqlite3").touch()
+    (prior / "mirrors.json").write_text(
+        json.dumps({"status": "passed", "seeds": {"experiment": 7}}),
+        encoding="utf-8",
+    )
+
+    try:
+        harbor_run_command(
+            tmp_path,
+            "entryplug:test",
+            "current",
+            "mirrors",
+            "seeded-run",
+            8,
+        )
+    except ValueError as error:
+        assert "different experiment seed" in str(error)
+    else:
+        raise AssertionError("evidence from a different experiment seed was accepted")
+
+
+def test_harbor_accepts_reuse_from_the_same_experiment_seed(tmp_path: Path) -> None:
+    prior = tmp_path / "runs" / "seeded-run"
+    prior.mkdir(parents=True)
+    (prior / "evidence-cache.private.sqlite3").touch()
+    (prior / "mirrors.json").write_text(
+        json.dumps({"status": "passed", "seeds": {"experiment": 7}}),
+        encoding="utf-8",
+    )
+
+    command = harbor_run_command(
+        tmp_path,
+        "entryplug:test",
+        "current",
+        "mirrors",
+        "seeded-run",
+        7,
+    )
+
+    assert command[-4:] == [
+        "/workspace/entryplug/runs/current",
+        "mirrors",
+        "seeded-run",
+        "7",
+    ]
+
+
+def test_harbor_rejects_seed_for_non_mirror_case_before_side_effects(
+    tmp_path: Path,
+) -> None:
+    def runner(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        raise AssertionError(f"unexpected runtime call: {command}")
+
+    try:
+        run_harbor(tmp_path, case="reach", seed=1, runner=runner)
+    except ValueError as error:
+        assert "only supported by the mirrors case" in str(error)
+    else:
+        raise AssertionError("a reach experiment seed was accepted")
+    assert not (tmp_path / "runs").exists()
 
 
 def test_harbor_exposes_reaching_and_rejects_unknown_cases_before_side_effects(

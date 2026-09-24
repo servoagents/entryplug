@@ -4,6 +4,7 @@ set -euo pipefail
 run_dir=${1:?usage: entryplug-harbor-smoke RUN_DIRECTORY}
 case_name=${2:-render-smoke}
 reuse_run=${3:-}
+experiment_seed=${4:-}
 if [[ -e "${run_dir}" ]]; then
   echo "refusing to overwrite existing evidence: ${run_dir}" >&2
   exit 2
@@ -110,8 +111,15 @@ if [[ "${case_name}" == mirrors ]]; then
     echo "mirror fixture controller did not become active" >&2
     exit 1
   fi
+  declare -a mirror_driver_args=(
+    --evaluation-output
+    "${run_dir}/mirror-schedule.private.jsonl"
+  )
+  if [[ -n "${experiment_seed}" ]]; then
+    mirror_driver_args+=(--experiment-seed "${experiment_seed}")
+  fi
   python3 /workspace/entryplug/containers/harbor/mirror_driver.py \
-    --evaluation-output "${run_dir}/mirror-schedule.private.jsonl" \
+    "${mirror_driver_args[@]}" \
     >"${run_dir}/mirror-driver.log" 2>&1 &
   owned_pids+=("$!")
 fi
@@ -135,6 +143,9 @@ case "${case_name}" in
         --reuse-cache
         "/workspace/entryplug/runs/${reuse_run}/evidence-cache.private.sqlite3"
       )
+    fi
+    if [[ -n "${experiment_seed}" ]]; then
+      mirrors_args+=(--experiment-seed "${experiment_seed}")
     fi
     python3 /workspace/entryplug/containers/harbor/mirrors.py "${mirrors_args[@]}"
     case_status=$?
