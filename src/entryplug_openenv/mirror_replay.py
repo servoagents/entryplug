@@ -6,8 +6,6 @@ import asyncio
 import hashlib
 import importlib.metadata
 import json
-import socket
-import threading
 import time
 import uuid
 from collections.abc import Sequence
@@ -15,8 +13,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
-import uvicorn
 
 from entryplug.association import CandidateEvidence
 from entryplug.association_operation import CAPABILITY_NAME, association_host, candidate_records
@@ -26,6 +22,7 @@ from entryplug.qualification import HARBOR_MIRRORS_V1
 from entryplug.session import Session
 from entryplug_openenv.client import EntryplugEnvClient
 from entryplug_openenv.environment import EntryplugEnvironment
+from entryplug_openenv.loopback import LoopbackServer, start_loopback_server
 from entryplug_openenv.models import (
     ActDecision,
     EntryplugAction,
@@ -55,7 +52,7 @@ def _input_digest(candidates: Sequence[CandidateEvidence]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _start_server(source_run_id: str) -> tuple[uvicorn.Server, threading.Thread, int]:
+def _start_server(source_run_id: str) -> LoopbackServer:
     async def factory(seed: int) -> EpisodeStart:
         host = association_host(
             HARBOR_MIRRORS_V1.association,
@@ -79,36 +76,10 @@ def _start_server(source_run_id: str) -> tuple[uvicorn.Server, threading.Thread,
             observation_window_seconds=2.0,
         )
     )
-    listener = socket.socket()
-    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    listener.bind(("127.0.0.1", 0))
-    listener.listen()
-    port = int(listener.getsockname()[1])
-    server = uvicorn.Server(
-        uvicorn.Config(
-            app,
-            host="127.0.0.1",
-            port=port,
-            log_level="error",
-            lifespan="on",
-        )
+    return start_loopback_server(
+        app,
+        thread_name="entryplug-openenv-replay",
     )
-    thread = threading.Thread(
-        target=server.run,
-        kwargs={"sockets": [listener]},
-        name="entryplug-openenv-replay",
-        daemon=True,
-    )
-    thread.start()
-    deadline = time.monotonic() + 5.0
-    while not server.started and thread.is_alive() and time.monotonic() < deadline:
-        time.sleep(0.01)
-    if not server.started:
-        server.should_exit = True
-        thread.join(timeout=5.0)
-        listener.close()
-        raise RuntimeError("OpenEnv replay server did not start")
-    return server, thread, port
 
 
 async def _replay(
@@ -178,14 +149,11 @@ def run_openenv_mirror_replay(root: Path, source_run_id: str) -> OpenEnvMirrorRe
         raise RuntimeError(f"OpenEnv 0.5.0 is required, found {sdk_version}")
     source = load_mirror_replay_source(root, source_run_id)
     started = time.monotonic()
-    server, thread, port = _start_server(source.run_id)
+    server = _start_server(source.run_id)
     try:
-        transport = asyncio.run(_replay(source.seed, source.candidates, port))
+        transport = asyncio.run(_replay(source.seed, source.candidates, server.port))
     finally:
-        server.should_exit = True
-        thread.join(timeout=5.0)
-    if thread.is_alive():
-        raise RuntimeError("OpenEnv replay server did not stop")
+        server.close()
 
     selection = transport["selection"]
     replay_candidate = selection.get("candidate_id")

@@ -16,6 +16,7 @@ from entryplug.association import CandidateEvidence
 from entryplug.association_operation import candidate_record
 from entryplug.episode import EpisodeController, EpisodeStart
 from entryplug.evidence import JsonValue
+from entryplug.harbor_episode import ACQUIRE_VISUAL_BINDING
 from entryplug.operation import (
     CapabilitySpec,
     Lifecycle,
@@ -36,6 +37,7 @@ from entryplug_openenv import (
     WaitDecision,
     create_entryplug_app,
 )
+from entryplug_openenv.live_harbor import run_openenv_harbor
 from entryplug_openenv.mirror_replay import run_openenv_mirror_replay
 
 
@@ -253,3 +255,96 @@ def test_mirror_evidence_replays_through_sdk_without_private_roles(
     assert replay["transport"]["selection"]["candidate_id"] == candidate.candidate_id
     assert replay["transport"]["final_state"]["step_count"] == 4
     assert replay["claim_boundary"].startswith("This replay sends recorded")
+
+
+def test_live_harbor_driver_keeps_private_evaluation_out_of_transport(
+    tmp_path: Path,
+) -> None:
+    async def factory(seed: int) -> EpisodeStart:
+        async def acquire(
+            _: OperationContext,
+            __: Mapping[str, JsonValue],
+        ) -> OperationResult:
+            run_id = f"harbor-mirrors-s{seed}-fake"
+            evidence = tmp_path / "runs" / run_id
+            evidence.mkdir(parents=True)
+            (evidence / "mirrors.json").write_text(
+                json.dumps(
+                    {
+                        "status": "passed",
+                        "association": {"candidate_id": "view-public-a"},
+                        "timing_ms": {"total": 12.0},
+                        "checked_reuse": {
+                            "checked_reuse": {"probe_count": 2, "duration_ms": 3.0},
+                            "full_reacquisition": {
+                                "duration_ms": 10.0,
+                                "command_travel_radians": 0.35,
+                            },
+                        },
+                        "adaptive_handwritten_baseline": {
+                            "comparison": {"setup_time_delta_ms": 1.0}
+                        },
+                        "probe_count": 6,
+                        "validation_probe_count": 4,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (evidence / "evaluation.jsonl").write_text(
+                json.dumps(
+                    {
+                        "selected_role": "controlled_rendered_camera",
+                        "gates": {
+                            "controlled_source_selected": True,
+                            "delayed_path_rejected_as_stale": True,
+                            "independent_source_rejected": True,
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            return OperationResult(
+                Lifecycle.SUCCEEDED,
+                MotionState.IDLE,
+                {
+                    "run_id": run_id,
+                    "evidence_path": str(evidence),
+                    "status": "passed",
+                    "selected_candidate_id": "view-public-a",
+                    "qualification_profile": HARBOR_MIRRORS_V1.profile_id,
+                    "qualification_profile_digest": HARBOR_MIRRORS_V1.digest,
+                },
+            )
+
+        host = OperationHost(
+            (
+                CapabilitySpec(
+                    ACQUIRE_VISUAL_BINDING,
+                    "1",
+                    "Acquire a test binding",
+                    True,
+                    2.0,
+                    0.2,
+                    lambda arguments: dict(arguments),
+                    acquire,
+                ),
+            ),
+            runtime_id=f"fake-live-harbor-{seed}",
+        )
+        return EpisodeStart(Session(host, owns_runtime=True), {"fixture": "fake-live-harbor"})
+
+    result = run_openenv_harbor(
+        tmp_path,
+        seed=101,
+        image="fake-harbor:test",
+        episode_factory=factory,
+    )
+
+    assert result.passed
+    record = json.loads((result.evidence_path / "online.json").read_text())
+    assert record["transport"]["operation"]["lifecycle"] == "succeeded"
+    assert record["private_evaluation"]["selected_controlled_source"] is True
+    assert record["private_evaluation"]["roles_exposed_to_environment"] is False
+    assert "controlled_rendered_camera" not in json.dumps(record["transport"])
+    assert record["physical_run"]["run_id"] == result.physical_run_id

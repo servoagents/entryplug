@@ -67,6 +67,15 @@ def test_openenv_replay_requires_an_explicit_source_run() -> None:
     assert args.source_run == "harbor-mirrors-qualified"
 
 
+def test_openenv_harbor_requires_runtime_and_seed() -> None:
+    args = _parse_args(
+        ["openenv-harbor", "--runtime", "container", "--seed", "101"]
+    )
+
+    assert args.runtime == "container"
+    assert args.seed == 101
+
+
 def test_doctor_json_is_machine_readable(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

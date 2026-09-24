@@ -110,6 +110,14 @@ def _parser() -> argparse.ArgumentParser:
         metavar="RUN_ID",
         help="passed Harbor mirrors run whose opaque evidence will be replayed",
     )
+
+    live_openenv = commands.add_parser(
+        "openenv-harbor",
+        help="run one live Harbor acquisition through OpenEnv",
+    )
+    live_openenv.add_argument("--runtime", choices=("container",), required=True)
+    live_openenv.add_argument("--seed", type=int, required=True)
+    live_openenv.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
     return parser
 
 
@@ -279,6 +287,37 @@ def _openenv_replay(args: argparse.Namespace) -> int:
     return 0 if result.passed else 1
 
 
+def _openenv_harbor(args: argparse.Namespace) -> int:
+    root = source_root()
+    if root is None:
+        print("entryplug openenv-harbor: run this command from a source checkout", file=sys.stderr)
+        return 2
+    try:
+        from entryplug_openenv.live_harbor import run_openenv_harbor
+    except ImportError:
+        print(
+            "entryplug openenv-harbor: install the exact optional dependency with "
+            "pip install -e '.[openenv]'",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        result = run_openenv_harbor(
+            root,
+            seed=args.seed,
+            image=args.image,
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"entryplug openenv-harbor: {error}", file=sys.stderr)
+        return 2
+    print(
+        f"OpenEnv Harbor episode: {'passed' if result.passed else 'failed'}\n"
+        f"physical evidence: {result.physical_evidence_path}\n"
+        f"wrapper evidence: {result.evidence_path}"
+    )
+    return 0 if result.passed else 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.command == "doctor":
@@ -291,6 +330,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _pilot(args)
     if args.command == "openenv-replay":
         return _openenv_replay(args)
+    if args.command == "openenv-harbor":
+        return _openenv_harbor(args)
     raise AssertionError(f"unhandled command: {args.command}")
 
 
