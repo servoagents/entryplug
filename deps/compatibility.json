@@ -49,8 +49,9 @@
       "module": "a2a"
     },
     {
-      "distribution": "openenv-core",
-      "module": "openenv"
+      "distribution": "openenv",
+      "module": "openenv",
+      "version": "0.5.0"
     }
   ],
   "ros": {
@@ -130,8 +131,10 @@
       }
     },
     "openenv": {
-      "openenv_sdk": null,
-      "qualification": "unqualified"
+      "openenv_sdk": "0.5.0",
+      "qualification": "qualified",
+      "source_commit": "8ce0d6d7203628be38b5904edbde9c73e1ed419a",
+      "wheel_sha256": "45345cbb675aed5aafffff465c919b9ee679a124e89a58f124eb7c1386bf56ac"
     }
   }
 }

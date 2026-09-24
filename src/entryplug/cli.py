@@ -108,7 +108,17 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         forwarded = raw[1:]
         if forwarded[:1] == ["--"]:
             forwarded = forwarded[1:]
-        return argparse.Namespace(command="test", pytest_args=forwarded)
+        suite = "core"
+        if forwarded[:1] == ["--suite"]:
+            if len(forwarded) < 2:
+                raise SystemExit("entryplug test: --suite requires a value")
+            suite = forwarded[1]
+            forwarded = forwarded[2:]
+        elif forwarded[:1] and forwarded[0].startswith("--suite="):
+            suite = forwarded.pop(0).split("=", 1)[1]
+        if suite not in {"core", "openenv", "all"}:
+            raise SystemExit(f"entryplug test: unknown suite {suite!r}")
+        return argparse.Namespace(command="test", pytest_args=forwarded, test_suite=suite)
 
     parser = _parser()
     return parser.parse_args(raw)
@@ -171,7 +181,13 @@ def _test(args: argparse.Namespace) -> int:
     if root is None:
         print("entryplug test: run this command from a source checkout", file=sys.stderr)
         return 2
-    command = [sys.executable, "-m", "pytest", *args.pytest_args]
+    suite = getattr(args, "test_suite", "core")
+    targets: list[str] = []
+    if suite == "openenv":
+        targets.append(str(root / "optional_tests" / "openenv"))
+    elif suite == "all":
+        targets.extend((str(root / "tests"), str(root / "optional_tests" / "openenv")))
+    command = [sys.executable, "-m", "pytest", *args.pytest_args, *targets]
     environment = dict(os.environ)
     source = str(root / "src")
     environment["PYTHONPATH"] = source + (

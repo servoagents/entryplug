@@ -6,10 +6,12 @@ from collections.abc import Mapping
 import pytest
 
 from entryplug.agent import (
+    Act,
     AgentRunner,
     CatalogInspectingExplorer,
     Inspect,
     ScriptedExplorer,
+    Wait,
 )
 from entryplug.episode import (
     EpisodeController,
@@ -179,6 +181,61 @@ def test_two_isolated_policies_share_one_episode_and_operation_host() -> None:
         assert episode.observe().step_count == len(first_steps) + len(second_steps)
         assert episode.observe().status == EpisodeStatus.STOPPED
         await runner.close()
+        await episode.close()
+
+    _run(scenario)
+
+
+def test_external_decisions_use_the_same_episode_and_request_deduplication() -> None:
+    async def scenario() -> None:
+        host: OperationHost | None = None
+        calls = 0
+
+        async def factory(seed: int) -> EpisodeStart:
+            nonlocal host
+
+            async def record(
+                _: OperationContext, arguments: Mapping[str, JsonValue]
+            ) -> OperationResult:
+                nonlocal calls
+                calls += 1
+                return OperationResult(
+                    Lifecycle.SUCCEEDED,
+                    MotionState.IDLE,
+                    {"recorded": arguments["value"]},
+                )
+
+            host = OperationHost(
+                (
+                    CapabilitySpec(
+                        "record",
+                        "1",
+                        "Record one value",
+                        False,
+                        1.0,
+                        0.1,
+                        _arguments,
+                        record,
+                    ),
+                ),
+                runtime_id=f"runtime-{seed}",
+            )
+            return EpisodeStart(Session(host, owns_runtime=True), {"fixture": "record"})
+
+        episode = EpisodeController(factory, timeout_seconds=2.0)
+        await episode.reset(9)
+        decision = Act("record", {"value": 31})
+        first = await episode.apply(decision, request_id="stable-request")
+        repeated = await episode.apply(decision, request_id="stable-request")
+        assert first is not None and not isinstance(first, Mapping)
+        assert repeated is not None and not isinstance(repeated, Mapping)
+        assert first.operation_id == repeated.operation_id
+
+        completed = await episode.apply(Wait(first.operation_id, 0.5))
+        assert completed is not None and not isinstance(completed, Mapping)
+        assert completed.result == {"recorded": 31}
+        assert calls == 1
+        assert episode.observe().step_count == 3
         await episode.close()
 
     _run(scenario)

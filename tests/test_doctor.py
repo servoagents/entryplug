@@ -163,6 +163,20 @@ def test_unknown_readiness_profile_is_rejected(tmp_path: Path) -> None:
         raise AssertionError("unknown readiness profile was accepted")
 
 
+def test_required_import_version_must_match_exactly(tmp_path: Path) -> None:
+    profile = _profile(tmp_path / "profile.json")
+    data = json.loads(profile.read_text(encoding="utf-8"))
+    data["required_imports"][1]["version"] = "9.9.9"
+    profile.write_text(json.dumps(data), encoding="utf-8")
+
+    report = run_doctor(profile, context=_context(healthy=True))
+
+    check = next(item for item in report.checks if item.check_id == "import.mcp")
+    assert check.status == "fail"
+    assert check.expected == "importable (mcp==9.9.9)"
+    assert "mcp==9.9.9" in check.remediation
+
+
 def test_ros_owned_python_package_cannot_be_shadowed(tmp_path: Path) -> None:
     profile = _profile(tmp_path / "profile.json")
     data = json.loads(profile.read_text(encoding="utf-8"))

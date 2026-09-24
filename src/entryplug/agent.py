@@ -77,6 +77,7 @@ class Stop:
 
 
 Decision = Act | Wait | Cancel | Inspect | Stop
+DecisionResult = OperationSnapshot | Mapping[str, JsonValue] | None
 
 
 class AgentPolicy(Protocol):
@@ -105,7 +106,37 @@ class AgentStep:
     """One policy decision and the public result of dispatching it."""
 
     reply: DecisionReply
-    result: OperationSnapshot | Mapping[str, JsonValue] | None
+    result: DecisionResult
+
+
+async def dispatch_decision(
+    session: Session,
+    decision: Decision,
+    *,
+    maximum_wait_seconds: float = 5.0,
+    request_id: str | None = None,
+) -> DecisionResult:
+    """Dispatch one already chosen decision through the shared session facade."""
+
+    if not math.isfinite(maximum_wait_seconds) or maximum_wait_seconds <= 0:
+        raise ValueError("maximum wait must be finite and positive")
+    if isinstance(decision, Act):
+        return await session.act(
+            decision.capability,
+            decision.arguments,
+            request_id=request_id or uuid.uuid4().hex,
+        )
+    if isinstance(decision, Wait):
+        if not math.isfinite(decision.timeout_seconds) or decision.timeout_seconds < 0:
+            raise ValueError("wait timeout must be finite and nonnegative")
+        if decision.timeout_seconds > maximum_wait_seconds:
+            raise AgentError(f"policy wait exceeds {maximum_wait_seconds:g} second limit")
+        return await session.wait(decision.operation_id, decision.timeout_seconds)
+    if isinstance(decision, Cancel):
+        return await session.cancel(decision.operation_id)
+    if isinstance(decision, Inspect):
+        return await session.inspect(decision.reference, decision.detail)
+    return None
 
 
 def agent_execution_record(
@@ -545,24 +576,11 @@ class AgentRunner:
         if current.runtime_id != reply.runtime_id or reply.agent_generation != self._generation:
             raise StaleAgentDecision("discarded a decision from an old runtime or agent")
 
-        decision = reply.decision
-        result: OperationSnapshot | Mapping[str, JsonValue] | None
-        if isinstance(decision, Act):
-            result = await session.act(
-                decision.capability,
-                decision.arguments,
-                request_id=uuid.uuid4().hex,
-            )
-        elif isinstance(decision, Wait):
-            if decision.timeout_seconds > self._maximum_wait_seconds:
-                raise AgentError(f"policy wait exceeds {self._maximum_wait_seconds:g} second limit")
-            result = await session.wait(decision.operation_id, decision.timeout_seconds)
-        elif isinstance(decision, Cancel):
-            result = await session.cancel(decision.operation_id)
-        elif isinstance(decision, Inspect):
-            result = await session.inspect(decision.reference, decision.detail)
-        else:
-            result = None
+        result = await dispatch_decision(
+            session,
+            reply.decision,
+            maximum_wait_seconds=self._maximum_wait_seconds,
+        )
         return AgentStep(reply, result)
 
     async def run_until_stop(

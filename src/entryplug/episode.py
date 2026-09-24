@@ -9,9 +9,16 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import cast
+from typing import TypeVar, cast
 
-from entryplug.agent import AgentRunner, AgentStep, Stop
+from entryplug.agent import (
+    AgentRunner,
+    AgentStep,
+    Decision,
+    DecisionResult,
+    Stop,
+    dispatch_decision,
+)
 from entryplug.evidence import JsonValue
 from entryplug.session import Session
 
@@ -41,6 +48,7 @@ class EpisodeStart:
 
 
 EpisodeFactory = Callable[[int], Awaitable[EpisodeStart]]
+ResultT = TypeVar("ResultT")
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,9 +178,10 @@ class EpisodeController:
         if self._session is not None:
             await self._session.close()
 
-    async def step(self, runner: AgentRunner) -> AgentStep:
-        """Run one isolated decision within the episode's total deadline."""
-
+    async def _within_deadline(
+        self,
+        work: Callable[[], Awaitable[ResultT]],
+    ) -> ResultT:
         if self._session is None:
             raise EpisodeError("episode has not been reset")
         if self._status in {EpisodeStatus.TIMED_OUT, EpisodeStatus.CLOSED}:
@@ -189,10 +198,14 @@ class EpisodeController:
         try:
             try:
                 async with asyncio.timeout(remaining):
-                    step = await runner.step(self._session)
+                    return await work()
             except TimeoutError as error:
                 await self._expire()
                 raise EpisodeTimeoutError("episode deadline expired") from error
+        except asyncio.CancelledError:
+            if self._status != EpisodeStatus.TIMED_OUT:
+                self._status = EpisodeStatus.READY
+            raise
         except Exception:
             if self._status != EpisodeStatus.TIMED_OUT:
                 self._status = EpisodeStatus.READY
@@ -200,9 +213,42 @@ class EpisodeController:
         finally:
             self._step_in_flight = False
 
+    def _finish_step(self, decision: Decision) -> None:
         self._step_count += 1
-        if isinstance(step.reply.decision, Stop):
+        if isinstance(decision, Stop):
             self._status = EpisodeStatus.STOPPED
+
+    async def apply(
+        self,
+        decision: Decision,
+        *,
+        maximum_wait_seconds: float = 5.0,
+        request_id: str | None = None,
+    ) -> DecisionResult:
+        """Apply an external decision through the same bounded episode and host."""
+
+        if self._session is None:
+            raise EpisodeError("episode has not been reset")
+        session = self._session
+        result = await self._within_deadline(
+            lambda: dispatch_decision(
+                session,
+                decision,
+                maximum_wait_seconds=maximum_wait_seconds,
+                request_id=request_id,
+            )
+        )
+        self._finish_step(decision)
+        return result
+
+    async def step(self, runner: AgentRunner) -> AgentStep:
+        """Run one isolated decision within the episode's total deadline."""
+
+        if self._session is None:
+            raise EpisodeError("episode has not been reset")
+        session = self._session
+        step = await self._within_deadline(lambda: runner.step(session))
+        self._finish_step(step.reply.decision)
         return step
 
     async def run_until_stop(

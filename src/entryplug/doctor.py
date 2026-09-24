@@ -278,17 +278,25 @@ def _check_imports(context: ProbeContext, profile: Mapping[str, object]) -> list
             raise ValueError("required_imports entries must be objects")
         module = _string(entry_value, "module")
         distribution = _string(entry_value, "distribution")
+        required_version = entry_value.get("version")
+        if required_version is not None and (
+            not isinstance(required_version, str) or not required_version
+        ):
+            raise ValueError(f"required version for {module} must be a nonempty string")
         ownership = entry_value.get("ownership", "any")
         if ownership not in {"any", "ros_or_os"}:
             raise ValueError(f"unsupported ownership for {module}: {ownership}")
         version, origin = _module_version(context, distribution, module)
         present = bool(origin)
         source_ok = ownership != "ros_or_os" or _is_ros_or_os_path(origin)
-        status = PASS if present and source_ok else FAIL if present else MISSING
+        version_ok = required_version is None or version == required_version
+        status = PASS if present and source_ok and version_ok else FAIL if present else MISSING
         if present and not source_ok:
             remediation = (
                 f"Remove the shadowing {module} package and use the qualified ROS/OS build."
             )
+        elif present and not version_ok:
+            remediation = f"Install the qualified {distribution}=={required_version} package."
         elif not present:
             remediation = (
                 f"Install the qualified {distribution} package without replacing ROS-owned "
@@ -304,7 +312,11 @@ def _check_imports(context: ProbeContext, profile: Mapping[str, object]) -> list
                 expected=(
                     f"importable from ROS/OS ({distribution})"
                     if ownership == "ros_or_os"
-                    else f"importable ({distribution})"
+                    else (
+                        f"importable ({distribution}=={required_version})"
+                        if required_version is not None
+                        else f"importable ({distribution})"
+                    )
                 ),
                 observed=f"{version} at {origin}" if present else "not importable",
                 remediation=remediation,

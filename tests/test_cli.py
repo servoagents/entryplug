@@ -12,6 +12,14 @@ def test_test_command_forwards_pytest_options() -> None:
     args = _parse_args(["test", "-q", "tests/test_cli.py"])
 
     assert args.pytest_args == ["-q", "tests/test_cli.py"]
+    assert args.test_suite == "core"
+
+
+def test_test_command_selects_optional_openenv_suite() -> None:
+    args = _parse_args(["test", "--suite", "openenv", "-q"])
+
+    assert args.test_suite == "openenv"
+    assert args.pytest_args == ["-q"]
 
 
 def test_up_accepts_an_explicit_prior_mirrors_run() -> None:
