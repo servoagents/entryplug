@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -111,6 +112,15 @@ def _reuse_cache_path(root: Path, case: str, reuse_from: str) -> Path:
         raise ValueError("reuse cache resolves outside the runs directory")
     if not cache.is_file():
         raise FileNotFoundError(f"prior evidence cache is unavailable: {cache}")
+    summary = cache.parent / "mirrors.json"
+    if not summary.is_file():
+        raise FileNotFoundError(f"prior mirrors result is unavailable: {summary}")
+    try:
+        result = json.loads(summary.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"prior mirrors result is unreadable: {summary}") from error
+    if not isinstance(result, dict) or result.get("status") != "passed":
+        raise ValueError("prior mirrors run did not pass qualification")
     return cache
 
 

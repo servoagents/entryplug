@@ -48,6 +48,7 @@ from entryplug.association import (
     select_candidate,
     validate_cached_binding,
 )
+from entryplug.evaluation import MethodMeasurement, paired_method_comparison
 from entryplug.evidence import EvidenceQuery, JsonValue, SqliteEvidenceCache
 from entryplug.operation import (
     CapabilitySpec,
@@ -65,6 +66,7 @@ DELAY_SECONDS = 0.36
 FIT_PROBES_RADIANS = (0.018, -0.031, 0.047, -0.022, 0.036, -0.044)
 VALIDATION_PROBES_RADIANS = (0.028, -0.049, 0.041, -0.034)
 REUSE_PROBES_RADIANS = (-0.027, 0.023)
+REUSE_CONFIRMATION_PROBES_RADIANS = (0.041, -0.043)
 MINIMUM_PROBE_GAP_SECONDS = 0.12
 MAXIMUM_PROBE_GAP_SECONDS = 0.62
 BINDING_CONTEXT = {
@@ -452,6 +454,21 @@ def _candidate_record(evidence: CandidateEvidence) -> dict[str, object]:
     return asdict(evidence)
 
 
+def _candidate_input_digest(
+    candidates: list[CandidateEvidence], profile: AssociationProfile
+) -> str:
+    encoded = json.dumps(
+        {
+            "candidates": [_candidate_record(item) for item in candidates],
+            "profile": asdict(profile),
+        },
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
 def _number(value: object, label: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{label} must be a number")
@@ -605,6 +622,7 @@ def _collect_reuse_probes(
     independent_id: str,
     direct_pairs: list[dict[str, object]],
     independent_pairs: list[dict[str, object]],
+    index_offset: int = 0,
 ) -> dict[str, object]:
     direct: list[float] = []
     independent: list[float] = []
@@ -613,6 +631,7 @@ def _collect_reuse_probes(
     independent_ages: list[float] = []
     records: list[dict[str, object]] = []
     for index, command in enumerate(commands):
+        sequence = index_offset + index + 1
         requested_gap = solver.uniform(MINIMUM_PROBE_GAP_SECONDS, MAXIMUM_PROBE_GAP_SECONDS)
         actual_gap = _wait_probe_gap(node, requested_gap)
         probe_started_ms = _round((time.monotonic() - started) * 1000)
@@ -621,7 +640,7 @@ def _collect_reuse_probes(
             node,
             anchor,
             command,
-            purpose=f"{purpose_prefix}-{index + 1}",
+            purpose=f"{purpose_prefix}-{sequence}",
             trace=trace,
         )
         independent_after = _fresh_mirror_observation(
@@ -679,7 +698,7 @@ def _collect_reuse_probes(
         delayed.append(delayed_copy)
         record = {
             "event": event,
-            "index": index + 1,
+            "index": sequence,
             "command_radians": command,
             "pre_probe_gap_ms": _round(actual_gap * 1000),
             "probe_started_ms": probe_started_ms,
@@ -706,6 +725,25 @@ def _collect_reuse_probes(
         "independent_ages": independent_ages,
         "records": records,
     }
+
+
+def _extend_reuse_measurements(
+    measurements: dict[str, object],
+    addition: dict[str, object],
+) -> None:
+    for key in (
+        "direct",
+        "independent",
+        "delayed",
+        "direct_ages",
+        "independent_ages",
+        "records",
+    ):
+        existing = measurements[key]
+        new_items = addition[key]
+        if not isinstance(existing, list) or not isinstance(new_items, list):
+            raise TypeError(f"reuse measurement {key} must be a list")
+        existing.extend(new_items)
 
 
 def _validate_reuse_measurements(
@@ -893,6 +931,43 @@ def qualify(
                     independent_noise=independent_noise,
                     profile=profile,
                 )
+                cross_confirmation_commands = list(REUSE_CONFIRMATION_PROBES_RADIANS)
+                cross_solver.shuffle(cross_confirmation_commands)
+                for confirmation_command in cross_confirmation_commands:
+                    if cross_result.get("reason_code") != "ambiguous_sources":
+                        break
+                    addition = _collect_reuse_probes(
+                        node,
+                        anchor,
+                        [confirmation_command],
+                        event="cross_episode_reuse_probe",
+                        purpose_prefix="mirrors-cross-episode-confirmation",
+                        started=started,
+                        solver=cross_solver,
+                        trace=trace,
+                        public_events=public_events,
+                        controlled_id=controlled_id,
+                        delayed_id=delayed_id,
+                        independent_id=independent_id,
+                        direct_pairs=direct_pairs,
+                        independent_pairs=independent_pairs,
+                        index_offset=len(cross_commands),
+                    )
+                    cross_commands.append(confirmation_command)
+                    _extend_reuse_measurements(cross_measurements, addition)
+                    cross_result = _validate_reuse_measurements(
+                        prior_binding,
+                        cross_commands,
+                        cross_measurements,
+                        controlled_id=controlled_id,
+                        controlled_lineage=controlled_lineage,
+                        delayed_id=delayed_id,
+                        independent_id=independent_id,
+                        independent_lineage=independent_lineage,
+                        direct_noise=direct_noise,
+                        independent_noise=independent_noise,
+                        profile=profile,
+                    )
                 invalidated_result = _validate_reuse_measurements(
                     replace(
                         prior_binding,
@@ -921,6 +996,10 @@ def qualify(
                     "validation": cross_result,
                     "invalidation_negative_test": invalidated_result,
                     "checked_reuse": {
+                        "initial_probe_count": len(REUSE_PROBES_RADIANS),
+                        "confirmation_probe_count": (
+                            len(cross_commands) - len(REUSE_PROBES_RADIANS)
+                        ),
                         "probe_count": len(cross_commands),
                         "command_travel_radians": _round(
                             sum(abs(value) for value in cross_commands)
@@ -1158,9 +1237,72 @@ def qualify(
         )
         candidates = [controlled, delayed, independent]
         random.Random(SOURCE_NAME_SEED + 2).shuffle(candidates)
+        physical_acquisition_duration_ms = _round((time.monotonic() - acquisition_started) * 1000)
+        input_digest = _candidate_input_digest(candidates, profile)
+        handwritten_started = time.monotonic()
+        handwritten_selection = select_candidate(candidates, profile)
+        handwritten_selection_duration_ms = _round((time.monotonic() - handwritten_started) * 1000)
         metadata_baseline = metadata_only_selection(candidates, profile)
+        agent_started = time.monotonic()
         selection, agent_execution = asyncio.run(_agent_association(candidates, profile))
-        acquisition_duration_ms = _round((time.monotonic() - acquisition_started) * 1000)
+        agent_selection_duration_ms = _round((time.monotonic() - agent_started) * 1000)
+        acquisition_probe_count = len(fit_commands) + len(validation_commands)
+        acquisition_travel = _round(sum(abs(value) for value in fit_commands + validation_commands))
+        handwritten_measurement = MethodMeasurement(
+            method_id="strong_handwritten_adaptive",
+            input_digest=input_digest,
+            task_succeeded=handwritten_selection.get("status") == "selected",
+            selected_candidate_id=handwritten_selection.get("candidate_id"),
+            setup_duration_ms=_round(
+                physical_acquisition_duration_ms + handwritten_selection_duration_ms
+            ),
+            probe_count=acquisition_probe_count,
+            command_travel_radians=acquisition_travel,
+            token_count=0,
+        )
+        entryplug_measurement = MethodMeasurement(
+            method_id="entryplug_scripted_policy",
+            input_digest=input_digest,
+            task_succeeded=selection.get("status") == "selected",
+            selected_candidate_id=selection.get("candidate_id"),
+            setup_duration_ms=_round(
+                physical_acquisition_duration_ms + agent_selection_duration_ms
+            ),
+            probe_count=acquisition_probe_count,
+            command_travel_radians=acquisition_travel,
+            token_count=0,
+        )
+        method_comparison = paired_method_comparison(
+            handwritten_measurement,
+            entryplug_measurement,
+        )
+        adaptive_baseline = {
+            "schema_version": 1,
+            "shared_numerical_routine": "entryplug.association.select_candidate",
+            "same_candidate_evidence_and_limits": True,
+            "input_digest": input_digest,
+            "physical_acquisition": {
+                "duration_ms": physical_acquisition_duration_ms,
+                "probe_count": acquisition_probe_count,
+                "command_travel_radians": acquisition_travel,
+            },
+            "selection_duration_ms": {
+                handwritten_measurement.method_id: handwritten_selection_duration_ms,
+                entryplug_measurement.method_id: agent_selection_duration_ms,
+            },
+            "methods": {
+                handwritten_measurement.method_id: handwritten_measurement.to_dict(),
+                entryplug_measurement.method_id: entryplug_measurement.to_dict(),
+            },
+            "comparison": method_comparison,
+            "interpretation": (
+                "Both zero-model methods receive identical acquired evidence and use the "
+                "same numerical selector. Entryplug adds an isolated policy, operation "
+                "admission, and auditable decisions; shared reuse savings are not an "
+                "agent intelligence advantage."
+            ),
+        }
+        acquisition_duration_ms = handwritten_measurement.setup_duration_ms
 
         ambiguous = replace(
             controlled,
@@ -1173,6 +1315,7 @@ def qualify(
                 "event": "association_result",
                 "selection": selection,
                 "agent_execution": agent_execution,
+                "adaptive_handwritten_baseline": adaptive_baseline,
                 "metadata_only_baseline": metadata_baseline,
                 "ambiguity_check": ambiguity_check,
             }
@@ -1245,6 +1388,43 @@ def qualify(
             independent_noise=independent_noise,
             profile=profile,
         )
+        reuse_confirmation_commands = list(REUSE_CONFIRMATION_PROBES_RADIANS)
+        solver.shuffle(reuse_confirmation_commands)
+        for confirmation_command in reuse_confirmation_commands:
+            if checked_reuse.get("reason_code") != "ambiguous_sources":
+                break
+            addition = _collect_reuse_probes(
+                node,
+                anchor,
+                [confirmation_command],
+                event="reuse_probe",
+                purpose_prefix="mirrors-reuse-confirmation",
+                started=started,
+                solver=solver,
+                trace=trace,
+                public_events=public_events,
+                controlled_id=controlled_id,
+                delayed_id=delayed_id,
+                independent_id=independent_id,
+                direct_pairs=direct_pairs,
+                independent_pairs=independent_pairs,
+                index_offset=len(reuse_commands),
+            )
+            reuse_commands.append(confirmation_command)
+            _extend_reuse_measurements(reuse_measurements, addition)
+            checked_reuse = _validate_reuse_measurements(
+                cached_binding,
+                reuse_commands,
+                reuse_measurements,
+                controlled_id=controlled_id,
+                controlled_lineage=controlled_lineage,
+                delayed_id=delayed_id,
+                independent_id=independent_id,
+                independent_lineage=independent_lineage,
+                direct_noise=direct_noise,
+                independent_noise=independent_noise,
+                profile=profile,
+            )
         reuse_records = reuse_measurements["records"]
         reuse_delayed = reuse_measurements["delayed"]
         assert isinstance(reuse_records, list)
@@ -1264,6 +1444,8 @@ def qualify(
                 "duration_ms": acquisition_duration_ms,
             },
             "checked_reuse": {
+                "initial_probe_count": len(REUSE_PROBES_RADIANS),
+                "confirmation_probe_count": len(reuse_commands) - len(REUSE_PROBES_RADIANS),
                 "probe_count": len(reuse_commands),
                 "command_travel_radians": _round(sum(abs(value) for value in reuse_commands)),
                 "duration_ms": reuse_duration_ms,
@@ -1276,7 +1458,7 @@ def qualify(
                     sum(abs(value) for value in fit_commands + validation_commands)
                 ),
                 "duration_ms": acquisition_duration_ms,
-                "selected_candidate_id": selection.get("candidate_id"),
+                "selected_candidate_id": handwritten_selection.get("candidate_id"),
             }
             negative_result = cross_episode_reuse.get("invalidation_negative_test")
             cross_episode_reuse["recovery_check"] = {
@@ -1498,6 +1680,18 @@ def qualify(
                 and agent_execution["separate_policy_process"] is True
                 and agent_execution["operation"]["lifecycle"] == "succeeded"
             ),
+            "handwritten_baseline_selected_source": (
+                handwritten_selection.get("candidate_id") == controlled_id
+            ),
+            "agent_matches_handwritten_baseline": (
+                selection.get("status") == handwritten_selection.get("status")
+                and selection.get("candidate_id") == handwritten_selection.get("candidate_id")
+            ),
+            "paired_method_inputs_recorded": bool(method_comparison["paired_inputs"]),
+            "method_success_is_comparable": bool(method_comparison["comparable_task_success"]),
+            "zero_model_tokens_recorded": (
+                handwritten_measurement.token_count == 0 and entryplug_measurement.token_count == 0
+            ),
         }
         if cross_episode_reuse is not None:
             cross_checked = cross_episode_reuse.get("checked_reuse")
@@ -1547,6 +1741,7 @@ def qualify(
                 "to the spectator topic."
             ),
             "private_fixture_schedule": "mirror-schedule.private.jsonl",
+            "adaptive_handwritten_baseline": adaptive_baseline,
             "reuse_scope": (
                 "explicit checked cross-episode reuse and warm within-episode reuse"
                 if cross_episode_reuse is not None
@@ -1573,6 +1768,7 @@ def qualify(
             "candidate_evidence": [_candidate_record(item) for item in candidates],
             "association": selection,
             "agent_execution": agent_execution,
+            "adaptive_handwritten_baseline": adaptive_baseline,
             "metadata_only_baseline": metadata_baseline,
             "ambiguity_negative_test": ambiguity_check,
             "visibility_anchor": visibility_anchor,
@@ -1640,8 +1836,10 @@ def qualify(
                 "qualifies local source association and checked within-episode reuse "
                 "in this Harbor fixture. When an explicit prior cache is supplied, it "
                 "also qualifies read-only cross-episode revalidation and the refusal "
-                "path for an invalidated model. It does not qualify general causal "
-                "identification."
+                "path for an invalidated model. The paired handwritten and Entryplug "
+                "methods use the same numerical selector and zero model tokens; shared "
+                "reuse savings are not attributed to agent intelligence. It does not "
+                "qualify general causal identification."
             ),
         }
         return summary, evaluation

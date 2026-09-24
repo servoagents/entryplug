@@ -212,3 +212,24 @@ def test_checked_reuse_rejects_new_independent_match() -> None:
 
     assert result["status"] == "refused"
     assert result["reason_code"] == "ambiguous_sources"
+
+
+def test_additional_probe_can_disambiguate_an_accidental_two_probe_match() -> None:
+    _, binding = _binding()
+    inputs = _reuse_inputs()
+    inputs["commands_radians"] = (-0.03, 0.025, 0.041)
+    inputs["candidate_effects_px"] = {
+        "source-a": (-2.5, 2.08, 3.35),
+        "source-b": (-2.5, 2.08, 3.35),
+        "source-c": (-2.44, 2.1, -1.2),
+    }
+    inputs["candidate_noise_ranges_px"] = {
+        **inputs["candidate_noise_ranges_px"],
+        "source-c": 0.5,
+    }
+
+    result = validate_cached_binding(binding, **inputs)
+
+    assert result["status"] == "reused"
+    assert result["candidate_id"] == "source-a"
+    assert result["probe_count"] == 3

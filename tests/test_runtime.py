@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,10 @@ def test_harbor_mounts_prior_mirror_evidence_read_only(tmp_path: Path) -> None:
     cache = tmp_path / "runs" / run_id / "evidence-cache.private.sqlite3"
     cache.parent.mkdir(parents=True)
     cache.touch()
+    (cache.parent / "mirrors.json").write_text(
+        json.dumps({"status": "passed"}),
+        encoding="utf-8",
+    )
 
     command = harbor_run_command(
         tmp_path,
@@ -81,6 +86,10 @@ def test_harbor_rejects_reuse_cache_symlink_outside_runs(tmp_path: Path) -> None
     outside = tmp_path / "outside"
     outside.mkdir()
     (outside / "evidence-cache.private.sqlite3").touch()
+    (outside / "mirrors.json").write_text(
+        json.dumps({"status": "passed"}),
+        encoding="utf-8",
+    )
     runs = tmp_path / "runs"
     runs.mkdir()
     (runs / "linked-run").symlink_to(outside, target_is_directory=True)
@@ -97,6 +106,29 @@ def test_harbor_rejects_reuse_cache_symlink_outside_runs(tmp_path: Path) -> None
         assert "outside the runs directory" in str(error)
     else:
         raise AssertionError("a reuse cache outside runs was accepted")
+
+
+def test_harbor_rejects_evidence_from_a_failed_mirrors_run(tmp_path: Path) -> None:
+    prior = tmp_path / "runs" / "failed-run"
+    prior.mkdir(parents=True)
+    (prior / "evidence-cache.private.sqlite3").touch()
+    (prior / "mirrors.json").write_text(
+        json.dumps({"status": "failed"}),
+        encoding="utf-8",
+    )
+
+    try:
+        harbor_run_command(
+            tmp_path,
+            "entryplug:test",
+            "current",
+            "mirrors",
+            "failed-run",
+        )
+    except ValueError as error:
+        assert "did not pass qualification" in str(error)
+    else:
+        raise AssertionError("evidence from a failed run was accepted")
 
 
 def test_harbor_exposes_reaching_and_rejects_unknown_cases_before_side_effects(
