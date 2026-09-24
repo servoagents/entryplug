@@ -5,9 +5,13 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from entryplug.runtime import (
+    harbor_container_name,
     harbor_build_command,
     harbor_run_command,
+    new_harbor_run_id,
     run_harbor,
     supported_cases,
 )
@@ -20,6 +24,15 @@ def test_harbor_build_is_explicit_and_pins_the_dockerfile(tmp_path: Path) -> Non
     assert str(tmp_path / "containers" / "harbor" / "Dockerfile") in command
     assert "ENTRYPLUG_UID=123" in command
     assert "ENTRYPLUG_GID=456" in command
+
+
+def test_harbor_identity_is_shared_and_rejects_unsafe_run_ids() -> None:
+    run_id = new_harbor_run_id("mirrors", 17)
+
+    assert run_id.startswith("harbor-mirrors-s17-")
+    assert harbor_container_name(run_id) == f"entryplug-harbor-{run_id}"
+    with pytest.raises(ValueError, match="unsupported characters"):
+        harbor_container_name("../unowned")
 
 
 def test_harbor_run_drops_privilege_and_only_mounts_evidence(tmp_path: Path) -> None:

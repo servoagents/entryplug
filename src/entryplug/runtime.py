@@ -15,6 +15,7 @@ from pathlib import Path
 from entryplug.seeding import validate_experiment_seed
 
 DEFAULT_HARBOR_IMAGE = "entryplug-harbor:jazzy"
+RUN_ID_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +25,25 @@ class RuntimeResult:
     returncode: int
     run_id: str
     evidence_path: Path
+
+
+def harbor_container_name(run_id: str) -> str:
+    """Return the unique Docker name for one validated owned run."""
+
+    if RUN_ID_PATTERN.fullmatch(run_id) is None:
+        raise ValueError("Harbor run ID contains unsupported characters")
+    return f"entryplug-harbor-{run_id}"
+
+
+def new_harbor_run_id(case: str, seed: int | None = None) -> str:
+    """Create the evidence and container identity shared by all launch paths."""
+
+    if case not in supported_cases():
+        raise ValueError(f"unsupported Harbor case: {case}")
+    _validate_case_seed(case, seed)
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    seed_label = f"-s{seed}" if seed is not None else ""
+    return f"harbor-{case}{seed_label}-{stamp}-{uuid.uuid4().hex[:8]}"
 
 
 def harbor_build_command(root: Path, image: str, uid: int, gid: int) -> list[str]:
@@ -56,6 +76,7 @@ def harbor_run_command(
 
     runs = (root / "runs").resolve()
     _validate_case_seed(case, seed)
+    container_name = harbor_container_name(run_id)
     container_run = f"/workspace/entryplug/runs/{run_id}"
     command = [
         "docker",
@@ -63,7 +84,7 @@ def harbor_run_command(
         "--rm",
         "--init",
         "--name",
-        f"entryplug-harbor-{run_id}",
+        container_name,
         "--read-only",
         "--cap-drop=ALL",
         "--security-opt=no-new-privileges",
@@ -125,7 +146,7 @@ def _reuse_cache_path(
 ) -> Path:
     if case != "mirrors":
         raise ValueError("prior evidence reuse is only supported by the mirrors case")
-    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", reuse_from) is None:
+    if RUN_ID_PATTERN.fullmatch(reuse_from) is None:
         raise ValueError("reuse run ID contains unsupported characters")
     runs = (root / "runs").resolve()
     cache = (runs / reuse_from / "evidence-cache.private.sqlite3").resolve()
@@ -190,9 +211,7 @@ def run_harbor(
         if inspected.returncode != 0:
             raise FileNotFoundError(f"container image {image!r} is unavailable; rerun with --build")
 
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    seed_label = f"-s{seed}" if seed is not None else ""
-    run_id = f"harbor-{case}{seed_label}-{stamp}-{uuid.uuid4().hex[:8]}"
+    run_id = new_harbor_run_id(case, seed)
     output_options: dict[str, object] = {}
     if capture_output:
         output_options = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT}
