@@ -7,11 +7,9 @@ import argparse
 import asyncio
 import hashlib
 import json
-import math
 import random
 import statistics
 import time
-from collections.abc import Mapping
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -48,16 +46,14 @@ from entryplug.association import (
     select_candidate,
     validate_cached_binding,
 )
-from entryplug.evaluation import MethodMeasurement, paired_method_comparison
-from entryplug.evidence import EvidenceQuery, JsonValue, SqliteEvidenceCache
-from entryplug.operation import (
-    CapabilitySpec,
-    Lifecycle,
-    MotionState,
-    OperationContext,
-    OperationHost,
-    OperationResult,
+from entryplug.association_operation import (
+    CAPABILITY_NAME,
+    association_host,
+    candidate_records,
 )
+from entryplug.evaluation import MethodMeasurement, paired_method_comparison
+from entryplug.evidence import EvidenceQuery, SqliteEvidenceCache
+from entryplug.operation import Lifecycle
 from entryplug.qualification import HARBOR_MIRRORS_V1
 from entryplug.seeding import derive_experiment_seed, validate_experiment_seed
 from entryplug.session import Session
@@ -454,16 +450,12 @@ def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
             stream.write("\n")
 
 
-def _candidate_record(evidence: CandidateEvidence) -> dict[str, object]:
-    return asdict(evidence)
-
-
 def _candidate_input_digest(
     candidates: list[CandidateEvidence], profile: AssociationProfile
 ) -> str:
     encoded = json.dumps(
         {
-            "candidates": [_candidate_record(item) for item in candidates],
+            "candidates": candidate_records(candidates),
             "profile": asdict(profile),
         },
         allow_nan=False,
@@ -473,112 +465,18 @@ def _candidate_input_digest(
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
 
 
-def _number(value: object, label: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{label} must be a number")
-    result = float(value)
-    if not math.isfinite(result):
-        raise ValueError(f"{label} must be finite")
-    return result
-
-
-def _number_tuple(value: object, label: str) -> tuple[float, ...]:
-    if not isinstance(value, (list, tuple)):
-        raise ValueError(f"{label} must be an array")
-    return tuple(_number(item, label) for item in value)
-
-
-def _candidate_from_record(value: object) -> CandidateEvidence:
-    if not isinstance(value, Mapping):
-        raise ValueError("each association candidate must be an object")
-    expected = {
-        "candidate_id",
-        "lineage_id",
-        "maximum_age_ms",
-        "noise_range_px",
-        "fit_commands_radians",
-        "fit_effects_px",
-        "validation_commands_radians",
-        "validation_effects_px",
-    }
-    if set(value) != expected:
-        raise ValueError("association candidate fields do not match the schema")
-    candidate_id = value["candidate_id"]
-    lineage_id = value["lineage_id"]
-    if not isinstance(candidate_id, str) or not candidate_id:
-        raise ValueError("candidate ID must be a nonempty string")
-    if not isinstance(lineage_id, str) or not lineage_id:
-        raise ValueError("lineage ID must be a nonempty string")
-    return CandidateEvidence(
-        candidate_id=candidate_id,
-        lineage_id=lineage_id,
-        maximum_age_ms=_number(value["maximum_age_ms"], "maximum age"),
-        noise_range_px=_number(value["noise_range_px"], "noise range"),
-        fit_commands_radians=_number_tuple(value["fit_commands_radians"], "fit commands"),
-        fit_effects_px=_number_tuple(value["fit_effects_px"], "fit effects"),
-        validation_commands_radians=_number_tuple(
-            value["validation_commands_radians"], "validation commands"
-        ),
-        validation_effects_px=_number_tuple(value["validation_effects_px"], "validation effects"),
-    )
-
-
-def _association_arguments(arguments: Mapping[str, JsonValue]) -> Mapping[str, object]:
-    if set(arguments) != {"candidates"}:
-        raise ValueError("association requires exactly one candidate array")
-    raw_candidates = arguments["candidates"]
-    if not isinstance(raw_candidates, (list, tuple)) or not raw_candidates:
-        raise ValueError("association requires at least one candidate")
-    candidates = tuple(_candidate_from_record(item) for item in raw_candidates)
-    return {"candidates": [_candidate_record(item) for item in candidates]}
-
-
 async def _agent_association(
     candidates: list[CandidateEvidence],
     profile: AssociationProfile,
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Select an opaque source through the shared agent and operation boundary."""
 
-    selection_result: dict[str, object] = {}
-
-    async def associate(
-        context: OperationContext,
-        arguments: Mapping[str, JsonValue],
-    ) -> OperationResult:
-        if context.cancel_requested:
-            return OperationResult(
-                Lifecycle.CANCELED,
-                MotionState.IDLE,
-                reason_code="CANCEL_REQUESTED",
-            )
-        context.report("associate", MotionState.IDLE)
-        raw_candidates = arguments["candidates"]
-        if not isinstance(raw_candidates, (list, tuple)):
-            raise ValueError("validated candidates are unavailable")
-        checked = tuple(_candidate_from_record(item) for item in raw_candidates)
-        result = select_candidate(checked, profile)
-        selection_result.update(result)
-        return OperationResult(Lifecycle.SUCCEEDED, MotionState.IDLE, result=result)
-
-    host = OperationHost(
-        (
-            CapabilitySpec(
-                "associate_visual_sources",
-                "1",
-                "Select one usable opaque visual lineage from intervention evidence",
-                False,
-                5.0,
-                0.25,
-                _association_arguments,
-                associate,
-            ),
-        )
-    )
+    host = association_host(profile)
     session = Session(host, owns_runtime=True)
     runner = AgentRunner(
         ScriptedExplorer(
-            "associate_visual_sources",
-            {"candidates": [_candidate_record(item) for item in candidates]},
+            CAPABILITY_NAME,
+            {"candidates": candidate_records(candidates)},
         ),
         decision_timeout_seconds=2.0,
     )
@@ -588,7 +486,7 @@ async def _agent_association(
         if len(view.operations) != 1:
             raise RuntimeError("scripted association did not produce exactly one operation")
         operation = view.operations[0]
-        if operation.lifecycle != Lifecycle.SUCCEEDED or not selection_result:
+        if operation.lifecycle != Lifecycle.SUCCEEDED or not operation.result:
             raise RuntimeError(
                 f"agent association finished as {operation.lifecycle.value}: "
                 f"{operation.reason_code}"
@@ -604,7 +502,7 @@ async def _agent_association(
             "private_motion_schedule": False,
             "opaque_candidate_evidence": True,
         }
-        return selection_result, execution
+        return dict(operation.result), execution
     finally:
         await runner.close()
         await session.close()
@@ -1792,7 +1690,7 @@ def qualify(
                 "trajectory_action": "/trajectory_controller/follow_joint_trajectory",
             },
             "candidate_order": [item.candidate_id for item in candidates],
-            "candidate_evidence": [_candidate_record(item) for item in candidates],
+            "candidate_evidence": candidate_records(candidates),
             "association": selection,
             "agent_execution": agent_execution,
             "adaptive_handwritten_baseline": adaptive_baseline,

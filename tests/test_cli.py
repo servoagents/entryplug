@@ -61,6 +61,12 @@ def test_pilot_selects_a_frozen_seed_suite() -> None:
     assert args.build is True
 
 
+def test_openenv_replay_requires_an_explicit_source_run() -> None:
+    args = _parse_args(["openenv-replay", "--source-run", "harbor-mirrors-qualified"])
+
+    assert args.source_run == "harbor-mirrors-qualified"
+
+
 def test_doctor_json_is_machine_readable(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

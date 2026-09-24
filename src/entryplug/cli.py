@@ -99,6 +99,17 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="explicitly build the pinned runtime image before the first episode",
     )
+
+    replay = commands.add_parser(
+        "openenv-replay",
+        help="replay qualified Hall of Mirrors evidence through OpenEnv",
+    )
+    replay.add_argument(
+        "--source-run",
+        required=True,
+        metavar="RUN_ID",
+        help="passed Harbor mirrors run whose opaque evidence will be replayed",
+    )
     return parser
 
 
@@ -242,6 +253,32 @@ def _pilot(args: argparse.Namespace) -> int:
     return 0 if result.passed else 1
 
 
+def _openenv_replay(args: argparse.Namespace) -> int:
+    root = source_root()
+    if root is None:
+        print("entryplug openenv-replay: run this command from a source checkout", file=sys.stderr)
+        return 2
+    try:
+        from entryplug_openenv.mirror_replay import run_openenv_mirror_replay
+    except ImportError:
+        print(
+            "entryplug openenv-replay: install the exact optional dependency with "
+            "pip install -e '.[openenv]'",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        result = run_openenv_mirror_replay(root, args.source_run)
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"entryplug openenv-replay: {error}", file=sys.stderr)
+        return 2
+    print(
+        f"OpenEnv mirror replay: {'passed' if result.passed else 'failed'}\n"
+        f"evidence: {result.evidence_path}"
+    )
+    return 0 if result.passed else 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     if args.command == "doctor":
@@ -252,6 +289,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _up(args)
     if args.command == "pilot":
         return _pilot(args)
+    if args.command == "openenv-replay":
+        return _openenv_replay(args)
     raise AssertionError(f"unhandled command: {args.command}")
 
 

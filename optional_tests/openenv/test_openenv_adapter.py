@@ -2,14 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import importlib.metadata
+import json
 import socket
 import threading
 import time
 from collections.abc import Mapping
+from pathlib import Path
 
 import uvicorn
 
 from entryplug.agent import Act, Inspect, Wait
+from entryplug.association import CandidateEvidence
+from entryplug.association_operation import candidate_record
 from entryplug.episode import EpisodeController, EpisodeStart
 from entryplug.evidence import JsonValue
 from entryplug.operation import (
@@ -20,6 +24,7 @@ from entryplug.operation import (
     OperationHost,
     OperationResult,
 )
+from entryplug.qualification import HARBOR_MIRRORS_V1
 from entryplug.session import Session
 from entryplug_openenv import (
     ActDecision,
@@ -31,6 +36,7 @@ from entryplug_openenv import (
     WaitDecision,
     create_entryplug_app,
 )
+from entryplug_openenv.mirror_replay import run_openenv_mirror_replay
 
 
 def _arguments(value: Mapping[str, JsonValue]) -> Mapping[str, object]:
@@ -189,3 +195,61 @@ def test_sdk_client_and_direct_core_produce_equivalent_public_results() -> None:
     assert calls == [42, 42]
     assert len(hosts[0].observe().operations) == 1
     assert not hosts[0].observe().admission_open
+
+
+def test_mirror_evidence_replays_through_sdk_without_private_roles(
+    tmp_path: Path,
+) -> None:
+    source_run_id = "harbor-mirrors-source"
+    source = tmp_path / "runs" / source_run_id
+    source.mkdir(parents=True)
+    candidate = CandidateEvidence(
+        candidate_id="view-public-a",
+        lineage_id="lineage-public-a",
+        maximum_age_ms=35.0,
+        noise_range_px=0.8,
+        fit_commands_radians=(-0.04, 0.025, -0.02, 0.05),
+        fit_effects_px=(-3.25, 2.1, -1.7, 4.15),
+        validation_commands_radians=(-0.045, 0.04),
+        validation_effects_px=(-3.7, 3.35),
+    )
+    (source / "mirrors.json").write_text(
+        json.dumps(
+            {
+                "status": "passed",
+                "seeds": {"experiment": 101},
+                "qualification_profile": {
+                    "profile_id": HARBOR_MIRRORS_V1.profile_id,
+                    "digest": HARBOR_MIRRORS_V1.digest,
+                },
+                "candidate_evidence": [candidate_record(candidate)],
+                "association": {"status": "selected", "candidate_id": candidate.candidate_id},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (source / "evaluation.jsonl").write_text(
+        json.dumps(
+            {
+                "private_source_roles": {
+                    candidate.candidate_id: "controlled_rendered_camera",
+                }
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = run_openenv_mirror_replay(tmp_path, source_run_id)
+
+    assert result.passed
+    replay = json.loads((result.evidence_path / "replay.json").read_text())
+    assert replay["comparison"]["equivalent_selection"] is True
+    assert replay["private_evaluation"] == {
+        "controlled_source_selected": True,
+        "roles_exposed_to_environment": False,
+        "selected_role": "controlled_rendered_camera",
+    }
+    assert replay["transport"]["selection"]["candidate_id"] == candidate.candidate_id
+    assert replay["transport"]["final_state"]["step_count"] == 4
+    assert replay["claim_boundary"].startswith("This replay sends recorded")
