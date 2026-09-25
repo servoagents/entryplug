@@ -33,13 +33,14 @@ class Session:
         arguments: Mapping[str, object],
         *,
         request_id: str | None = None,
+        expected_runtime_id: str | None = None,
     ) -> OperationSnapshot:
         self._require_open()
         return await self._host.start(
             capability,
             arguments,
             request_id=request_id or uuid.uuid4().hex,
-            expected_runtime_id=self._host.runtime_id,
+            expected_runtime_id=expected_runtime_id or self._host.runtime_id,
         )
 
     async def wait(self, operation: str | OperationSnapshot, timeout_s: float) -> OperationSnapshot:

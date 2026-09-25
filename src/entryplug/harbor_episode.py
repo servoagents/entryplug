@@ -11,7 +11,7 @@ import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, Protocol
+from typing import BinaryIO, Protocol, cast
 
 from entryplug.episode import EpisodeFactory, EpisodeStart
 from entryplug.evidence import JsonValue
@@ -34,6 +34,33 @@ from entryplug.seeding import validate_experiment_seed
 from entryplug.session import Session
 
 ACQUIRE_VISUAL_BINDING = "acquire_visual_binding"
+
+ACQUIRE_VISUAL_BINDING_INPUT_SCHEMA = {
+    "type": "object",
+    "properties": {},
+    "additionalProperties": False,
+}
+
+ACQUIRE_VISUAL_BINDING_RESULT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "run_id": {"type": "string"},
+        "evidence_path": {"type": "string"},
+        "status": {"const": "passed"},
+        "selected_candidate_id": {"type": "string"},
+        "qualification_profile": {"type": "string"},
+        "qualification_profile_digest": {"type": "string"},
+    },
+    "required": [
+        "run_id",
+        "evidence_path",
+        "status",
+        "selected_candidate_id",
+        "qualification_profile",
+        "qualification_profile_digest",
+    ],
+    "additionalProperties": False,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,7 +233,7 @@ async def start_owned_harbor(
         container_name=harbor_container_name(run_id),
         process=process,
         temporary_log_path=temporary_path,
-        temporary_log=temporary,
+        temporary_log=cast(BinaryIO, temporary),
     )
 
 
@@ -303,7 +330,7 @@ def harbor_mirrors_episode_factory(
             wait_task = asyncio.create_task(run.wait())
             cancel_task = asyncio.create_task(context.wait_for_cancel())
             try:
-                done, _ = await asyncio.wait(
+                done, _pending = await asyncio.wait(
                     (wait_task, cancel_task),
                     return_when=asyncio.FIRST_COMPLETED,
                 )
@@ -366,6 +393,8 @@ def harbor_mirrors_episode_factory(
                     20.0,
                     _no_arguments,
                     acquire,
+                    ACQUIRE_VISUAL_BINDING_INPUT_SCHEMA,
+                    ACQUIRE_VISUAL_BINDING_RESULT_SCHEMA,
                 ),
             ),
             runtime_id=f"harbor-mirrors-episode-{seed}-{uuid.uuid4().hex}",

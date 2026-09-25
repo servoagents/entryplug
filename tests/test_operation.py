@@ -386,3 +386,94 @@ def test_detached_session_does_not_cancel_runtime_owned_work() -> None:
         await host.close()
 
     _run(scenario)
+
+
+def test_capability_schemas_are_validated_frozen_and_observable() -> None:
+    async def unused(_: OperationContext, __: Mapping[str, JsonValue]) -> OperationResult:
+        return OperationResult(Lifecycle.SUCCEEDED, MotionState.IDLE)
+
+    input_schema = {
+        "type": "object",
+        "properties": {"value": {"type": "integer"}},
+        "required": ["value"],
+        "additionalProperties": False,
+    }
+    host = OperationHost(
+        (
+            CapabilitySpec(
+                "read_value",
+                "1",
+                "Read one value",
+                False,
+                1.0,
+                0.1,
+                _arguments,
+                unused,
+                input_schema,
+                {"type": "object", "additionalProperties": True},
+            ),
+        )
+    )
+    input_schema["type"] = "array"
+
+    published = host.observe().capabilities[0]
+    assert published["input_schema"] == {
+        "type": "object",
+        "properties": {"value": {"type": "integer"}},
+        "required": ("value",),
+        "additionalProperties": False,
+    }
+    schema = published["input_schema"]
+    assert isinstance(schema, Mapping)
+    with pytest.raises(TypeError):
+        schema["type"] = "array"  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="root type must be object"):
+        CapabilitySpec(
+            "invalid",
+            "1",
+            "Invalid schema",
+            False,
+            1.0,
+            0.1,
+            _arguments,
+            unused,
+            {"type": "array"},
+        )
+
+
+def test_session_can_reject_a_stale_external_runtime_id() -> None:
+    async def scenario() -> None:
+        async def read(_: OperationContext, arguments: Mapping[str, JsonValue]) -> OperationResult:
+            return OperationResult(Lifecycle.SUCCEEDED, MotionState.IDLE, arguments)
+
+        session = Session(
+            OperationHost(
+                (
+                    CapabilitySpec(
+                        "read",
+                        "1",
+                        "Read",
+                        False,
+                        1.0,
+                        0.1,
+                        _arguments,
+                        read,
+                    ),
+                ),
+                runtime_id="runtime-current",
+            ),
+            owns_runtime=True,
+        )
+
+        with pytest.raises(AdmissionError) as stale:
+            await session.act(
+                "read",
+                {"value": 1},
+                request_id="request-stale",
+                expected_runtime_id="runtime-old",
+            )
+        assert stale.value.reason_code == "STALE_RUNTIME"
+        await session.close()
+
+    _run(scenario)

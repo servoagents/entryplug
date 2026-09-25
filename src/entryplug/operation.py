@@ -183,6 +183,8 @@ class CapabilitySpec:
     cancel_grace_seconds: float
     validate: ValidateArguments
     run: RunCapability
+    input_schema: Mapping[str, object] | None = None
+    result_schema: Mapping[str, object] | None = None
 
     def __post_init__(self) -> None:
         if not self.name or not self.version or not self.description:
@@ -191,6 +193,17 @@ class CapabilitySpec:
             raise ValueError("capability deadline must be finite and positive")
         if not math.isfinite(self.cancel_grace_seconds) or self.cancel_grace_seconds <= 0:
             raise ValueError("cancel grace must be finite and positive")
+        for field_name in ("input_schema", "result_schema"):
+            schema = getattr(self, field_name)
+            if schema is None:
+                continue
+            try:
+                _, checked = _json_object(schema, field_name.replace("_", " "))
+            except AdmissionError as error:
+                raise ValueError(str(error)) from error
+            if checked.get("type") != "object":
+                raise ValueError(f"{field_name.replace('_', ' ')} root type must be object")
+            object.__setattr__(self, field_name, checked)
 
 
 @dataclass(slots=True)
@@ -268,21 +281,21 @@ class OperationHost:
         )
 
     def observe(self) -> RuntimeView:
-        catalog = tuple(
-            cast(
-                Mapping[str, JsonValue],
-                MappingProxyType(
-                    {
-                        "name": spec.name,
-                        "version": spec.version,
-                        "description": spec.description,
-                        "motion_producing": spec.motion_producing,
-                        "deadline_seconds": spec.deadline_seconds,
-                    }
-                ),
-            )
-            for spec in sorted(self._specs.values(), key=lambda item: item.name)
-        )
+        catalog_items: list[Mapping[str, JsonValue]] = []
+        for spec in sorted(self._specs.values(), key=lambda item: item.name):
+            item: dict[str, JsonValue] = {
+                "name": spec.name,
+                "version": spec.version,
+                "description": spec.description,
+                "motion_producing": spec.motion_producing,
+                "deadline_seconds": spec.deadline_seconds,
+            }
+            if spec.input_schema is not None:
+                item["input_schema"] = cast(JsonValue, _plain(spec.input_schema))
+            if spec.result_schema is not None:
+                item["result_schema"] = cast(JsonValue, _plain(spec.result_schema))
+            catalog_items.append(cast(Mapping[str, JsonValue], _freeze(item)))
+        catalog = tuple(catalog_items)
         recent = tuple(self._snapshot(item) for item in tuple(self._operations.values())[-16:])
         return RuntimeView(
             runtime_id=self.runtime_id,
