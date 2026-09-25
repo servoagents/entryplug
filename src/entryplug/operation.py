@@ -8,7 +8,8 @@ import json
 import math
 import time
 import uuid
-from collections.abc import Awaitable, Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
 from types import MappingProxyType
@@ -132,6 +133,7 @@ class RuntimeView:
     active_motion_operation: str | None
     operations: tuple[OperationSnapshot, ...]
     admission_open: bool
+    reconfiguration_slot: str | None
     motion_inhibited_reason: str | None
     request_records: int
     maximum_requests: int
@@ -259,6 +261,8 @@ class OperationHost:
         self._operations: dict[str, _Operation] = {}
         self._active_motion_operation: str | None = None
         self._motion_inhibited_reason: str | None = None
+        self._reconfiguration_slot: str | None = None
+        self._reconfiguration_token: str | None = None
         self._revision = 0
         self._closed = False
 
@@ -303,7 +307,8 @@ class OperationHost:
             capabilities=catalog,
             active_motion_operation=self._active_motion_operation,
             operations=recent,
-            admission_open=not self._closed,
+            admission_open=not self._closed and self._reconfiguration_slot is None,
+            reconfiguration_slot=self._reconfiguration_slot,
             motion_inhibited_reason=self._motion_inhibited_reason,
             request_records=len(self._requests),
             maximum_requests=self._maximum_requests,
@@ -359,6 +364,11 @@ class OperationHost:
                 raise AdmissionError("RUNTIME_CLOSED", "runtime is closed")
             if expected_runtime_id != self.runtime_id:
                 raise AdmissionError("STALE_RUNTIME", "runtime ID is no longer current")
+            if self._reconfiguration_slot is not None:
+                raise AdmissionError(
+                    "RECONFIGURING",
+                    f"runtime is reconfiguring {self._reconfiguration_slot}",
+                )
             spec = self._specs.get(capability)
             if spec is None:
                 raise AdmissionError("UNKNOWN_CAPABILITY", "capability is not registered")
@@ -404,6 +414,49 @@ class OperationHost:
             name=f"entryplug:{capability}:{operation_id}",
         )
         return self._snapshot(operation)
+
+    @contextmanager
+    def reconfiguration(
+        self,
+        slot: str,
+        *,
+        expected_runtime_id: str,
+    ) -> Iterator[None]:
+        """Close admission while an approved runtime slot is replaced at rest."""
+
+        if not slot:
+            raise ValueError("reconfiguration slot must be nonempty")
+        if self._closed:
+            raise AdmissionError("RUNTIME_CLOSED", "runtime is closed")
+        if expected_runtime_id != self.runtime_id:
+            raise AdmissionError("STALE_RUNTIME", "runtime ID is no longer current")
+        if self._reconfiguration_slot is not None:
+            raise AdmissionError(
+                "RECONFIGURING",
+                f"runtime is already reconfiguring {self._reconfiguration_slot}",
+            )
+        if any(
+            operation.lifecycle not in TERMINAL_LIFECYCLES
+            for operation in self._operations.values()
+        ):
+            raise AdmissionError("BUSY", "runtime still has active operations")
+        if self._motion_inhibited_reason is not None:
+            raise AdmissionError(
+                "PHYSICAL_STATE_UNKNOWN",
+                "runtime physical state is not confirmed quiescent",
+            )
+
+        token = uuid.uuid4().hex
+        self._reconfiguration_slot = slot
+        self._reconfiguration_token = token
+        self._revision += 1
+        try:
+            yield
+        finally:
+            if self._reconfiguration_token == token:
+                self._reconfiguration_slot = None
+                self._reconfiguration_token = None
+                self._revision += 1
 
     def _update_operation(
         self, operation: _Operation, phase: str, motion_state: MotionState

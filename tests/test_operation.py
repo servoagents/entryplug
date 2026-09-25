@@ -477,3 +477,79 @@ def test_session_can_reject_a_stale_external_runtime_id() -> None:
         await session.close()
 
     _run(scenario)
+
+
+def test_reconfiguration_barrier_closes_admission_and_is_observable() -> None:
+    async def scenario() -> None:
+        async def read(
+            _: OperationContext, arguments: Mapping[str, JsonValue]
+        ) -> OperationResult:
+            return OperationResult(Lifecycle.SUCCEEDED, MotionState.IDLE, arguments)
+
+        host = OperationHost(
+            (CapabilitySpec("read", "1", "Read", False, 1.0, 0.1, _arguments, read),),
+            runtime_id="runtime-a",
+        )
+
+        with host.reconfiguration("evidence", expected_runtime_id="runtime-a"):
+            view = host.observe()
+            assert not view.admission_open
+            assert view.reconfiguration_slot == "evidence"
+            with pytest.raises(AdmissionError) as blocked:
+                await host.start(
+                    "read",
+                    {"value": 1},
+                    request_id="during-reconfiguration",
+                    expected_runtime_id="runtime-a",
+                )
+            assert blocked.value.reason_code == "RECONFIGURING"
+
+        view = host.observe()
+        assert view.admission_open
+        assert view.reconfiguration_slot is None
+        operation = await host.start(
+            "read",
+            {"value": 2},
+            request_id="after-reconfiguration",
+            expected_runtime_id="runtime-a",
+        )
+        assert (await host.wait(operation.operation_id, 0.2)).lifecycle == Lifecycle.SUCCEEDED
+        await host.close()
+
+    _run(scenario)
+
+
+def test_reconfiguration_requires_current_idle_runtime() -> None:
+    async def scenario() -> None:
+        release = asyncio.Event()
+
+        async def read(
+            _: OperationContext, arguments: Mapping[str, JsonValue]
+        ) -> OperationResult:
+            await release.wait()
+            return OperationResult(Lifecycle.SUCCEEDED, MotionState.IDLE, arguments)
+
+        host = OperationHost(
+            (CapabilitySpec("read", "1", "Read", False, 1.0, 0.1, _arguments, read),),
+            runtime_id="runtime-a",
+        )
+        operation = await host.start(
+            "read", {"value": 1}, request_id="active", expected_runtime_id="runtime-a"
+        )
+
+        with pytest.raises(AdmissionError) as busy:
+            with host.reconfiguration("evidence", expected_runtime_id="runtime-a"):
+                raise AssertionError("busy runtime must not enter the barrier")
+        assert busy.value.reason_code == "BUSY"
+        assert host.observe().admission_open
+
+        with pytest.raises(AdmissionError) as stale:
+            with host.reconfiguration("evidence", expected_runtime_id="runtime-old"):
+                raise AssertionError("stale runtime must not enter the barrier")
+        assert stale.value.reason_code == "STALE_RUNTIME"
+
+        release.set()
+        await host.wait(operation.operation_id, 0.2)
+        await host.close()
+
+    _run(scenario)
