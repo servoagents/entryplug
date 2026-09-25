@@ -22,6 +22,7 @@ from entryplug.agent import (
 )
 from entryplug.evidence import JsonValue
 from entryplug.operation import (
+    AdmissionError,
     CapabilitySpec,
     Lifecycle,
     MotionState,
@@ -61,6 +62,10 @@ class StopPolicy:
 
     def decide(self, _: Mapping[str, JsonValue]) -> Stop:
         return Stop(self._reason)
+
+
+class InvalidPolicy:
+    pass
 
 
 class SlowStartingPolicy:
@@ -353,5 +358,102 @@ def test_idle_policy_replacement_starts_a_fresh_generation() -> None:
         assert host.observe().operations == ()
         await runner.close()
         await session.close()
+
+    _run(scenario)
+
+
+def test_controlled_policy_replacement_commits_ready_child_while_idle() -> None:
+    async def scenario() -> None:
+        host = _pid_host()
+        runner = AgentRunner(StopPolicy("first"))
+        first = await runner.decide(host.observe())
+
+        replacement = await runner.replace(
+            StopPolicy("second"),
+            host=host,
+            expected_generation=1,
+        )
+        second = await runner.decide(host.observe())
+
+        assert first.decision == Stop("first")
+        assert second.decision == Stop("second")
+        assert replacement.previous_agent_generation == 1
+        assert replacement.agent_generation == 2
+        assert replacement.runtime_generation == 2
+        assert replacement.previous_process_id == first.agent_process_id
+        assert replacement.process_id == second.agent_process_id
+        assert replacement.process_id != replacement.previous_process_id
+        assert replacement.process_startup_ms >= 0
+        assert host.observe().reconfiguration_generations == {"agent_policy": 2}
+        assert host.observe().operations == ()
+        await runner.close()
+        await host.close()
+
+    _run(scenario)
+
+
+def test_failed_policy_preparation_retains_old_child_and_generation() -> None:
+    async def scenario() -> None:
+        host = _pid_host()
+        runner = AgentRunner(StopPolicy("still active"))
+        before = await runner.decide(host.observe())
+
+        with pytest.raises(AgentProcessError, match="could not start"):
+            await runner.replace(InvalidPolicy())  # type: ignore[arg-type]
+
+        after = await runner.decide(host.observe())
+        assert runner.generation == 1
+        assert after.agent_process_id == before.agent_process_id
+        assert after.decision == Stop("still active")
+        await runner.close()
+        await host.close()
+
+    _run(scenario)
+
+
+def test_active_operation_refuses_controlled_policy_replacement() -> None:
+    async def scenario() -> None:
+        release = asyncio.Event()
+
+        def validate(arguments: Mapping[str, JsonValue]) -> Mapping[str, object]:
+            return dict(arguments)
+
+        async def read(
+            _: OperationContext, __: Mapping[str, JsonValue]
+        ) -> OperationResult:
+            await release.wait()
+            return OperationResult(Lifecycle.SUCCEEDED, MotionState.IDLE)
+
+        host = OperationHost(
+            (CapabilitySpec("read", "1", "Read", False, 1.0, 0.1, validate, read),),
+            runtime_id="runtime-a",
+        )
+        runner = AgentRunner(StopPolicy("retained"))
+        before = await runner.decide(host.observe())
+        operation = await host.start(
+            "read",
+            {},
+            request_id="active",
+            expected_runtime_id="runtime-a",
+        )
+
+        with pytest.raises(AdmissionError) as busy:
+            await runner.replace(
+                StopPolicy("must not install"),
+                host=host,
+                expected_generation=1,
+            )
+
+        assert busy.value.reason_code == "BUSY"
+        assert runner.generation == 1
+        after = await runner.decide(host.observe())
+        assert after.agent_process_id == before.agent_process_id
+        assert after.decision == Stop("retained")
+        assert host.reconfiguration_generation("agent_policy") == 1
+
+        release.set()
+        assert (await host.wait(operation.operation_id, 0.2)).lifecycle == Lifecycle.SUCCEEDED
+        await runner.close()
+        await host.close()
 
     _run(scenario)

@@ -17,7 +17,7 @@ from multiprocessing.process import BaseProcess
 from typing import Protocol, cast
 
 from entryplug.evidence import JsonValue
-from entryplug.operation import OperationSnapshot, RuntimeView
+from entryplug.operation import OperationHost, OperationSnapshot, RuntimeView
 from entryplug.session import Session
 
 _MAX_MESSAGE_BYTES = 16_384
@@ -107,6 +107,16 @@ class AgentStep:
 
     reply: DecisionReply
     result: DecisionResult
+
+
+@dataclass(frozen=True, slots=True)
+class AgentReplacement:
+    previous_agent_generation: int
+    agent_generation: int
+    runtime_generation: int | None
+    previous_process_id: int | None
+    process_id: int
+    process_startup_ms: float
 
 
 async def dispatch_decision(
@@ -431,15 +441,19 @@ class AgentRunner:
     def generation(self) -> int:
         return self._generation
 
-    def _start_worker(self) -> tuple[BaseProcess, Connection, bool]:
-        if self._process is not None and self._connection is not None:
-            return self._process, self._connection, False
+    @staticmethod
+    def _spawn_worker(
+        policy: AgentPolicy,
+        generation: int,
+    ) -> tuple[BaseProcess, Connection]:
+        if not callable(getattr(policy, "decide", None)):
+            raise AgentProcessError("agent policy must provide a callable decide method")
         context = multiprocessing.get_context("spawn")
         parent, child = context.Pipe(duplex=True)
         process = context.Process(
             target=_agent_worker,
-            args=(child, self._policy, self._generation),
-            name=f"entryplug-agent-{self._generation}",
+            args=(child, policy, generation),
+            name=f"entryplug-agent-{generation}",
             daemon=True,
         )
         try:
@@ -449,9 +463,15 @@ class AgentRunner:
             child.close()
             raise
         child.close()
+        return process, parent
+
+    def _start_worker(self) -> tuple[BaseProcess, Connection, bool]:
+        if self._process is not None and self._connection is not None:
+            return self._process, self._connection, False
+        process, connection = self._spawn_worker(self._policy, self._generation)
         self._process = process
-        self._connection = parent
-        return process, parent, True
+        self._connection = connection
+        return process, connection, True
 
     def _detach_worker(self) -> tuple[BaseProcess | None, Connection | None]:
         process, connection = self._process, self._connection
@@ -487,6 +507,43 @@ class AgentRunner:
             process.close()
         if connection is not None:
             connection.close()
+
+    async def _prepare_worker(
+        self,
+        policy: AgentPolicy,
+        generation: int,
+    ) -> tuple[BaseProcess, Connection, float]:
+        started = time.monotonic()
+        try:
+            process, connection = self._spawn_worker(policy, generation)
+        except Exception as error:
+            raise AgentProcessError("replacement agent process could not start") from error
+        try:
+            ready = await _receive(connection, self._startup_timeout_seconds)
+        except asyncio.CancelledError:
+            self._stop_worker(process, connection, force=True)
+            raise
+        except Exception as error:
+            exit_code = process.exitcode
+            self._stop_worker(process, connection, force=True)
+            raise AgentProcessError(
+                f"replacement agent process exited with code {exit_code}"
+            ) from error
+        if ready is None:
+            self._stop_worker(process, connection, force=True)
+            raise AgentStartupTimeout(
+                f"replacement agent startup exceeded {self._startup_timeout_seconds:g} seconds"
+            )
+        if (
+            not isinstance(ready, dict)
+            or ready.get("kind") != "ready"
+            or ready.get("generation") != generation
+            or ready.get("process_id") != process.pid
+        ):
+            self._stop_worker(process, connection, force=True)
+            raise AgentProcessError("replacement agent returned a malformed startup response")
+        startup_ms = round((time.monotonic() - started) * 1000, 3)
+        return process, connection, startup_ms
 
     async def decide(self, view: RuntimeView) -> DecisionReply:
         if self._closed:
@@ -601,17 +658,90 @@ class AgentRunner:
                 return tuple(steps)
         raise AgentError("policy exceeded the maximum decision count")
 
-    async def replace(self, policy: AgentPolicy) -> None:
-        """Replace an idle policy without transferring hidden process state."""
+    async def replace(
+        self,
+        policy: AgentPolicy,
+        *,
+        host: OperationHost | None = None,
+        expected_generation: int | None = None,
+    ) -> AgentReplacement:
+        """Prepare a fresh child, then replace an idle policy generation."""
 
+        if (host is None) != (expected_generation is None):
+            raise ValueError("controlled replacement requires host and expected generation")
         if self._closed:
             raise AgentError("agent runner is closed")
         if self._decision_in_flight:
             raise AgentBusyError("cannot replace an agent with a decision outstanding")
-        retired = self._detach_worker()
+
+        previous_agent_generation = self._generation
+        candidate_generation = previous_agent_generation + 1
+        candidate_process, candidate_connection, startup_ms = await self._prepare_worker(
+            policy,
+            candidate_generation,
+        )
+        retired: tuple[BaseProcess | None, Connection | None] = (None, None)
+        runtime_generation: int | None = None
+        installed = False
+        try:
+            if self._closed:
+                raise AgentError("agent runner was closed while preparing its replacement")
+            if self._decision_in_flight:
+                raise AgentBusyError("cannot replace an agent with a decision outstanding")
+            if self._generation != previous_agent_generation:
+                raise StaleAgentDecision("agent generation changed while preparing replacement")
+
+            if host is not None:
+                assert expected_generation is not None
+                with host.reconfiguration(
+                    "agent_policy",
+                    expected_runtime_id=host.runtime_id,
+                    expected_generation=expected_generation,
+                ):
+                    if self._decision_in_flight:
+                        raise AgentBusyError(
+                            "cannot replace an agent with a decision outstanding"
+                        )
+                    if self._generation != previous_agent_generation:
+                        raise StaleAgentDecision(
+                            "agent generation changed before replacement commit"
+                        )
+                    runtime_generation = host.commit_reconfiguration(
+                        "agent_policy",
+                        expected_generation=expected_generation,
+                    )
+                    retired = self._detach_worker()
+                    self._policy = policy
+                    self._process = candidate_process
+                    self._connection = candidate_connection
+                    self._generation = candidate_generation
+                    installed = True
+            else:
+                retired = self._detach_worker()
+                self._policy = policy
+                self._process = candidate_process
+                self._connection = candidate_connection
+                self._generation = candidate_generation
+                installed = True
+        except Exception:
+            if not installed:
+                self._stop_worker(
+                    candidate_process,
+                    candidate_connection,
+                    force=False,
+                )
+            raise
+
+        previous_process_id = None if retired[0] is None else retired[0].pid
         self._stop_worker(*retired, force=False)
-        self._policy = policy
-        self._generation += 1
+        return AgentReplacement(
+            previous_agent_generation=previous_agent_generation,
+            agent_generation=self._generation,
+            runtime_generation=runtime_generation,
+            previous_process_id=previous_process_id,
+            process_id=cast(int, candidate_process.pid),
+            process_startup_ms=startup_ms,
+        )
 
     async def close(self) -> None:
         if self._closed:
