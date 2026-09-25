@@ -236,3 +236,25 @@ def test_os_release_parser_does_not_execute_values(tmp_path: Path) -> None:
         "VERSION_ID": "24.04",
         "NAME": "Ubuntu $(false)",
     }
+
+
+def test_missing_parent_of_dotted_module_is_reported_as_missing(tmp_path: Path) -> None:
+    profile = _profile(tmp_path / "profile.json")
+    data = json.loads(profile.read_text(encoding="utf-8"))
+    data["required_imports"].append(
+        {"distribution": "protobuf", "module": "google.protobuf"}
+    )
+    profile.write_text(json.dumps(data), encoding="utf-8")
+    context = _context(healthy=True)
+    original_find_spec = context.find_spec
+
+    def find_spec(module: str) -> object | None:
+        if module == "google.protobuf":
+            raise ModuleNotFoundError("No module named 'google'")
+        return original_find_spec(module)
+
+    report = run_doctor(profile, context=replace(context, find_spec=find_spec))
+
+    check = next(item for item in report.checks if item.check_id == "import.google.protobuf")
+    assert check.status == "missing"
+    assert check.observed == "not importable"

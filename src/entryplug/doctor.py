@@ -258,8 +258,15 @@ def _check_commands(context: ProbeContext, profile: Mapping[str, object]) -> lis
     return results
 
 
+def _find_spec(context: ProbeContext, module: str) -> object | None:
+    try:
+        return context.find_spec(module)
+    except (ImportError, AttributeError, ValueError):
+        return None
+
+
 def _module_version(context: ProbeContext, distribution: str, module: str) -> tuple[str, str]:
-    spec = context.find_spec(module)
+    spec = _find_spec(context, module)
     if spec is None:
         return "", ""
     try:
@@ -404,7 +411,7 @@ def _check_ros_environment(
 
 def _check_image_conversion(context: ProbeContext) -> CheckResult:
     prerequisites = ("rclpy", "cv_bridge", "sensor_msgs", "numpy")
-    missing = [module for module in prerequisites if context.find_spec(module) is None]
+    missing = [module for module in prerequisites if _find_spec(context, module) is None]
     if missing:
         return CheckResult(
             check_id="ros.image_conversion",
