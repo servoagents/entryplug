@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 
@@ -12,6 +13,7 @@ from entryplug.evidence import (
     EvidenceRecord,
     MemoryEvidenceCache,
     SqliteEvidenceCache,
+    json_object,
 )
 
 
@@ -132,3 +134,28 @@ def test_sqlite_cache_can_be_reopened_without_write_authority(tmp_path: Path) ->
 def test_read_only_sqlite_cache_requires_existing_file(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError, match="does not exist"):
         SqliteEvidenceCache(tmp_path / "missing.sqlite3", read_only=True)
+
+
+def test_json_object_normalizes_nested_immutable_runtime_views() -> None:
+    frozen = MappingProxyType(
+        {
+            "selection": MappingProxyType(
+                {"candidate_id": "view-a", "scores": (1.0, 0.5)}
+            )
+        }
+    )
+
+    normalized = json_object(frozen, "public event")
+
+    assert normalized == {
+        "selection": {"candidate_id": "view-a", "scores": [1.0, 0.5]}
+    }
+    selection = normalized["selection"]
+    assert isinstance(selection, dict)
+    selection["candidate_id"] = "detached"
+    assert frozen["selection"]["candidate_id"] == "view-a"
+
+
+def test_json_object_rejects_nonfinite_public_evidence() -> None:
+    with pytest.raises(ValueError, match="finite JSON-safe"):
+        json_object({"score": float("nan")}, "public event")

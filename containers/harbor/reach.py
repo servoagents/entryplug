@@ -33,6 +33,7 @@ from smoke import (
 )
 
 from entryplug.agent import AgentRunner, ScriptedExplorer, agent_execution_record
+from entryplug.detection import DETECTOR_INTERFACE_VERSION, MarkerDetection, MarkerFrame
 from entryplug.evidence import JsonValue
 from entryplug.operation import (
     CapabilitySpec,
@@ -62,32 +63,59 @@ def _round(value: float) -> float:
     return round(value, 6)
 
 
-def _marker(frame: Frame) -> dict[str, object]:
-    if frame.encoding != "rgb8" or frame.step != frame.width * 3:
-        raise RuntimeError(
-            f"red marker detector requires packed rgb8, got {frame.encoding!r} "
-            f"with step {frame.step}"
+RED_MARKER_DETECTOR_ID = "fixed-red-centroid-v1"
+
+
+class FixedRedCentroidDetector:
+    interface_version = DETECTOR_INTERFACE_VERSION
+    detector_id = RED_MARKER_DETECTOR_ID
+
+    def prepare(self) -> None:
+        return None
+
+    def detect(self, frame: MarkerFrame) -> MarkerDetection:
+        if frame.encoding != "rgb8" or frame.step != frame.width * 3:
+            raise RuntimeError(
+                f"red marker detector requires packed rgb8, got {frame.encoding!r} "
+                f"with step {frame.step}"
+            )
+        rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape(
+            (frame.height, frame.width, 3)
         )
-    rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape((frame.height, frame.width, 3))
-    red = rgb[:, :, 0].astype(np.int16)
-    green = rgb[:, :, 1].astype(np.int16)
-    blue = rgb[:, :, 2].astype(np.int16)
-    mask = (red >= 100) & (red >= green + 45) & (red >= blue + 45)
-    rows, columns = np.nonzero(mask)
-    if columns.size < 20:
-        raise RuntimeError(f"red marker detector found only {columns.size} pixels")
-    return {
-        "x_px": _round(float(np.mean(columns))),
-        "y_px": _round(float(np.mean(rows))),
-        "area_px": int(columns.size),
-        "bounding_box_px": {
-            "left": int(np.min(columns)),
-            "top": int(np.min(rows)),
-            "right": int(np.max(columns)),
-            "bottom": int(np.max(rows)),
-        },
-        "frame": frame.public_dict(),
-    }
+        red = rgb[:, :, 0].astype(np.int16)
+        green = rgb[:, :, 1].astype(np.int16)
+        blue = rgb[:, :, 2].astype(np.int16)
+        mask = (red >= 100) & (red >= green + 45) & (red >= blue + 45)
+        rows, columns = np.nonzero(mask)
+        if columns.size < 20:
+            raise RuntimeError(f"red marker detector found only {columns.size} pixels")
+        return MarkerDetection(
+            x_px=_round(float(np.mean(columns))),
+            y_px=_round(float(np.mean(rows))),
+            area_px=int(columns.size),
+            left_px=int(np.min(columns)),
+            top_px=int(np.min(rows)),
+            right_px=int(np.max(columns)),
+            bottom_px=int(np.max(rows)),
+        )
+
+    def close(self) -> None:
+        return None
+
+
+_APPROVED_MARKER_DETECTORS = {
+    RED_MARKER_DETECTOR_ID: FixedRedCentroidDetector,
+}
+_MARKER_DETECTOR = _APPROVED_MARKER_DETECTORS[RED_MARKER_DETECTOR_ID]()
+_MARKER_DETECTOR.prepare()
+
+
+def _marker(frame: Frame) -> dict[str, object]:
+    result = _MARKER_DETECTOR.detect(frame).to_dict()
+    result["detector_id"] = _MARKER_DETECTOR.detector_id
+    result["detector_interface_version"] = _MARKER_DETECTOR.interface_version
+    result["frame"] = frame.public_dict()
+    return result
 
 
 def _fresh_observation(
@@ -126,6 +154,10 @@ def _fresh_observation(
         "last_receive_age_ms": _round(
             max(0.0, (time.monotonic() - frames[-1].received_monotonic) * 1000)
         ),
+        "detector": {
+            "id": observations[-1]["detector_id"],
+            "interface_version": observations[-1]["detector_interface_version"],
+        },
         "marker_area_px": observations[-1]["area_px"],
         "bounding_box_px": observations[-1]["bounding_box_px"],
     }
@@ -795,6 +827,10 @@ def qualify(output_dir: Path, trace: list[dict[str, object]]) -> dict[str, objec
             },
             "feature": {
                 "description": "centroid of pixels passing a fixed red color rule",
+                "detector": {
+                    "id": RED_MARKER_DETECTOR_ID,
+                    "interface_version": DETECTOR_INTERFACE_VERSION,
+                },
                 "controlled_coordinate": "y_px",
                 "unsupported_coordinate": "x_px",
                 "start": start_observation,

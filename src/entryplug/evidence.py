@@ -46,7 +46,9 @@ def _canonical(value: object, label: str) -> str:
         raise ValueError(f"{label} must be finite JSON-safe data") from error
 
 
-def _json_object(value: Mapping[str, JsonValue], label: str) -> dict[str, JsonValue]:
+def json_object(value: Mapping[str, object], label: str) -> dict[str, JsonValue]:
+    """Return a detached JSON object, normalizing immutable runtime views."""
+
     encoded = _canonical(dict(value), label)
     decoded = json.loads(encoded)
     if not isinstance(decoded, dict):  # defensive: Mapping should always encode as object
@@ -64,7 +66,7 @@ class EvidenceQuery:
     def __post_init__(self) -> None:
         if not self.kind:
             raise ValueError("evidence kind must be nonempty")
-        checked = _json_object(self.context, "query context")
+        checked = json_object(self.context, "query context")
         object.__setattr__(self, "context", _freeze(checked))
 
     @property
@@ -90,8 +92,8 @@ class EvidenceRecord:
             isinstance(item, str) and item for item in self.evidence_refs
         ):
             raise ValueError("evidence references must be nonempty")
-        checked_context = _json_object(self.context, "context")
-        checked_payload = _json_object(self.payload, "payload")
+        checked_context = json_object(self.context, "context")
+        checked_payload = json_object(self.payload, "payload")
         object.__setattr__(self, "context", _freeze(checked_context))
         object.__setattr__(self, "payload", _freeze(checked_payload))
         object.__setattr__(self, "evidence_refs", tuple(self.evidence_refs))
@@ -135,8 +137,8 @@ class EvidenceRecord:
         created_at: str,
     ) -> EvidenceRecord:
         refs = tuple(evidence_refs)
-        checked_context = _json_object(context, "context")
-        checked_payload = _json_object(payload, "payload")
+        checked_context = json_object(context, "context")
+        checked_payload = json_object(payload, "payload")
         key = cls.content_key(
             kind=kind,
             context=checked_context,

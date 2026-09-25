@@ -52,7 +52,7 @@ from entryplug.association_operation import (
     candidate_records,
 )
 from entryplug.evaluation import MethodMeasurement, paired_method_comparison
-from entryplug.evidence import EvidenceQuery, SqliteEvidenceCache
+from entryplug.evidence import EvidenceQuery, SqliteEvidenceCache, json_object
 from entryplug.operation import Lifecycle
 from entryplug.qualification import HARBOR_MIRRORS_V1
 from entryplug.seeding import derive_experiment_seed, validate_experiment_seed
@@ -155,6 +155,10 @@ def _fresh_mirror_observation(
         "last_receive_age_ms": _round(
             max(0.0, (time.monotonic() - frames[-1].received_monotonic) * 1000)
         ),
+        "detector": {
+            "id": last["detector_id"],
+            "interface_version": last["detector_interface_version"],
+        },
         "marker_area_px": last["area_px"],
         "bounding_box_px": last["bounding_box_px"],
     }
@@ -446,7 +450,7 @@ def _write_jsonl(path: Path, records: list[dict[str, object]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("x", encoding="utf-8") as stream:
         for record in records:
-            stream.write(json.dumps(record, sort_keys=True))
+            stream.write(json.dumps(json_object(record, "public event"), sort_keys=True))
             stream.write("\n")
 
 
@@ -1810,7 +1814,7 @@ def main() -> int:
         _write_jsonl(args.output.parent / "public.jsonl", public_events)
         _write_jsonl(args.output.parent / "evaluation.jsonl", [evaluation])
         _write_create_only(args.output, payload)
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        print(json.dumps(json_object(payload, "qualification summary"), indent=2, sort_keys=True))
         return 0
     finally:
         rclpy.shutdown()
