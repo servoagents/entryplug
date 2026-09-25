@@ -553,3 +553,30 @@ def test_reconfiguration_requires_current_idle_runtime() -> None:
         await host.close()
 
     _run(scenario)
+
+
+def test_reconfiguration_generation_commits_once_and_rejects_stale_request() -> None:
+    host = OperationHost((), runtime_id="runtime-a")
+
+    assert host.reconfiguration_generation("memory") == 1
+    with host.reconfiguration(
+        "memory",
+        expected_runtime_id="runtime-a",
+        expected_generation=1,
+    ):
+        assert host.observe().reconfiguration_generations == {"memory": 1}
+        assert host.commit_reconfiguration("memory", expected_generation=1) == 2
+        with pytest.raises(AdmissionError) as repeated:
+            host.commit_reconfiguration("memory", expected_generation=1)
+        assert repeated.value.reason_code == "STALE_GENERATION"
+
+    assert host.reconfiguration_generation("memory") == 2
+    assert host.observe().reconfiguration_generations == {"memory": 2}
+    with pytest.raises(AdmissionError) as stale:
+        with host.reconfiguration(
+            "memory",
+            expected_runtime_id="runtime-a",
+            expected_generation=1,
+        ):
+            raise AssertionError("stale generation must not enter the barrier")
+    assert stale.value.reason_code == "STALE_GENERATION"

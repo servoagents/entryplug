@@ -134,6 +134,7 @@ class RuntimeView:
     operations: tuple[OperationSnapshot, ...]
     admission_open: bool
     reconfiguration_slot: str | None
+    reconfiguration_generations: Mapping[str, int]
     motion_inhibited_reason: str | None
     request_records: int
     maximum_requests: int
@@ -263,6 +264,8 @@ class OperationHost:
         self._motion_inhibited_reason: str | None = None
         self._reconfiguration_slot: str | None = None
         self._reconfiguration_token: str | None = None
+        self._reconfiguration_committed = False
+        self._reconfiguration_generations: dict[str, int] = {}
         self._revision = 0
         self._closed = False
 
@@ -309,6 +312,9 @@ class OperationHost:
             operations=recent,
             admission_open=not self._closed and self._reconfiguration_slot is None,
             reconfiguration_slot=self._reconfiguration_slot,
+            reconfiguration_generations=MappingProxyType(
+                dict(sorted(self._reconfiguration_generations.items()))
+            ),
             motion_inhibited_reason=self._motion_inhibited_reason,
             request_records=len(self._requests),
             maximum_requests=self._maximum_requests,
@@ -421,6 +427,7 @@ class OperationHost:
         slot: str,
         *,
         expected_runtime_id: str,
+        expected_generation: int | None = None,
     ) -> Iterator[None]:
         """Close admission while an approved runtime slot is replaced at rest."""
 
@@ -430,6 +437,14 @@ class OperationHost:
             raise AdmissionError("RUNTIME_CLOSED", "runtime is closed")
         if expected_runtime_id != self.runtime_id:
             raise AdmissionError("STALE_RUNTIME", "runtime ID is no longer current")
+        current_generation = self._reconfiguration_generations.get(slot, 1)
+        if expected_generation is not None and (
+            isinstance(expected_generation, bool)
+            or expected_generation != current_generation
+        ):
+            raise AdmissionError(
+                "STALE_GENERATION", "runtime slot generation is no longer current"
+            )
         if self._reconfiguration_slot is not None:
             raise AdmissionError(
                 "RECONFIGURING",
@@ -447,8 +462,10 @@ class OperationHost:
             )
 
         token = uuid.uuid4().hex
+        self._reconfiguration_generations.setdefault(slot, current_generation)
         self._reconfiguration_slot = slot
         self._reconfiguration_token = token
+        self._reconfiguration_committed = False
         self._revision += 1
         try:
             yield
@@ -456,7 +473,46 @@ class OperationHost:
             if self._reconfiguration_token == token:
                 self._reconfiguration_slot = None
                 self._reconfiguration_token = None
+                self._reconfiguration_committed = False
                 self._revision += 1
+
+    def reconfiguration_generation(self, slot: str) -> int:
+        if not slot:
+            raise ValueError("reconfiguration slot must be nonempty")
+        return self._reconfiguration_generations.get(slot, 1)
+
+    def commit_reconfiguration(
+        self,
+        slot: str,
+        *,
+        expected_generation: int,
+    ) -> int:
+        """Commit one prepared instance change under its active barrier."""
+
+        if self._reconfiguration_slot != slot or self._reconfiguration_token is None:
+            raise AdmissionError(
+                "NO_RECONFIGURATION",
+                f"runtime has no active reconfiguration for {slot}",
+            )
+        current_generation = self._reconfiguration_generations[slot]
+        if (
+            isinstance(expected_generation, bool)
+            or expected_generation != current_generation
+        ):
+            raise AdmissionError(
+                "STALE_GENERATION",
+                "runtime slot generation is no longer current",
+            )
+        if self._reconfiguration_committed:
+            raise AdmissionError(
+                "ALREADY_COMMITTED",
+                f"runtime reconfiguration for {slot} was already committed",
+            )
+        generation = current_generation + 1
+        self._reconfiguration_generations[slot] = generation
+        self._reconfiguration_committed = True
+        self._revision += 1
+        return generation
 
     def _update_operation(
         self, operation: _Operation, phase: str, motion_state: MotionState

@@ -86,6 +86,7 @@ def _catalog_payload(view: RuntimeView) -> dict[str, Any]:
         "active_motion_operation": view.active_motion_operation,
         "admission_open": view.admission_open,
         "reconfiguration_slot": view.reconfiguration_slot,
+        "reconfiguration_generations": _plain(view.reconfiguration_generations),
         "motion_inhibited_reason": view.motion_inhibited_reason,
     }
 

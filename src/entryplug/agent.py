@@ -249,6 +249,7 @@ def public_view(view: RuntimeView) -> dict[str, JsonValue]:
         "operations": operations,
         "admission_open": view.admission_open,
         "reconfiguration_slot": view.reconfiguration_slot,
+        "reconfiguration_generations": _plain(view.reconfiguration_generations),
         "motion_inhibited_reason": view.motion_inhibited_reason,
         "request_capacity": {
             "used": view.request_records,

@@ -11,6 +11,8 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Protocol, cast
 
+EVIDENCE_CACHE_INTERFACE_VERSION = "1"
+
 JsonScalar = None | bool | int | float | str
 JsonValue = JsonScalar | list["JsonValue"] | dict[str, "JsonValue"]
 
@@ -199,6 +201,9 @@ class EvidenceRecord:
 class EvidenceCache(Protocol):
     """Replaceable candidate memory; a cache hit never grants readiness."""
 
+    interface_version: str
+    writable: bool
+
     def find(self, query: EvidenceQuery, limit: int = 10) -> tuple[EvidenceRecord, ...]: ...
 
     def load(self, key: str) -> EvidenceRecord | None: ...
@@ -216,6 +221,9 @@ def _limit(value: int) -> int:
 
 class MemoryEvidenceCache:
     """Process-local evidence candidate cache with deterministic ordering."""
+
+    interface_version = EVIDENCE_CACHE_INTERFACE_VERSION
+    writable = True
 
     def __init__(self) -> None:
         self._records: dict[str, EvidenceRecord] = {}
@@ -252,8 +260,11 @@ class MemoryEvidenceCache:
 class SqliteEvidenceCache:
     """SQLite implementation of the same bounded immutable cache contract."""
 
+    interface_version = EVIDENCE_CACHE_INTERFACE_VERSION
+
     def __init__(self, path: Path, *, read_only: bool = False) -> None:
         self._read_only = read_only
+        self.writable = not read_only
         self._connection: sqlite3.Connection | None
         if read_only:
             if not path.is_file():
