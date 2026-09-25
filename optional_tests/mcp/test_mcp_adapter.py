@@ -2,17 +2,25 @@ from __future__ import annotations
 
 import asyncio
 import importlib.metadata
+import json
 import socket
 import threading
 import time
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import uvicorn
 from mcp import Client
 from mcp.server.lowlevel import Server
 
+from entryplug.episode import EpisodeStart
 from entryplug.evidence import JsonValue
+from entryplug.harbor_episode import (
+    ACQUIRE_VISUAL_BINDING,
+    ACQUIRE_VISUAL_BINDING_INPUT_SCHEMA,
+    ACQUIRE_VISUAL_BINDING_RESULT_SCHEMA,
+)
 from entryplug.operation import (
     CapabilitySpec,
     Lifecycle,
@@ -21,8 +29,10 @@ from entryplug.operation import (
     OperationHost,
     OperationResult,
 )
+from entryplug.qualification import HARBOR_MIRRORS_V1
 from entryplug.session import Session
 from entryplug_mcp import CANCEL_TOOL, CATALOG_TOOL, INSPECT_TOOL, create_mcp_server
+from entryplug_mcp.live_harbor import run_mcp_harbor
 
 
 def _arguments(value: Mapping[str, JsonValue]) -> Mapping[str, object]:
@@ -279,3 +289,102 @@ def test_cancel_tool_uses_the_host_cancellation_contract() -> None:
     asyncio.run(scenario())
     assert len(host.observe().operations) == 1
     asyncio.run(host.close())
+
+
+def test_live_harbor_driver_keeps_private_evaluation_out_of_transport(
+    tmp_path: Path,
+) -> None:
+    async def factory(seed: int) -> EpisodeStart:
+        async def acquire(
+            _: OperationContext,
+            __: Mapping[str, JsonValue],
+        ) -> OperationResult:
+            run_id = f"harbor-mirrors-s{seed}-fake"
+            evidence = tmp_path / "runs" / run_id
+            evidence.mkdir(parents=True)
+            (evidence / "mirrors.json").write_text(
+                json.dumps(
+                    {
+                        "status": "passed",
+                        "association": {"candidate_id": "view-public-a"},
+                        "timing_ms": {"total": 12.0},
+                        "checked_reuse": {
+                            "checked_reuse": {"probe_count": 2, "duration_ms": 3.0},
+                            "full_reacquisition": {
+                                "duration_ms": 10.0,
+                                "command_travel_radians": 0.35,
+                            },
+                        },
+                        "adaptive_handwritten_baseline": {
+                            "comparison": {"setup_time_delta_ms": 1.0}
+                        },
+                        "probe_count": 6,
+                        "validation_probe_count": 4,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (evidence / "evaluation.jsonl").write_text(
+                json.dumps(
+                    {
+                        "selected_role": "controlled_rendered_camera",
+                        "gates": {
+                            "controlled_source_selected": True,
+                            "delayed_path_rejected_as_stale": True,
+                            "independent_source_rejected": True,
+                        },
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            return OperationResult(
+                Lifecycle.SUCCEEDED,
+                MotionState.IDLE,
+                {
+                    "run_id": run_id,
+                    "evidence_path": str(evidence),
+                    "status": "passed",
+                    "selected_candidate_id": "view-public-a",
+                    "qualification_profile": HARBOR_MIRRORS_V1.profile_id,
+                    "qualification_profile_digest": HARBOR_MIRRORS_V1.digest,
+                },
+            )
+
+        host = OperationHost(
+            (
+                CapabilitySpec(
+                    ACQUIRE_VISUAL_BINDING,
+                    "1",
+                    "Acquire a test binding",
+                    True,
+                    2.0,
+                    0.2,
+                    lambda arguments: dict(arguments),
+                    acquire,
+                    ACQUIRE_VISUAL_BINDING_INPUT_SCHEMA,
+                    ACQUIRE_VISUAL_BINDING_RESULT_SCHEMA,
+                ),
+            ),
+            runtime_id=f"fake-mcp-live-harbor-{seed}",
+        )
+        return EpisodeStart(Session(host, owns_runtime=True), {"fixture": "fake-live-harbor"})
+
+    result = run_mcp_harbor(
+        tmp_path,
+        seed=101,
+        image="fake-harbor:test",
+        episode_factory=factory,
+    )
+
+    assert result.passed
+    record = json.loads((result.evidence_path / "mcp.json").read_text())
+    transport = record["transport"]
+    assert transport["operation"]["lifecycle"] == "succeeded"
+    assert transport["model_decision_count"] == 0
+    assert transport["deduplicated_request"] is True
+    assert transport["final_admission"]["active_motion_operation"] is None
+    assert record["private_evaluation"]["selected_controlled_source"] is True
+    assert record["private_evaluation"]["roles_exposed_to_transport"] is False
+    assert "controlled_rendered_camera" not in json.dumps(transport)
+    assert record["physical_run"]["run_id"] == result.physical_run_id
