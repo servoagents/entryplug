@@ -47,7 +47,8 @@
     },
     {
       "distribution": "a2a-sdk",
-      "module": "a2a"
+      "module": "a2a",
+      "version": "1.1.5"
     },
     {
       "distribution": "openenv",
@@ -66,6 +67,12 @@
     ]
   },
   "readiness_profiles": {
+    "a2a": [
+      "host.architecture",
+      "python.core_version",
+      "import.a2a",
+      "profile.a2a_lock"
+    ],
     "core": [
       "host.architecture",
       "python.core_version"
@@ -116,6 +123,13 @@
     ]
   },
   "selection": {
+    "a2a": {
+      "a2a_sdk": "1.1.5",
+      "protocol_revision": "1.0",
+      "qualification": "unqualified",
+      "source_commit": "9f0f00cb0417cb59958d3186d81651be7d9b9d59",
+      "wheel_sha256": "c1d63d36b79a097c62dd9be001fce21d5939f5a811a9c5afd0ba8082f13f68bf"
+    },
     "exports": {
       "a2a_sdk": null,
       "mcp_sdk": null,

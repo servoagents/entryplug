@@ -124,3 +124,9 @@ def test_doctor_refuses_to_overwrite_evidence(
     assert status == 2
     assert "File exists" in captured.err
     assert output.read_text(encoding="utf-8") == "preserve me"
+
+
+def test_test_command_selects_optional_a2a_suite() -> None:
+    args = _parse_args(["test", "--suite=a2a", "-q"])
+    assert args.pytest_args == ["-q"]
+    assert args.test_suite == "a2a"
