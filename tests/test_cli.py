@@ -81,6 +81,13 @@ def test_openenv_harbor_requires_runtime_and_seed() -> None:
     assert args.seed == 101
 
 
+def test_a2a_harbor_requires_runtime_and_seed() -> None:
+    args = _parse_args(["a2a-harbor", "--runtime", "container", "--seed", "101"])
+
+    assert args.runtime == "container"
+    assert args.seed == 101
+
+
 def test_mcp_harbor_requires_runtime_and_seed() -> None:
     args = _parse_args(["mcp-harbor", "--runtime", "container", "--seed", "101"])
 

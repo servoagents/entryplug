@@ -119,6 +119,14 @@ def _parser() -> argparse.ArgumentParser:
     live_openenv.add_argument("--seed", type=int, required=True)
     live_openenv.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
 
+    live_a2a = commands.add_parser(
+        "a2a-harbor",
+        help="run one live Harbor acquisition through A2A",
+    )
+    live_a2a.add_argument("--runtime", choices=("container",), required=True)
+    live_a2a.add_argument("--seed", type=int, required=True)
+    live_a2a.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
+
     live_mcp = commands.add_parser(
         "mcp-harbor",
         help="run one live Harbor acquisition through MCP",
@@ -333,6 +341,40 @@ def _openenv_harbor(args: argparse.Namespace) -> int:
     return 0 if result.passed else 1
 
 
+def _a2a_harbor(args: argparse.Namespace) -> int:
+    root = source_root()
+    if root is None:
+        print(
+            "entryplug a2a-harbor: run this command from a source checkout",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        from entryplug_a2a.live_harbor import run_a2a_harbor
+    except ImportError:
+        print(
+            "entryplug a2a-harbor: install the exact optional dependency with "
+            "pip install -e '.[a2a]'",
+            file=sys.stderr,
+        )
+        return 2
+    try:
+        result = run_a2a_harbor(
+            root,
+            seed=args.seed,
+            image=args.image,
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"entryplug a2a-harbor: {error}", file=sys.stderr)
+        return 2
+    print(
+        f"A2A Harbor episode: {'passed' if result.passed else 'failed'}\n"
+        f"physical evidence: {result.physical_evidence_path}\n"
+        f"wrapper evidence: {result.evidence_path}"
+    )
+    return 0 if result.passed else 1
+
+
 def _mcp_harbor(args: argparse.Namespace) -> int:
     root = source_root()
     if root is None:
@@ -381,6 +423,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _openenv_replay(args)
     if args.command == "openenv-harbor":
         return _openenv_harbor(args)
+    if args.command == "a2a-harbor":
+        return _a2a_harbor(args)
     if args.command == "mcp-harbor":
         return _mcp_harbor(args)
     raise AssertionError(f"unhandled command: {args.command}")

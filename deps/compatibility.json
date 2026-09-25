@@ -51,6 +51,31 @@
       "version": "1.1.5"
     },
     {
+      "distribution": "httpx",
+      "module": "httpx",
+      "version": "0.28.1"
+    },
+    {
+      "distribution": "protobuf",
+      "module": "google.protobuf",
+      "version": "7.36.2"
+    },
+    {
+      "distribution": "sse-starlette",
+      "module": "sse_starlette",
+      "version": "3.4.11"
+    },
+    {
+      "distribution": "starlette",
+      "module": "starlette",
+      "version": "1.7.0"
+    },
+    {
+      "distribution": "uvicorn",
+      "module": "uvicorn",
+      "version": "0.54.0"
+    },
+    {
       "distribution": "openenv",
       "module": "openenv",
       "version": "0.5.0"
@@ -71,6 +96,11 @@
       "host.architecture",
       "python.core_version",
       "import.a2a",
+      "import.httpx",
+      "import.google.protobuf",
+      "import.sse_starlette",
+      "import.starlette",
+      "import.uvicorn",
       "profile.a2a_lock"
     ],
     "core": [
@@ -83,6 +113,11 @@
       "command.uv",
       "import.mcp",
       "import.a2a",
+      "import.httpx",
+      "import.google.protobuf",
+      "import.sse_starlette",
+      "import.starlette",
+      "import.uvicorn",
       "profile.exports_lock"
     ],
     "full": "*",
@@ -126,14 +161,21 @@
     "a2a": {
       "a2a_sdk": "1.1.5",
       "protocol_revision": "1.0",
-      "qualification": "unqualified",
+      "qualification": "qualified",
       "source_commit": "9f0f00cb0417cb59958d3186d81651be7d9b9d59",
-      "wheel_sha256": "c1d63d36b79a097c62dd9be001fce21d5939f5a811a9c5afd0ba8082f13f68bf"
+      "wheel_sha256": "c1d63d36b79a097c62dd9be001fce21d5939f5a811a9c5afd0ba8082f13f68bf",
+      "http_stack": {
+        "httpx": "0.28.1",
+        "protobuf": "7.36.2",
+        "sse_starlette": "3.4.11",
+        "starlette": "1.7.0",
+        "uvicorn": "0.54.0"
+      }
     },
     "exports": {
-      "a2a_sdk": null,
-      "mcp_sdk": null,
-      "qualification": "unqualified"
+      "a2a_sdk": "1.1.5",
+      "mcp_sdk": "2.2.0",
+      "qualification": "qualified"
     },
     "harbor": {
       "container_base_image": "ros@sha256:c3706ef0a0aa45413c07803cf433602f543b22e45b4855f6fca955c2d8ecc4e8",
