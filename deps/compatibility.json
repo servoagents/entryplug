@@ -42,7 +42,8 @@
     },
     {
       "distribution": "mcp",
-      "module": "mcp"
+      "module": "mcp",
+      "version": "2.2.0"
     },
     {
       "distribution": "a2a-sdk",
@@ -101,6 +102,12 @@
       "ros.image_conversion",
       "profile.harbor_lock"
     ],
+    "mcp": [
+      "host.architecture",
+      "python.core_version",
+      "import.mcp",
+      "profile.mcp_lock"
+    ],
     "openenv": [
       "host.architecture",
       "python.core_version",
@@ -129,6 +136,13 @@
         "ros-jazzy-ros2-controllers": "4.42.1-1noble.20260905.075205",
         "ros-jazzy-ros2controlcli": "4.48.0-1noble.20260905.074402"
       }
+    },
+    "mcp": {
+      "mcp_sdk": "2.2.0",
+      "protocol_revision": "2026-07-28",
+      "qualification": "qualified",
+      "source_commit": "9972c21aa42054fb1450c5fc614761ed11847ec6",
+      "wheel_sha256": "bde982589473a060ae145e3406e9a5333fe538c97229ba841f5a7f92be004f81"
     },
     "openenv": {
       "openenv_sdk": "0.5.0",

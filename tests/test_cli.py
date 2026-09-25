@@ -22,6 +22,13 @@ def test_test_command_selects_optional_openenv_suite() -> None:
     assert args.pytest_args == ["-q"]
 
 
+def test_test_command_selects_optional_mcp_suite() -> None:
+    args = _parse_args(["test", "--suite=mcp", "-q"])
+
+    assert args.test_suite == "mcp"
+    assert args.pytest_args == ["-q"]
+
+
 def test_up_accepts_an_explicit_prior_mirrors_run() -> None:
     args = _parse_args(
         [
@@ -68,9 +75,7 @@ def test_openenv_replay_requires_an_explicit_source_run() -> None:
 
 
 def test_openenv_harbor_requires_runtime_and_seed() -> None:
-    args = _parse_args(
-        ["openenv-harbor", "--runtime", "container", "--seed", "101"]
-    )
+    args = _parse_args(["openenv-harbor", "--runtime", "container", "--seed", "101"])
 
     assert args.runtime == "container"
     assert args.seed == 101
