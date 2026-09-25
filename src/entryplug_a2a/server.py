@@ -16,18 +16,33 @@ from a2a.server.events import EventQueue
 from a2a.server.request_handlers import DefaultRequestHandler, DefaultRequestHandlerV2
 from a2a.server.routes import create_agent_card_routes, create_rest_routes
 from a2a.server.tasks import InMemoryTaskStore, TaskUpdater
-from a2a.types import AgentCapabilities, AgentCard, AgentInterface, AgentSkill, Message, Task
+from a2a.types import (
+    AgentCapabilities,
+    AgentCard,
+    AgentExtension,
+    AgentInterface,
+    AgentSkill,
+    Message,
+    Task,
+)
 from a2a.utils import TransportProtocol
 from a2a.utils.errors import InvalidParamsError
 from google.protobuf.json_format import MessageToDict  # type: ignore[import-untyped]
 from starlette.applications import Starlette
 
 from entryplug.evidence import JsonValue
-from entryplug.operation import AdmissionError, Lifecycle, MotionState, OperationSnapshot
+from entryplug.operation import (
+    AdmissionError,
+    Lifecycle,
+    MotionState,
+    OperationSnapshot,
+    RuntimeView,
+)
 from entryplug.session import Session
 
 MEDIA_TYPE = "application/json"
 ARTIFACT_NAME = "entryplug-operation"
+CAPABILITY_EXTENSION_URI = "urn:entryplug:a2a:capability-envelope:v1"
 _REQUEST_FIELDS = frozenset({"capability", "runtime_id", "request_id", "arguments"})
 _MAX_SAFE_INTEGER = 2**53 - 1
 
@@ -195,6 +210,7 @@ class EntryplugAgentExecutor(AgentExecutor):
         await updater.add_artifact(
             [new_data_part(_error_payload(reason_code, message), media_type=MEDIA_TYPE)],
             name=ARTIFACT_NAME,
+            extensions=[CAPABILITY_EXTENSION_URI],
         )
         await updater.reject()
 
@@ -203,6 +219,7 @@ class EntryplugAgentExecutor(AgentExecutor):
         await updater.add_artifact(
             [new_data_part(_operation_payload(operation), media_type=MEDIA_TYPE)],
             name=ARTIFACT_NAME,
+            extensions=[CAPABILITY_EXTENSION_URI],
         )
         if operation.lifecycle == Lifecycle.SUCCEEDED:
             await updater.complete()
@@ -242,6 +259,48 @@ def _base_url(value: str) -> str:
     if parsed.query or parsed.fragment:
         raise ValueError("A2A base URL cannot contain a query or fragment")
     return value.rstrip("/")
+
+
+def _capability_extension(view: RuntimeView) -> AgentExtension:
+    capabilities: list[dict[str, object]] = []
+    exported_names: list[str] = []
+    for capability in view.capabilities:
+        name = capability.get("name")
+        input_schema = capability.get("input_schema")
+        if not isinstance(name, str) or not isinstance(input_schema, Mapping):
+            continue
+        exported_names.append(name)
+        capabilities.append(
+            {
+                "name": name,
+                "version": capability.get("version"),
+                "motionProducing": capability.get("motion_producing"),
+                "inputSchema": _plain(input_schema),
+                "resultSchema": _plain(capability.get("result_schema")),
+            }
+        )
+    return AgentExtension(
+        uri=CAPABILITY_EXTENSION_URI,
+        description="Entryplug structured capability request and result contract",
+        required=False,
+        params={
+            "schemaVersion": 1,
+            "runtimeId": view.runtime_id,
+            "requestEnvelope": {
+                "type": "object",
+                "properties": {
+                    "capability": {"type": "string", "enum": exported_names},
+                    "runtime_id": {"type": "string", "const": view.runtime_id},
+                    "request_id": {"type": "string", "minLength": 1},
+                    "arguments": {"type": "object"},
+                },
+                "required": sorted(_REQUEST_FIELDS),
+                "additionalProperties": False,
+            },
+            "capabilities": capabilities,
+            "resultArtifact": {"name": ARTIFACT_NAME, "mediaType": MEDIA_TYPE},
+        },
+    )
 
 
 def _skill(capability: Mapping[str, JsonValue]) -> AgentSkill | None:
@@ -290,7 +349,11 @@ async def create_a2a_server(session: Session, *, base_url: str) -> A2AServer:
             f"current runtime ID: {view.runtime_id}."
         ),
         version="0.0.1",
-        capabilities=AgentCapabilities(streaming=False, push_notifications=False),
+        capabilities=AgentCapabilities(
+            streaming=False,
+            push_notifications=False,
+            extensions=[_capability_extension(view)],
+        ),
         default_input_modes=[MEDIA_TYPE],
         default_output_modes=[MEDIA_TYPE],
         supported_interfaces=[

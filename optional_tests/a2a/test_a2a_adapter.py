@@ -6,6 +6,7 @@ from collections.abc import Mapping
 
 import httpx
 from a2a.client import ClientConfig, ClientFactory
+from a2a.extensions.common import find_extension_by_uri
 from a2a.helpers import new_data_part
 from a2a.types import (
     CancelTaskRequest,
@@ -30,7 +31,7 @@ from entryplug.operation import (
     OperationResult,
 )
 from entryplug.session import Session
-from entryplug_a2a import create_a2a_server
+from entryplug_a2a import CAPABILITY_EXTENSION_URI, create_a2a_server
 
 
 def _arguments(value: Mapping[str, JsonValue]) -> Mapping[str, object]:
@@ -98,6 +99,7 @@ def _message(message_id: str, **overrides: object) -> Message:
 def _artifact(task: Task) -> dict[str, object]:
     assert len(task.artifacts) == 1
     assert task.artifacts[0].name == "entryplug-operation"
+    assert list(task.artifacts[0].extensions) == [CAPABILITY_EXTENSION_URI]
     assert len(task.artifacts[0].parts) == 1
     decoded = MessageToDict(task.artifacts[0].parts[0].data)
     assert isinstance(decoded, dict)
@@ -133,6 +135,15 @@ def test_official_client_uses_generated_skills_and_shared_operation_ledger() -> 
         assert [skill.name for skill in server.card.skills] == ["record"]
         assert '"required":["value"]' in server.card.skills[0].description
         assert "a2a-runtime-1" in server.card.description
+        extension = find_extension_by_uri(server.card, CAPABILITY_EXTENSION_URI)
+        assert extension is not None
+        profile = MessageToDict(extension.params)
+        assert profile["runtimeId"] == "a2a-runtime-1"
+        assert profile["requestEnvelope"]["properties"]["runtime_id"] == {
+            "type": "string",
+            "const": "a2a-runtime-1",
+        }
+        assert profile["capabilities"][0]["inputSchema"]["required"] == ["value"]
 
         http = httpx.AsyncClient(
             transport=httpx.ASGITransport(app=server.app),
