@@ -31,7 +31,8 @@ from reach import (
     _spin_until,
     _validate_gain,
 )
-from smoke import _wait_stationary, _write_create_only, _write_png_create_only
+from resident_evaluator import score_raw_completion
+from smoke import _current_positions, _wait_stationary, _write_create_only, _write_png_create_only
 
 from entryplug.association import (
     load_visual_binding,
@@ -252,8 +253,19 @@ def _task(
         "trace_path": f"{prefix}-trace.jsonl",
         "reticle_path": f"{prefix}-reticle.observer.png",
     }
+    evaluator = score_raw_completion(
+        node.frame,
+        target_y_px=target_y_px,
+        reported_y_px=float(end["y_px"]),
+        claimed_success=status == "passed",
+        tolerance_px=TARGET_TOLERANCE_PX,
+        joint_feedback_radians=_current_positions(node),
+    )
     _write_trace(run_dir / f"{prefix}-trace.jsonl", trace)
-    _write_create_only(run_dir / f"{prefix}.json", {**result, "trial": trial, "checks": checks})
+    _write_create_only(
+        run_dir / f"{prefix}.json",
+        {**result, "trial": trial, "checks": checks, "evaluator_only": evaluator},
+    )
     return result
 
 

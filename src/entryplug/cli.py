@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import importlib.metadata
 import json
 import os
@@ -89,6 +90,13 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="explicitly build the pinned runtime image before starting",
     )
+
+    resident = commands.add_parser(
+        "resident-demo", help="run four visual tasks in one owned Harbor world"
+    )
+    resident.add_argument("--runtime", choices=("container",), required=True)
+    resident.add_argument("--seed", type=int, default=101)
+    resident.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
 
     pilot = commands.add_parser("pilot", help="run a declared Hall of Mirrors seed suite")
     pilot.add_argument("--runtime", choices=("container",), required=True)
@@ -262,6 +270,27 @@ def _up(args: argparse.Namespace) -> int:
     return result.returncode
 
 
+def _resident_demo(args: argparse.Namespace) -> int:
+    root = source_root()
+    if root is None:
+        print("entryplug resident-demo: run from a source checkout", file=sys.stderr)
+        return 2
+    from entryplug.resident_demo import run_resident_demo
+
+    try:
+        result = asyncio.run(run_resident_demo(root, seed=args.seed, image=args.image))
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"entryplug resident-demo: {error}", file=sys.stderr)
+        return 2
+    print(
+        f"resident visual tasks: {'passed' if result.passed else 'failed'}\n"
+        f"runtime: {result.runtime_id}\n"
+        f"operations: {', '.join(result.operation_ids)}\n"
+        f"evidence: {result.evidence_path}"
+    )
+    return 0 if result.passed else 1
+
+
 def _pilot(args: argparse.Namespace) -> int:
     root = source_root()
     if root is None:
@@ -417,6 +446,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _test(args)
     if args.command == "up":
         return _up(args)
+    if args.command == "resident-demo":
+        return _resident_demo(args)
     if args.command == "pilot":
         return _pilot(args)
     if args.command == "openenv-replay":

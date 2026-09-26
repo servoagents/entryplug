@@ -26,8 +26,13 @@ VISUAL_REACH_RESULT_SCHEMA = {
         "evidence_path": {"type": "string"},
     },
     "required": [
-        "run_id", "source_id", "lineage_id", "target_y_px", "final_y_px",
-        "final_error_px", "evidence_path",
+        "run_id",
+        "source_id",
+        "lineage_id",
+        "target_y_px",
+        "final_y_px",
+        "final_error_px",
+        "evidence_path",
     ],
     "additionalProperties": True,
 }
