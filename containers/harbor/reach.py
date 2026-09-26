@@ -60,6 +60,10 @@ TARGET_TOLERANCE_PX = 3.0
 MIN_USEFUL_GAIN_PX_PER_RADIAN = 40.0
 
 
+class ReachCanceled(RuntimeError):
+    """A bounded native segment stopped and public feedback confirmed its hold."""
+
+
 def _round(value: float) -> float:
     return round(value, 6)
 
@@ -80,9 +84,7 @@ class FixedRedCentroidDetector:
                 f"red marker detector requires packed rgb8, got {frame.encoding!r} "
                 f"with step {frame.step}"
             )
-        rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape(
-            (frame.height, frame.width, 3)
-        )
+        rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape((frame.height, frame.width, 3))
         red = rgb[:, :, 0].astype(np.int16)
         green = rgb[:, :, 1].astype(np.int16)
         blue = rgb[:, :, 2].astype(np.int16)
@@ -304,9 +306,12 @@ def _return_to_anchor(
     *,
     purpose: str,
     trace: list[dict[str, object]],
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> dict[str, object] | None:
     latest: dict[str, object] | None = None
     for index in range(3):
+        if cancel_requested is not None and cancel_requested():
+            raise ReachCanceled(purpose)
         current = _current_positions(node)
         if abs(current[CONTROL_JOINT] - anchor[CONTROL_JOINT]) <= 0.004:
             return latest
@@ -322,7 +327,10 @@ def _return_to_anchor(
             _target(anchor, current[CONTROL_JOINT] + step),
             purpose=f"{purpose}:step-{index + 1}",
             trace=trace,
+            cancel_requested=cancel_requested,
         )
+        if latest["cancel_requested"]:
+            raise ReachCanceled(purpose)
     current = _current_positions(node)
     if abs(current[CONTROL_JOINT] - anchor[CONTROL_JOINT]) > 0.004:
         raise RuntimeError(f"{purpose} did not return to the public feedback anchor")
@@ -336,14 +344,26 @@ def _measure_probe(
     *,
     purpose: str,
     trace: list[dict[str, object]],
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> dict[str, object]:
-    _return_to_anchor(node, anchor, purpose=f"{purpose}:anchor", trace=trace)
+    _return_to_anchor(
+        node,
+        anchor,
+        purpose=f"{purpose}:anchor",
+        trace=trace,
+        cancel_requested=cancel_requested,
+    )
+    if cancel_requested is not None and cancel_requested():
+        raise ReachCanceled(purpose)
     item = _execute_absolute(
         node,
         _target(anchor, anchor[CONTROL_JOINT] + delta_radians),
         purpose=purpose,
         trace=trace,
+        cancel_requested=cancel_requested,
     )
+    if item["cancel_requested"] or (cancel_requested is not None and cancel_requested()):
+        raise ReachCanceled(purpose)
     observed_y = float(item["observed_feature_delta_px"]["y"])
     measured = {
         "requested_delta_radians": _round(delta_radians),
@@ -352,7 +372,13 @@ def _measure_probe(
         "goal_id": item["goal_id"],
         "request_id": item["request_id"],
     }
-    _return_to_anchor(node, anchor, purpose=f"{purpose}:reset", trace=trace)
+    _return_to_anchor(
+        node,
+        anchor,
+        purpose=f"{purpose}:reset",
+        trace=trace,
+        cancel_requested=cancel_requested,
+    )
     return measured
 
 

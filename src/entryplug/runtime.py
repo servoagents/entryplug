@@ -38,7 +38,7 @@ def harbor_container_name(run_id: str) -> str:
 def new_harbor_run_id(case: str, seed: int | None = None) -> str:
     """Create the evidence and container identity shared by all launch paths."""
 
-    if case not in supported_cases():
+    if case not in supported_cases() and case != "resident":
         raise ValueError(f"unsupported Harbor case: {case}")
     _validate_case_seed(case, seed)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
@@ -231,4 +231,4 @@ def run_harbor(
 
 
 def supported_cases() -> Sequence[str]:
-    return ("render-smoke", "reach", "mirrors", "resident")
+    return ("render-smoke", "reach", "mirrors")

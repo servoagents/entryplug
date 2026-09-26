@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import math
-import shutil
-import subprocess
 import tempfile
 import time
 import uuid
@@ -24,6 +21,7 @@ from entryplug.operation import (
     OperationContext,
     OperationHost,
     OperationResult,
+    OperationSnapshot,
 )
 from entryplug.runtime import (
     DEFAULT_HARBOR_IMAGE,
@@ -95,7 +93,9 @@ class DockerResidentRun(DockerHarborRun):
             async with asyncio.timeout(timeout_seconds):
                 line = await self._stdout.readline()
         except (TimeoutError, asyncio.LimitOverrunError) as error:
-            raise ResidentReplyLost("resident reply timed out or exceeded the pipe limit") from error
+            raise ResidentReplyLost(
+                "resident reply timed out or exceeded the pipe limit"
+            ) from error
         if not line or len(line) > MAX_RECORD_BYTES:
             raise ResidentReplyLost("resident reply was absent or oversized")
         try:
@@ -128,8 +128,12 @@ class DockerResidentRun(DockerHarborRun):
     async def request(self, operation_id: str, target_y_px: float) -> Mapping[str, JsonValue]:
         async with self._request_lock:
             await self._write(
-                {"version": 1, "type": "reach", "operation_id": operation_id,
-                 "target_y_px": target_y_px}
+                {
+                    "version": 1,
+                    "type": "reach",
+                    "operation_id": operation_id,
+                    "target_y_px": target_y_px,
+                }
             )
             record = await self._read(55.0)
             if record.get("type") != "result" or record.get("operation_id") != operation_id:
@@ -153,8 +157,11 @@ async def start_owned_resident(root: Path, image: str, run_id: str) -> ResidentR
     command.insert(3, "-i")
     try:
         process = await asyncio.create_subprocess_exec(
-            *command, cwd=root, stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE, stderr=temporary,
+            *command,
+            cwd=root,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=temporary,
         )
     except Exception:
         temporary.close()
@@ -187,7 +194,7 @@ class ResidentSession(Session):
         self._run = run
         self._world_closed = False
 
-    async def close(self) -> tuple[object, ...]:
+    async def close(self) -> tuple[OperationSnapshot, ...]:
         snapshots = await super().close()
         if not self._world_closed:
             self._world_closed = True
@@ -207,7 +214,9 @@ def harbor_resident_episode_factory(
     async def factory(seed: int) -> EpisodeStart:
         validate_experiment_seed(seed)
         if not await image_check(image):
-            raise FileNotFoundError(f"container image {image!r} is unavailable; build it before reset")
+            raise FileNotFoundError(
+                f"container image {image!r} is unavailable; build it before reset"
+            )
         run_id = new_harbor_run_id("resident")
         started = time.monotonic()
         run = await start_resident(root, image, run_id)
@@ -224,7 +233,10 @@ def harbor_resident_episode_factory(
         async def reach(
             context: OperationContext, arguments: Mapping[str, JsonValue]
         ) -> OperationResult:
-            target = float(arguments["target_y_px"])
+            target_value = arguments["target_y_px"]
+            if isinstance(target_value, bool) or not isinstance(target_value, (int, float)):
+                raise ValueError("validated target was not numeric")
+            target = float(target_value)
             if context.cancel_requested:
                 return OperationResult(Lifecycle.CANCELED, MotionState.IDLE)
             context.report("check_binding_and_reach", MotionState.MOVING)
@@ -235,7 +247,7 @@ def harbor_resident_episode_factory(
                 if canceled in done and not reply.done():
                     await run.cancel(context.operation_id)
                 record = await reply
-            except (ResidentReplyLost, TimeoutError):
+            except (ResidentReplyLost, TimeoutError, OSError, ValueError):
                 context.report("lost_reply_stopping_world", MotionState.UNKNOWN)
                 stopped = await run.stop()
                 return OperationResult(
@@ -251,17 +263,20 @@ def harbor_resident_episode_factory(
             status = record.get("status")
             if status not in {"passed", "failed", "canceled", "refused"}:
                 return OperationResult(
-                    Lifecycle.INDETERMINATE, MotionState.UNKNOWN,
+                    Lifecycle.INDETERMINATE,
+                    MotionState.UNKNOWN,
                     reason_code="INVALID_RESIDENT_RESULT",
                 )
             if record.get("source_id") != SOURCE_ID or record.get("lineage_id") != SOURCE_LINEAGE:
                 return OperationResult(
-                    Lifecycle.INDETERMINATE, MotionState.UNKNOWN,
+                    Lifecycle.INDETERMINATE,
+                    MotionState.UNKNOWN,
                     reason_code="SOURCE_IDENTITY_CHANGED",
                 )
             if record.get("quiescence_confirmed") is not True:
                 return OperationResult(
-                    Lifecycle.INDETERMINATE, MotionState.UNKNOWN,
+                    Lifecycle.INDETERMINATE,
+                    MotionState.UNKNOWN,
                     reason_code="STOP_UNCONFIRMED",
                 )
             context.report("reconciled", MotionState.HOLDING)
@@ -275,16 +290,25 @@ def harbor_resident_episode_factory(
                     Lifecycle.CANCELED, MotionState.HOLDING, result, reason_code="CANCEL_REQUESTED"
                 )
             return OperationResult(
-                Lifecycle.FAILED, MotionState.HOLDING, result,
+                Lifecycle.FAILED,
+                MotionState.HOLDING,
+                result,
                 reason_code="TARGET_REFUSED" if status == "refused" else "TARGET_NOT_REACHED",
             )
 
         host = OperationHost(
             (
                 CapabilitySpec(
-                    VISUAL_REACH, "1", "Align a marker to one row in the selected camera view",
-                    True, 55.0, 12.0, visual_reach_arguments, reach,
-                    VISUAL_REACH_INPUT_SCHEMA, VISUAL_REACH_RESULT_SCHEMA,
+                    VISUAL_REACH,
+                    "1",
+                    "Align a marker to one row in the selected camera view",
+                    True,
+                    55.0,
+                    12.0,
+                    visual_reach_arguments,
+                    reach,
+                    VISUAL_REACH_INPUT_SCHEMA,
+                    VISUAL_REACH_RESULT_SCHEMA,
                 ),
             ),
             runtime_id=f"harbor-resident-{uuid.uuid4().hex}",

@@ -136,6 +136,11 @@ case "${case_name}" in
       --output "${run_dir}/reach.json"
     case_status=$?
     ;;
+  resident)
+    python3 /workspace/entryplug/containers/harbor/resident.py \
+      --run-dir "${run_dir}" --run-id "${run_dir##*/}"
+    case_status=$?
+    ;;
   mirrors)
     declare -a mirrors_args=(--output "${run_dir}/mirrors.json")
     if [[ -n "${reuse_run}" ]]; then
