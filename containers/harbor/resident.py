@@ -47,10 +47,11 @@ from entryplug.association import (
 )
 from entryplug.detector_worker import ActiveDetectorPath, DetectorWorker, WorkerUnavailable
 from entryplug.harbor_resident import MAX_RECORD_BYTES, SOURCE_ID, SOURCE_LINEAGE
+from entryplug.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1
 from entryplug.visual_task import visual_reach_arguments
 
-REUSE_PROBES_RADIANS = (0.04, -0.04)
-REPAIR_BUDGET_SECONDS = 20.0
+REUSE_PROBES_RADIANS = HARBOR_RESIDENT_RECOVERY_V1.replacement_probes_radians
+REPAIR_BUDGET_SECONDS = HARBOR_RESIDENT_RECOVERY_V1.repair_budget_seconds
 SOURCE_TOPIC = "/camera/color/image_raw"
 
 
@@ -213,18 +214,22 @@ def _task(
     def on_goal_accepted(purpose: str, goal_id: str) -> None:
         if evaluation_fault is None or fault_event["applied"]:
             return
-        if purpose != f"{prefix}:servo-step-1":
+        if purpose != f"{prefix}:servo-step-{HARBOR_RESIDENT_RECOVERY_V1.fault_servo_step}":
             return
         fault_event.update(
             applied=True,
-            phase="native_correction_accepted",
+            phase=HARBOR_RESIDENT_RECOVERY_V1.fault_phase,
             goal_id=goal_id,
             applied_monotonic=time.monotonic(),
             primary_instance=paths.primary.instance,
         )
         if evaluation_fault == "kill-active-worker-stale-alternate":
-            paths.alternate.set_evaluation_delay(0.5)
-            fault_event["alternate_observation_delay_s"] = 0.5
+            paths.alternate.set_evaluation_delay(
+                HARBOR_RESIDENT_RECOVERY_V1.stale_alternate_delay_seconds
+            )
+            fault_event["alternate_observation_delay_s"] = (
+                HARBOR_RESIDENT_RECOVERY_V1.stale_alternate_delay_seconds
+            )
         paths.primary.kill_for_evaluation()
         if evaluation_fault == "kill-both-workers":
             paths.alternate.kill_for_evaluation()
@@ -468,6 +473,7 @@ def _prepare_detector_paths() -> ActiveDetectorPath:
         FixedRedCentroidDetector,
         detector_id=RED_MARKER_DETECTOR_ID,
         generation=1,
+        max_age_ms=HARBOR_RESIDENT_RECOVERY_V1.maximum_observation_age_ms,
         source_id=SOURCE_ID,
         lineage_id=SOURCE_LINEAGE,
     )
@@ -476,6 +482,7 @@ def _prepare_detector_paths() -> ActiveDetectorPath:
             FixedRedCentroidDetector,
             detector_id=RED_MARKER_DETECTOR_ID,
             generation=2,
+            max_age_ms=HARBOR_RESIDENT_RECOVERY_V1.maximum_observation_age_ms,
             source_id=SOURCE_ID,
             lineage_id=SOURCE_LINEAGE,
         )
@@ -486,6 +493,8 @@ def _prepare_detector_paths() -> ActiveDetectorPath:
 
 
 def serve(run_dir: Path, run_id: str) -> None:
+    if TARGET_TOLERANCE_PX != HARBOR_RESIDENT_RECOVERY_V1.target_tolerance_px:
+        raise RuntimeError("resident target tolerance differs from recovery profile")
     acquisition_started = time.monotonic()
     node = Observer("entryplug_resident_reach")
     detector_paths: ActiveDetectorPath | None = None
@@ -561,7 +570,7 @@ def serve(run_dir: Path, run_id: str) -> None:
                 max(FIT_PROBES_RADIANS + VALIDATION_PROBES_RADIANS),
             ),
             noise_range_px=float(noise["y_range_px"]),
-            maximum_age_ms=250.0,
+            maximum_age_ms=HARBOR_RESIDENT_RECOVERY_V1.maximum_observation_age_ms,
             timing_method_id="settled-before-after-v1",
             evidence_refs=("resident-acquisition.json", "resident-acquisition-trace.jsonl"),
             created_at=datetime.now(UTC).isoformat(),
@@ -644,7 +653,9 @@ def serve(run_dir: Path, run_id: str) -> None:
                     raise ValueError("unknown private evaluator fault")
                 deadline_value = command.get("deadline_monotonic")
                 if deadline_value is None:
-                    deadline_value = time.monotonic() + 55.0
+                    deadline_value = (
+                        time.monotonic() + HARBOR_RESIDENT_RECOVERY_V1.operation_deadline_seconds
+                    )
                 if isinstance(deadline_value, bool) or not isinstance(deadline_value, (int, float)):
                     raise ValueError("resident operation deadline is invalid")
                 assert detector_paths is not None

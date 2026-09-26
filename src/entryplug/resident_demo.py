@@ -14,10 +14,9 @@ from entryplug.episode import EpisodeController
 from entryplug.evidence import JsonValue, json_object
 from entryplug.harbor_resident import harbor_resident_episode_factory
 from entryplug.operation import Lifecycle, OperationSnapshot
+from entryplug.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1
 from entryplug.runtime import DEFAULT_HARBOR_IMAGE
 from entryplug.visual_task import VISUAL_REACH
-
-OFFSETS_PX = (5.0, -5.0, 7.0, -7.0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,7 +77,8 @@ async def run_resident_demo(
         if isinstance(initial_value, bool) or not isinstance(initial_value, (int, float)):
             raise ValueError("resident initial row was not numeric")
         initial = float(initial_value)
-        targets = tuple(round(initial + offset, 6) for offset in OFFSETS_PX)
+        offsets = HARBOR_RESIDENT_RECOVERY_V1.target_offsets(seed)
+        targets = tuple(round(initial + offset, 6) for offset in offsets)
         if any(not 0 <= target < 480 for target in targets):
             raise ValueError("fixture did not provide four image-space targets")
         runner = AgentRunner(
@@ -129,6 +129,15 @@ async def run_resident_demo(
                 "schema_version": 1,
                 "status": "passed" if passed else "failed",
                 "run_id": run_id,
+                "experiment_seed": seed,
+                "target_offsets_px": offsets,
+                "qualification_profile": {
+                    "profile_id": HARBOR_RESIDENT_RECOVERY_V1.profile_id,
+                    "digest": HARBOR_RESIDENT_RECOVERY_V1.digest,
+                },
+                "seed_scope": (
+                    "image-row target offsets only; world physics and fault phase are fixed"
+                ),
                 "runtime_id": state.runtime_id,
                 "episode_id": state.episode_id,
                 "source_id": metadata["source_id"],

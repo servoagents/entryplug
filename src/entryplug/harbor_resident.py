@@ -24,6 +24,7 @@ from entryplug.operation import (
     OperationResult,
     OperationSnapshot,
 )
+from entryplug.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1
 from entryplug.runtime import (
     DEFAULT_HARBOR_IMAGE,
     harbor_container_name,
@@ -153,7 +154,7 @@ class DockerResidentRun(DockerHarborRun):
             if deadline_monotonic is not None:
                 command["deadline_monotonic"] = deadline_monotonic
             await self._write(command)
-            record = await self._read(55.0)
+            record = await self._read(HARBOR_RESIDENT_RECOVERY_V1.operation_deadline_seconds)
             if record.get("type") != "result" or record.get("operation_id") != operation_id:
                 raise ResidentReplyLost("resident returned a mismatched task result")
             return record
@@ -303,7 +304,10 @@ def harbor_resident_episode_factory(
                 return OperationResult(Lifecycle.CANCELED, MotionState.IDLE)
             context.report("check_binding_and_reach", MotionState.MOVING)
             goal_index += 1
-            if evaluation_fault is not None and goal_index == 2:
+            if (
+                evaluation_fault is not None
+                and goal_index == HARBOR_RESIDENT_RECOVERY_V1.fault_task_index
+            ):
                 reply = asyncio.create_task(
                     run.request(
                         context.operation_id,
@@ -395,8 +399,8 @@ def harbor_resident_episode_factory(
                     "1",
                     "Align a marker to one row in the selected camera view",
                     True,
-                    55.0,
-                    12.0,
+                    HARBOR_RESIDENT_RECOVERY_V1.operation_deadline_seconds,
+                    HARBOR_RESIDENT_RECOVERY_V1.cancellation_grace_seconds,
                     validate_reach,
                     reach,
                     VISUAL_REACH_INPUT_SCHEMA,
