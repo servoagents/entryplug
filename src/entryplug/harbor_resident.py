@@ -53,7 +53,14 @@ class ResidentRun(Protocol):
     evidence_path: Path
     ready: Mapping[str, JsonValue]
 
-    async def request(self, operation_id: str, target_y_px: float) -> Mapping[str, JsonValue]: ...
+    async def request(
+        self,
+        operation_id: str,
+        target_y_px: float,
+        *,
+        evaluation_fault: str | None = None,
+        deadline_monotonic: float | None = None,
+    ) -> Mapping[str, JsonValue]: ...
 
     async def cancel(self, operation_id: str) -> None: ...
 
@@ -126,16 +133,26 @@ class DockerResidentRun(DockerHarborRun):
         self.ready = record
         return record
 
-    async def request(self, operation_id: str, target_y_px: float) -> Mapping[str, JsonValue]:
+    async def request(
+        self,
+        operation_id: str,
+        target_y_px: float,
+        *,
+        evaluation_fault: str | None = None,
+        deadline_monotonic: float | None = None,
+    ) -> Mapping[str, JsonValue]:
         async with self._request_lock:
-            await self._write(
-                {
-                    "version": 1,
-                    "type": "reach",
-                    "operation_id": operation_id,
-                    "target_y_px": target_y_px,
-                }
-            )
+            command: dict[str, object] = {
+                "version": 1,
+                "type": "reach",
+                "operation_id": operation_id,
+                "target_y_px": target_y_px,
+            }
+            if evaluation_fault is not None:
+                command["evaluation_fault"] = evaluation_fault
+            if deadline_monotonic is not None:
+                command["deadline_monotonic"] = deadline_monotonic
+            await self._write(command)
             record = await self._read(55.0)
             if record.get("type") != "result" or record.get("operation_id") != operation_id:
                 raise ResidentReplyLost("resident returned a mismatched task result")
@@ -211,8 +228,17 @@ def harbor_resident_episode_factory(
     image: str = DEFAULT_HARBOR_IMAGE,
     start_resident: StartResident = start_owned_resident,
     image_check: ImageCheck = docker_image_available,
+    evaluation_fault: str | None = None,
 ) -> EpisodeFactory:
     """Create an episode whose one world serves sequential visual reach operations."""
+
+    if evaluation_fault not in {
+        None,
+        "kill-active-worker",
+        "kill-both-workers",
+        "kill-active-worker-stale-alternate",
+    }:
+        raise ValueError("unsupported resident evaluation fault")
 
     async def factory(seed: int) -> EpisodeStart:
         validate_experiment_seed(seed)
@@ -242,6 +268,7 @@ def harbor_resident_episode_factory(
             raise ResidentReplyLost("resident ready record has no supported visual source")
 
         world_available = True
+        goal_index = 0
 
         def validate_reach(arguments: Mapping[str, JsonValue]) -> Mapping[str, object]:
             if not world_available:
@@ -251,7 +278,7 @@ def harbor_resident_episode_factory(
         async def reach(
             context: OperationContext, arguments: Mapping[str, JsonValue]
         ) -> OperationResult:
-            nonlocal world_available
+            nonlocal world_available, goal_index
             target_value = arguments["target_y_px"]
             if isinstance(target_value, bool) or not isinstance(target_value, (int, float)):
                 raise ValueError("validated target was not numeric")
@@ -275,7 +302,18 @@ def harbor_resident_episode_factory(
             if context.cancel_requested:
                 return OperationResult(Lifecycle.CANCELED, MotionState.IDLE)
             context.report("check_binding_and_reach", MotionState.MOVING)
-            reply = asyncio.create_task(run.request(context.operation_id, target))
+            goal_index += 1
+            if evaluation_fault is not None and goal_index == 2:
+                reply = asyncio.create_task(
+                    run.request(
+                        context.operation_id,
+                        target,
+                        evaluation_fault=evaluation_fault,
+                        deadline_monotonic=context.deadline_monotonic,
+                    )
+                )
+            else:
+                reply = asyncio.create_task(run.request(context.operation_id, target))
             canceled = asyncio.create_task(context.wait_for_cancel())
             try:
                 done, _ = await asyncio.wait((reply, canceled), return_when=asyncio.FIRST_COMPLETED)
@@ -319,6 +357,18 @@ def harbor_resident_episode_factory(
             result = {key: value for key, value in record.items() if key not in {"version", "type"}}
             result["run_id"] = run.run_id
             result["evidence_path"] = str(run.evidence_path)
+            if (
+                record.get("reason_code") == "VISUAL_CAPABILITY_UNAVAILABLE"
+                or record.get("visual_capability_available") is False
+            ):
+                world_available = False
+                if status == "passed":
+                    return OperationResult(
+                        Lifecycle.FAILED,
+                        MotionState.HOLDING,
+                        result,
+                        reason_code="VISUAL_CAPABILITY_UNAVAILABLE",
+                    )
             if status == "passed" and not context.cancel_requested:
                 return OperationResult(Lifecycle.SUCCEEDED, MotionState.HOLDING, result)
             if status == "canceled" or context.cancel_requested:
@@ -329,7 +379,13 @@ def harbor_resident_episode_factory(
                 Lifecycle.FAILED,
                 MotionState.HOLDING,
                 result,
-                reason_code="TARGET_REFUSED" if status == "refused" else "TARGET_NOT_REACHED",
+                reason_code=(
+                    "TARGET_REFUSED"
+                    if status == "refused"
+                    else "VISUAL_CAPABILITY_UNAVAILABLE"
+                    if record.get("reason_code") == "VISUAL_CAPABILITY_UNAVAILABLE"
+                    else "TARGET_NOT_REACHED"
+                ),
             )
 
         host = OperationHost(

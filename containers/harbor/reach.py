@@ -150,9 +150,14 @@ def _fresh_observation(
     if any(path != worker_paths[0] for path in worker_paths[1:]):
         # Capture-specific fields change per sample. Only the selected path is stable.
         identities = [
-            (path["worker_instance"], path["worker_generation"],
-             path["source_id"], path["lineage_id"])
-            for path in worker_paths if isinstance(path, dict)
+            (
+                path["worker_instance"],
+                path["worker_generation"],
+                path["source_id"],
+                path["lineage_id"],
+            )
+            for path in worker_paths
+            if isinstance(path, dict)
         ]
         if len(identities) != samples or len(set(identities)) != 1:
             raise RuntimeError("detector path changed within one observation")
@@ -199,6 +204,9 @@ def _execute_absolute(
 
     before_feature = _fresh_observation(node)
     before_sequence = int(before_feature["last_frame_sequence"])
+    admission_check = getattr(_MARKER_DETECTOR, "assert_ready_for_segment", None)
+    if callable(admission_check):
+        admission_check(purpose, before_feature)
     request_id = uuid.uuid4().hex
     handle, submitted = _send_goal(node, target, 0.65)
     if on_goal_accepted is not None:
@@ -250,12 +258,8 @@ def _execute_absolute(
                 "commanded_positions_radians": {
                     name: _round(float(target[name])) for name in JOINTS
                 },
-                "requested_delta_radians": {
-                    name: _round(requested_delta[name]) for name in JOINTS
-                },
-                "after_positions_radians": {
-                    name: _round(after_positions[name]) for name in JOINTS
-                },
+                "requested_delta_radians": {name: _round(requested_delta[name]) for name in JOINTS},
+                "after_positions_radians": {name: _round(after_positions[name]) for name in JOINTS},
                 "stationary_from_public_feedback": stationary,
                 "before_feature": before_feature,
                 "after_feature": {"available": False, "error_type": type(error).__name__},

@@ -57,12 +57,17 @@ class FourRowPolicy:
 
 
 async def run_resident_demo(
-    root: Path, *, seed: int = 101, image: str = DEFAULT_HARBOR_IMAGE
+    root: Path,
+    *,
+    seed: int = 101,
+    image: str = DEFAULT_HARBOR_IMAGE,
+    evaluation_fault: str | None = None,
 ) -> ResidentDemoResult:
     """Qualify sequential external tasks without a reset between targets."""
 
     controller = EpisodeController(
-        harbor_resident_episode_factory(root, image=image), timeout_seconds=300.0
+        harbor_resident_episode_factory(root, image=image, evaluation_fault=evaluation_fault),
+        timeout_seconds=300.0,
     )
     runner: AgentRunner | None = None
     started = time.monotonic()
@@ -142,6 +147,7 @@ async def run_resident_demo(
                     for item in unique_terminal.values()
                 ],
                 "world_count": 1,
+                "evaluation_fault_profile": evaluation_fault,
                 "private_evaluator": {
                     "all_targets_inside_tolerance": independent_pass,
                     "results": evaluator_results,

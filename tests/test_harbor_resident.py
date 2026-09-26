@@ -34,6 +34,8 @@ class FakeResident:
     stop_calls: int = 0
     pending: asyncio.Event | None = None
     quiescence_confirmed: bool = True
+    unavailable: bool = False
+    visual_available: bool = True
 
     async def request(self, operation_id: str, target_y_px: float) -> dict[str, object]:
         self.requests.append((operation_id, target_y_px))
@@ -43,13 +45,23 @@ class FakeResident:
             "version": 1,
             "type": "result",
             "operation_id": operation_id,
-            "status": "canceled" if operation_id in self.canceled else "passed",
+            "status": (
+                "failed"
+                if self.unavailable
+                else "canceled"
+                if operation_id in self.canceled
+                else "passed"
+            ),
+            "reason_code": "VISUAL_CAPABILITY_UNAVAILABLE"
+            if self.unavailable
+            else "TARGET_REACHED",
             "source_id": SOURCE_ID,
             "lineage_id": SOURCE_LINEAGE,
             "target_y_px": target_y_px,
             "final_y_px": target_y_px,
             "final_error_px": 0.0,
             "quiescence_confirmed": self.quiescence_confirmed,
+            "visual_capability_available": self.visual_available,
         }
 
     async def cancel(self, operation_id: str) -> None:
@@ -153,6 +165,103 @@ def test_cancel_reconciles_and_unconfirmed_result_inhibits_motion(tmp_path: Path
         assert (await session.observe()).motion_inhibited_reason == "STOP_UNCONFIRMED"
         with pytest.raises(AdmissionError, match="motion is inhibited"):
             await session.act(VISUAL_REACH, {"target_y_px": 219})
+        await session.close()
+
+    asyncio.run(scenario())
+
+
+def test_unavailable_visual_path_inhibits_later_motion(tmp_path: Path) -> None:
+    run = FakeResident("resident-unavailable", tmp_path / "runs" / "resident-unavailable")
+    run.unavailable = True
+
+    async def scenario() -> None:
+        factory = harbor_resident_episode_factory(
+            tmp_path,
+            start_resident=lambda *_args: asyncio.sleep(0, result=run),
+            image_check=lambda _image: asyncio.sleep(0, result=True),
+        )
+        episode = await factory(101)
+        session = episode.session
+        operation = await session.act(VISUAL_REACH, {"target_y_px": 225})
+        failed = await session.wait(operation, 2.0)
+        assert failed.lifecycle == Lifecycle.FAILED
+        assert failed.reason_code == "VISUAL_CAPABILITY_UNAVAILABLE"
+        repeated = await session.act(
+            VISUAL_REACH, {"target_y_px": 225}, request_id=operation.request_id
+        )
+        assert repeated.operation_id == operation.operation_id
+        assert len(run.requests) == 1
+        with pytest.raises(AdmissionError, match="resident world is unavailable"):
+            await session.act(VISUAL_REACH, {"target_y_px": 226})
+        await session.close()
+
+    asyncio.run(scenario())
+
+
+def test_private_fault_uses_one_existing_operation_during_repair(tmp_path: Path) -> None:
+    class FaultResident(FakeResident):
+        def __init__(self) -> None:
+            super().__init__("resident-repair", tmp_path / "runs" / "resident-repair")
+            self.faults: list[str | None] = []
+            self.deadlines: list[float | None] = []
+
+        async def request(
+            self,
+            operation_id: str,
+            target_y_px: float,
+            *,
+            evaluation_fault: str | None = None,
+            deadline_monotonic: float | None = None,
+        ) -> dict[str, object]:
+            self.faults.append(evaluation_fault)
+            self.deadlines.append(deadline_monotonic)
+            return await super().request(operation_id, target_y_px)
+
+    run = FaultResident()
+
+    async def scenario() -> None:
+        factory = harbor_resident_episode_factory(
+            tmp_path,
+            start_resident=lambda *_args: asyncio.sleep(0, result=run),
+            image_check=lambda _image: asyncio.sleep(0, result=True),
+            evaluation_fault="kill-active-worker",
+        )
+        session = (await factory(101)).session
+        first = await session.act(VISUAL_REACH, {"target_y_px": 225}, request_id="first")
+        assert (await session.wait(first, 2.0)).lifecycle == Lifecycle.SUCCEEDED
+        run.pending = asyncio.Event()
+        second = await session.act(VISUAL_REACH, {"target_y_px": 215}, request_id="second")
+        await asyncio.sleep(0.01)
+        repeated = await session.act(VISUAL_REACH, {"target_y_px": 215}, request_id="second")
+        assert repeated.operation_id == second.operation_id
+        assert len(run.requests) == 2
+        assert run.faults == [None, "kill-active-worker"]
+        assert run.deadlines[0] is None
+        assert isinstance(run.deadlines[1], float)
+        run.pending.set()
+        assert (await session.wait(second, 2.0)).lifecycle == Lifecycle.SUCCEEDED
+        await session.close()
+
+    asyncio.run(scenario())
+
+
+def test_success_claim_with_unavailable_vision_is_rejected(tmp_path: Path) -> None:
+    run = FakeResident("resident-false-success", tmp_path / "runs" / "resident-false-success")
+    run.visual_available = False
+
+    async def scenario() -> None:
+        factory = harbor_resident_episode_factory(
+            tmp_path,
+            start_resident=lambda *_args: asyncio.sleep(0, result=run),
+            image_check=lambda _image: asyncio.sleep(0, result=True),
+        )
+        session = (await factory(101)).session
+        operation = await session.act(VISUAL_REACH, {"target_y_px": 225})
+        result = await session.wait(operation, 2.0)
+        assert result.lifecycle == Lifecycle.FAILED
+        assert result.reason_code == "VISUAL_CAPABILITY_UNAVAILABLE"
+        with pytest.raises(AdmissionError, match="resident world is unavailable"):
+            await session.act(VISUAL_REACH, {"target_y_px": 226})
         await session.close()
 
     asyncio.run(scenario())

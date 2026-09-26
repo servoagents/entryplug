@@ -97,6 +97,17 @@ def _parser() -> argparse.ArgumentParser:
     resident.add_argument("--runtime", choices=("container",), required=True)
     resident.add_argument("--seed", type=int, default=101)
     resident.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
+    resident.add_argument(
+        "--fault",
+        choices=(
+            "none",
+            "kill-active-worker",
+            "kill-both-workers",
+            "kill-active-worker-stale-alternate",
+        ),
+        default="none",
+        help="private evaluator fault applied to the second goal",
+    )
 
     pilot = commands.add_parser("pilot", help="run a declared Hall of Mirrors seed suite")
     pilot.add_argument("--runtime", choices=("container",), required=True)
@@ -278,7 +289,14 @@ def _resident_demo(args: argparse.Namespace) -> int:
     from entryplug.resident_demo import run_resident_demo
 
     try:
-        result = asyncio.run(run_resident_demo(root, seed=args.seed, image=args.image))
+        result = asyncio.run(
+            run_resident_demo(
+                root,
+                seed=args.seed,
+                image=args.image,
+                evaluation_fault=None if args.fault == "none" else args.fault,
+            )
+        )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"entryplug resident-demo: {error}", file=sys.stderr)
         return 2

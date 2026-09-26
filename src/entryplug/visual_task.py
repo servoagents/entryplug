@@ -21,8 +21,8 @@ VISUAL_REACH_RESULT_SCHEMA = {
         "source_id": {"type": "string"},
         "lineage_id": {"type": "string"},
         "target_y_px": {"type": "number"},
-        "final_y_px": {"type": "number"},
-        "final_error_px": {"type": "number"},
+        "final_y_px": {"type": ["number", "null"]},
+        "final_error_px": {"type": ["number", "null"]},
         "evidence_path": {"type": "string"},
     },
     "required": [

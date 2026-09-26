@@ -132,17 +132,28 @@ def _worker_main(
                 }
             )
         )
+        delay_seconds = 0.0
         while True:
             raw = connection.recv_bytes(MAX_FRAME_BYTES + MAX_RECORD_BYTES + 4)
             request, data = _parse_bytes(raw)
             if request.get("type") == "close":
                 return
+            if request.get("type") == "evaluation_delay":
+                seconds = request.get("seconds")
+                if isinstance(seconds, bool) or not isinstance(seconds, (int, float)):
+                    return
+                if not 0 <= seconds <= 1.0:
+                    return
+                delay_seconds = float(seconds)
+                connection.send_bytes(
+                    _record_bytes({"type": "delay_ack", "request_id": request.get("request_id")})
+                )
+                continue
             if request.get("type") != "detect":
                 return
-            if (
-                len(data) != request.get("height", -1) * request.get("step", -1)
-                or hashlib.sha256(data).hexdigest() != request.get("sha256")
-            ):
+            if len(data) != request.get("height", -1) * request.get("step", -1) or hashlib.sha256(
+                data
+            ).hexdigest() != request.get("sha256"):
                 return
             frame = _PackedFrame(
                 width=int(request["width"]),
@@ -152,6 +163,8 @@ def _worker_main(
                 data=data,
             )
             marker = detector.detect(frame)
+            if delay_seconds:
+                time.sleep(delay_seconds)
             if not isinstance(marker, MarkerDetection):
                 return
             connection.send_bytes(
@@ -234,9 +247,7 @@ class DetectorWorker:
         if not self._connection.poll(timeout_seconds):
             raise WorkerUnavailable("WORKER_RESPONSE_TIMEOUT")
         try:
-            record, payload = _parse_bytes(
-                self._connection.recv_bytes(MAX_RECORD_BYTES + 4)
-            )
+            record, payload = _parse_bytes(self._connection.recv_bytes(MAX_RECORD_BYTES + 4))
         except (EOFError, OSError) as error:
             raise WorkerUnavailable("WORKER_PROCESS_LOST") from error
         if payload:
@@ -324,6 +335,25 @@ class DetectorWorker:
             frame.stamp_nanosec,
         )
 
+    def set_evaluation_delay(self, seconds: float) -> None:
+        """Evaluator-only latency injection; the normal freshness fence still decides."""
+        if not self.alive or not 0 <= seconds <= 1.0:
+            raise WorkerUnavailable("EVALUATION_DELAY_UNAVAILABLE")
+        request_id = uuid.uuid4().hex
+        try:
+            self._connection.send_bytes(
+                _record_bytes(
+                    {"type": "evaluation_delay", "request_id": request_id, "seconds": seconds}
+                )
+            )
+        except (BrokenPipeError, EOFError, OSError) as error:
+            raise WorkerUnavailable("WORKER_PROCESS_LOST") from error
+        if self._receive(RESPONSE_TIMEOUT_SECONDS) != {
+            "type": "delay_ack",
+            "request_id": request_id,
+        }:
+            raise WorkerUnavailable("EVALUATION_DELAY_UNAVAILABLE")
+
     def kill_for_evaluation(self) -> None:
         """Evaluator-only process death; callers must not use this as a health signal."""
         self._process.kill()
@@ -373,6 +403,28 @@ class ActiveDetectorPath:
         reading = self.selected.detect(frame)
         self.last_reading = reading
         return reading.marker
+
+    def assert_ready_for_segment(self, purpose: str, observation: dict[str, object]) -> None:
+        """Fence native admission to the selected, fresh worker and binding revision."""
+        reading = self.last_reading
+        if reading is None or not self.selected.alive:
+            raise WorkerUnavailable("WORKER_PROCESS_LOST")
+        if (
+            reading.worker_instance != self.selected.instance
+            or reading.worker_generation != self.selected.generation
+            or reading.source_id != self.selected.source_id
+            or reading.lineage_id != self.selected.lineage_id
+            or observation.get("worker") != reading.provenance()
+        ):
+            raise WorkerUnavailable("STALE_WORKER_GENERATION")
+        if (time.monotonic() - reading.frame_received_monotonic) * 1000 > self.selected.max_age_ms:
+            raise WorkerUnavailable("STALE_WORKER_OBSERVATION")
+        if (
+            self.selected is self.alternate
+            and self.binding_revision == 1
+            and ":replacement-check-" not in purpose
+        ):
+            raise WorkerUnavailable("BINDING_NOT_VALIDATED")
 
     def select_alternate(self, *, quiescence_confirmed: bool) -> None:
         if not quiescence_confirmed:
