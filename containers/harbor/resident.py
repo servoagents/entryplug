@@ -35,8 +35,10 @@ from resident_evaluator import score_raw_completion
 from smoke import _current_positions, _wait_stationary, _write_create_only, _write_png_create_only
 
 from entryplug.association import (
+    CandidateEvidence,
     load_visual_binding,
     make_visual_binding_record,
+    select_candidate,
     validate_cached_binding,
 )
 from entryplug.harbor_resident import MAX_RECORD_BYTES, SOURCE_ID, SOURCE_LINEAGE
@@ -299,6 +301,23 @@ def serve(run_dir: Path, run_id: str) -> None:
         validation = _validate_gain(gain, held_out, noise_range_px=float(noise["y_range_px"]))
         if validation["status"] != "passed":
             raise RuntimeError("resident acquired mapping failed separate validation")
+        candidate = CandidateEvidence(
+            candidate_id=SOURCE_ID,
+            lineage_id=SOURCE_LINEAGE,
+            maximum_age_ms=float(_fresh_observation(node)["last_receive_age_ms"]),
+            noise_range_px=float(noise["y_range_px"]),
+            fit_commands_radians=tuple(float(item["requested_delta_radians"]) for item in fit),
+            fit_effects_px=tuple(float(item["observed_feature_delta_px"]) for item in fit),
+            validation_commands_radians=tuple(
+                float(item["requested_delta_radians"]) for item in held_out
+            ),
+            validation_effects_px=tuple(
+                float(item["observed_feature_delta_px"]) for item in held_out
+            ),
+        )
+        association = select_candidate((candidate,))
+        if association.get("status") != "selected":
+            raise RuntimeError("resident camera did not pass causal source selection")
         record = make_visual_binding_record(
             context={
                 "task": "visual_reach",
@@ -334,12 +353,16 @@ def serve(run_dir: Path, run_id: str) -> None:
                 "noise": noise,
                 "fit_probes": fit,
                 "mapping": model,
+                "association": association,
                 "validation_probes": held_out,
                 "validation": validation,
                 "binding": record.to_dict(),
                 "initial_y_px": initial["y_px"],
                 "acquisition_ms": acquisition_ms,
-                "claim_boundary": "Single configured camera; no multi-source association claimed.",
+                "claim_boundary": (
+                    "One configured camera passed intervention-based selection. "
+                    "No comparison against alternative sources is claimed."
+                ),
             },
         )
         _send(

@@ -256,6 +256,22 @@ def harbor_resident_episode_factory(
             if isinstance(target_value, bool) or not isinstance(target_value, (int, float)):
                 raise ValueError("validated target was not numeric")
             target = float(target_value)
+            goal = {
+                "schema_version": 1,
+                "operation_id": context.operation_id,
+                "runtime_id": host.runtime_id,
+                "run_id": run.run_id,
+                "source_id": SOURCE_ID,
+                "lineage_id": SOURCE_LINEAGE,
+                "target_y_px": target,
+                "deadline_monotonic": context.deadline_monotonic,
+            }
+            run.evidence_path.mkdir(parents=True, exist_ok=True)
+            with (run.evidence_path / f"goal-{context.operation_id}.json").open(
+                "x", encoding="utf-8"
+            ) as stream:
+                json.dump(goal, stream, allow_nan=False, sort_keys=True)
+                stream.write("\n")
             if context.cancel_requested:
                 return OperationResult(Lifecycle.CANCELED, MotionState.IDLE)
             context.report("check_binding_and_reach", MotionState.MOVING)

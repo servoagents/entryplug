@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -100,6 +101,15 @@ def test_two_tasks_keep_one_world_and_one_runtime(tmp_path: Path) -> None:
         assert repeated.operation_id == second.operation_id
         assert len(runs) == 1
         assert len(runs[0].requests) == 2
+        goals = sorted(runs[0].evidence_path.glob("goal-*.json"))
+        assert len(goals) == 2
+        saved = {
+            item["operation_id"]: item
+            for item in (json.loads(path.read_text(encoding="utf-8")) for path in goals)
+        }
+        assert saved[first.operation_id]["target_y_px"] == 224.0
+        assert saved[second.operation_id]["target_y_px"] == 216.0
+        assert all(item["lineage_id"] == SOURCE_LINEAGE for item in saved.values())
         assert [target for _, target in runs[0].requests] == [224.0, 216.0]
         assert finished_second.result["run_id"] == runs[0].run_id
         assert finished_second.runtime_id == view.runtime_id
