@@ -15,8 +15,11 @@ from pathlib import Path
 import cv2
 import numpy as np
 import rclpy
+import reach
 from reach import (
     FIT_PROBES_RADIANS,
+    FixedRedCentroidDetector,
+    RED_MARKER_DETECTOR_ID,
     TARGET_TOLERANCE_PX,
     VALIDATION_PROBES_RADIANS,
     Observer,
@@ -41,6 +44,7 @@ from entryplug.association import (
     select_candidate,
     validate_cached_binding,
 )
+from entryplug.detector_worker import ActiveDetectorPath, DetectorWorker
 from entryplug.harbor_resident import MAX_RECORD_BYTES, SOURCE_ID, SOURCE_LINEAGE
 from entryplug.visual_task import visual_reach_arguments
 
@@ -271,9 +275,32 @@ def _task(
     return result
 
 
+
+def _prepare_detector_paths() -> ActiveDetectorPath:
+    primary = DetectorWorker(
+        FixedRedCentroidDetector,
+        detector_id=RED_MARKER_DETECTOR_ID,
+        generation=1,
+        source_id=SOURCE_ID,
+        lineage_id=SOURCE_LINEAGE,
+    )
+    try:
+        alternate = DetectorWorker(
+            FixedRedCentroidDetector,
+            detector_id=RED_MARKER_DETECTOR_ID,
+            generation=2,
+            source_id=SOURCE_ID,
+            lineage_id=SOURCE_LINEAGE,
+        )
+    except Exception:
+        primary.close()
+        raise
+    return ActiveDetectorPath(primary, alternate)
+
 def serve(run_dir: Path, run_id: str) -> None:
     acquisition_started = time.monotonic()
     node = Observer("entryplug_resident_reach")
+    detector_paths: ActiveDetectorPath | None = None
     try:
         _spin_until(
             node,
@@ -283,6 +310,20 @@ def serve(run_dir: Path, run_id: str) -> None:
         )
         if not node.action.wait_for_server(timeout_sec=15.0):
             raise TimeoutError("resident trajectory action was unavailable")
+        frame_sequence_before_spawn = node.frame.sequence if node.frame is not None else 0
+        detector_paths = _prepare_detector_paths()
+        reach._MARKER_DETECTOR = detector_paths
+        _spin_until(
+            node,
+            lambda: (
+                node.frame is not None
+                and node.frame.sequence > frame_sequence_before_spawn
+                and node.get_clock().now().nanoseconds
+                >= node.frame.stamp_sec * 1_000_000_000 + node.frame.stamp_nanosec
+            ),
+            8.0,
+            "fresh ROS clock after detector worker preparation",
+        )
         trace: list[dict[str, object]] = []
         anchor, visibility = _establish_visibility_anchor(node, trace)
         noise = _no_action_noise(node)
@@ -359,6 +400,7 @@ def serve(run_dir: Path, run_id: str) -> None:
                 "binding": record.to_dict(),
                 "initial_y_px": initial["y_px"],
                 "acquisition_ms": acquisition_ms,
+                "detector_worker": initial["worker"],
                 "claim_boundary": (
                     "One configured camera passed intervention-based selection. "
                     "No comparison against alternative sources is claimed."
@@ -374,6 +416,7 @@ def serve(run_dir: Path, run_id: str) -> None:
                 "lineage_id": SOURCE_LINEAGE,
                 "initial_y_px": initial["y_px"],
                 "acquisition_ms": acquisition_ms,
+                "detector_worker": initial["worker"],
             }
         )
 
@@ -419,6 +462,8 @@ def serve(run_dir: Path, run_id: str) -> None:
             if not client_gone.is_set():
                 _send(result)
     finally:
+        if detector_paths is not None:
+            detector_paths.close()
         node.destroy_node()
 
 

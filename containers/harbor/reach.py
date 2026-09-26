@@ -118,6 +118,9 @@ def _marker(frame: Frame) -> dict[str, object]:
     result["detector_id"] = _MARKER_DETECTOR.detector_id
     result["detector_interface_version"] = _MARKER_DETECTOR.interface_version
     result["frame"] = frame.public_dict()
+    reading = getattr(_MARKER_DETECTOR, "last_reading", None)
+    if reading is not None:
+        result["worker"] = reading.provenance()
     return result
 
 
@@ -143,6 +146,16 @@ def _fresh_observation(
         last_sequence = frame.sequence
     if len(observations) != samples:
         raise TimeoutError(f"received {len(observations)} of {samples} fresh camera samples")
+    worker_paths = [item.get("worker") for item in observations]
+    if any(path != worker_paths[0] for path in worker_paths[1:]):
+        # Capture-specific fields change per sample. Only the selected path is stable.
+        identities = [
+            (path["worker_instance"], path["worker_generation"],
+             path["source_id"], path["lineage_id"])
+            for path in worker_paths if isinstance(path, dict)
+        ]
+        if len(identities) != samples or len(set(identities)) != 1:
+            raise RuntimeError("detector path changed within one observation")
     x_values = [float(item["x_px"]) for item in observations]
     y_values = [float(item["y_px"]) for item in observations]
     return {
@@ -157,6 +170,7 @@ def _fresh_observation(
         "last_receive_age_ms": _round(
             max(0.0, (time.monotonic() - frames[-1].received_monotonic) * 1000)
         ),
+        "worker": worker_paths[-1],
         "detector": {
             "id": observations[-1]["detector_id"],
             "interface_version": observations[-1]["detector_interface_version"],
@@ -173,6 +187,7 @@ def _execute_absolute(
     purpose: str,
     trace: list[dict[str, object]],
     cancel_requested: Callable[[], bool] | None = None,
+    on_goal_accepted: Callable[[str, str], None] | None = None,
 ) -> dict[str, object]:
     before_positions = _current_positions(node)
     requested_delta = {name: float(target[name] - before_positions[name]) for name in JOINTS}
@@ -186,6 +201,8 @@ def _execute_absolute(
     before_sequence = int(before_feature["last_frame_sequence"])
     request_id = uuid.uuid4().hex
     handle, submitted = _send_goal(node, target, 0.65)
+    if on_goal_accepted is not None:
+        on_goal_accepted(purpose, _goal_id(handle))
     result_future = handle.get_result_async()
     native_cancel_requested = False
     cancel_acknowledged = False
@@ -217,7 +234,35 @@ def _execute_absolute(
         _wait_position(node, target, tolerance=0.008, timeout=4.0, label=purpose)
     stationary = _wait_stationary(node, timeout=3.0)
     after_positions = _current_positions(node)
-    after_feature = _fresh_observation(node, after_sequence=before_sequence)
+    try:
+        after_feature = _fresh_observation(node, after_sequence=before_sequence)
+    except Exception as error:
+        trace.append(
+            {
+                "sequence": len(trace) + 1,
+                "request_id": request_id,
+                "purpose": purpose,
+                "goal_id": _goal_id(handle),
+                "native_status": result.status,
+                "before_positions_radians": {
+                    name: _round(before_positions[name]) for name in JOINTS
+                },
+                "commanded_positions_radians": {
+                    name: _round(float(target[name])) for name in JOINTS
+                },
+                "requested_delta_radians": {
+                    name: _round(requested_delta[name]) for name in JOINTS
+                },
+                "after_positions_radians": {
+                    name: _round(after_positions[name]) for name in JOINTS
+                },
+                "stationary_from_public_feedback": stationary,
+                "before_feature": before_feature,
+                "after_feature": {"available": False, "error_type": type(error).__name__},
+                "observation_status": "unavailable_after_native_result",
+            }
+        )
+        raise
     observed_delta = {
         name: float(after_positions[name] - before_positions[name]) for name in JOINTS
     }
@@ -464,6 +509,7 @@ def _reach_target(
     purpose: str,
     trace: list[dict[str, object]],
     cancel_requested: Callable[[], bool] | None = None,
+    on_goal_accepted: Callable[[str, str], None] | None = None,
 ) -> dict[str, object]:
     started = time.monotonic()
     initial = _fresh_observation(node)
@@ -499,6 +545,7 @@ def _reach_target(
             node,
             _target(anchor, proposed_joint2),
             purpose=f"{purpose}:servo-step-{index + 1}",
+            on_goal_accepted=on_goal_accepted,
             trace=trace,
             cancel_requested=cancel_requested,
         )
