@@ -2,10 +2,17 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 
+from entryplug.agent import AgentRunner, Stop
+from entryplug.detection import (
+    DETECTOR_INTERFACE_VERSION,
+    MarkerDetection,
+    MarkerDetectorSlot,
+)
 from entryplug.evidence import (
     EvidenceQuery,
     EvidenceRecord,
@@ -23,6 +30,53 @@ from entryplug.operation import (
     OperationResult,
 )
 from entryplug.reconfiguration import EvidenceCacheSlot, ReplacementError
+
+
+class _StopPolicy:
+    def __init__(self, reason: str) -> None:
+        self._reason = reason
+
+    def decide(self, _: Mapping[str, JsonValue]) -> Stop:
+        return Stop(self._reason)
+
+
+@dataclass(frozen=True)
+class _Frame:
+    marker_x: int
+    width: int = 32
+    height: int = 24
+    encoding: str = "rgb8"
+    step: int = 96
+    data: bytes = b""
+
+
+class _Detector:
+    interface_version = DETECTOR_INTERFACE_VERSION
+
+    def __init__(self, detector_id: str, offset: int) -> None:
+        self.detector_id = detector_id
+        self._offset = offset
+        self.closed = False
+
+    def prepare(self) -> None:
+        return None
+
+    def detect(self, frame: _Frame) -> MarkerDetection:
+        if self.closed:
+            raise RuntimeError("retired detector cannot serve observations")
+        x_px = frame.marker_x + self._offset
+        return MarkerDetection(
+            x_px=float(x_px),
+            y_px=8.0,
+            area_px=25,
+            left_px=x_px - 2,
+            top_px=6,
+            right_px=x_px + 2,
+            bottom_px=10,
+        )
+
+    def close(self) -> None:
+        self.closed = True
 
 
 def _record(created_at: str) -> EvidenceRecord:
@@ -192,7 +246,6 @@ def test_active_operation_refuses_replacement_and_releases_candidate() -> None:
     asyncio.run(scenario())
 
 
-
 def test_read_only_cache_is_rejected_during_preparation(tmp_path: Path) -> None:
     path = tmp_path / "read-only.sqlite3"
     writable = SqliteEvidenceCache(path)
@@ -208,3 +261,128 @@ def test_read_only_cache_is_rejected_during_preparation(tmp_path: Path) -> None:
     with pytest.raises(RuntimeError, match="closed"):
         replacement.find(_query())
     slot.close()
+
+
+def test_controlled_replacements_preserve_operation_ledger_and_request_identity(
+    tmp_path: Path,
+) -> None:
+    async def scenario() -> None:
+        calls = 0
+
+        def validate(arguments: Mapping[str, JsonValue]) -> Mapping[str, object]:
+            if set(arguments) != {"value"} or not isinstance(arguments["value"], int):
+                raise ValueError("value must be one integer")
+            return dict(arguments)
+
+        async def record(
+            _: OperationContext, arguments: Mapping[str, JsonValue]
+        ) -> OperationResult:
+            nonlocal calls
+            calls += 1
+            return OperationResult(
+                Lifecycle.SUCCEEDED,
+                MotionState.IDLE,
+                {"recorded": arguments["value"]},
+            )
+
+        host = OperationHost(
+            (CapabilitySpec("record", "1", "Record", False, 1.0, 0.1, validate, record),),
+            runtime_id="runtime-a",
+        )
+        accepted = await host.start(
+            "record",
+            {"value": 17},
+            request_id="stable-request",
+            expected_runtime_id="runtime-a",
+        )
+        completed = await host.wait(accepted.operation_id, 0.2)
+        original_history = host.observe().operations
+
+        retired_cache = MemoryEvidenceCache()
+        cache_slot = EvidenceCacheSlot(host, retired_cache)
+        cached = _record("2026-09-25T10:02:00Z")
+        cache_slot.store(cached)
+
+        detectors: list[_Detector] = []
+
+        def detector_factory(detector_id: str, offset: int):
+            def create() -> _Detector:
+                detector = _Detector(detector_id, offset)
+                detectors.append(detector)
+                return detector
+
+            return create
+
+        detector_slot = MarkerDetectorSlot(
+            host,
+            {
+                "baseline": detector_factory("baseline", 0),
+                "replacement": detector_factory("replacement", 3),
+            },
+            initial_detector_id="baseline",
+        )
+        frame = _Frame(marker_x=10)
+        runner = AgentRunner(_StopPolicy("before replacement"))
+        before_policy = await runner.decide(host.observe())
+
+        cache_replacement = cache_slot.replace(
+            SqliteEvidenceCache(tmp_path / "replacement.sqlite3"),
+            expected_generation=1,
+            transfer_queries=(_query(),),
+        )
+        detector_replacement = detector_slot.select(
+            "replacement",
+            expected_generation=1,
+            validation_frame=frame,
+        )
+        policy_replacement = await runner.replace(
+            _StopPolicy("after replacement"),
+            host=host,
+            expected_generation=1,
+        )
+
+        repeated = await host.start(
+            "record",
+            {"value": 17},
+            request_id="stable-request",
+            expected_runtime_id="runtime-a",
+        )
+        after_policy = await runner.decide(host.observe())
+        current = host.observe()
+
+        assert completed.lifecycle == Lifecycle.SUCCEEDED
+        assert completed.result == {"recorded": 17}
+        assert current.operations == original_history
+        assert repeated.operation_id == completed.operation_id
+        assert repeated.result == completed.result
+        assert calls == 1
+        assert current.request_records == 1
+        assert current.reconfiguration_generations == {
+            "agent_policy": 2,
+            "detector": 2,
+            "memory": 2,
+        }
+
+        assert cache_replacement.retired_released
+        assert cache_slot.load(cached.key) == cached
+        with pytest.raises(RuntimeError, match="closed"):
+            retired_cache.find(_query())
+
+        assert detector_replacement.retired_released
+        assert detectors[0].closed
+        reading = detector_slot.detect(frame)
+        assert reading.detector_id == "replacement"
+        assert reading.generation == 2
+        assert reading.marker.x_px == 13.0
+
+        assert policy_replacement.previous_process_id == before_policy.agent_process_id
+        assert policy_replacement.process_id == after_policy.agent_process_id
+        assert after_policy.agent_process_id != before_policy.agent_process_id
+        assert after_policy.decision == Stop("after replacement")
+
+        await runner.close()
+        detector_slot.close()
+        cache_slot.close()
+        await host.close()
+
+    asyncio.run(scenario())
