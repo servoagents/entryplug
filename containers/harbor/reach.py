@@ -44,6 +44,7 @@ from entryplug.operation import (
     OperationResult,
 )
 from entryplug.session import Session
+from entryplug.visual_task import visual_reach_arguments
 
 CONTROL_JOINT = "joint2"
 SUPPLIED_GAIN_PX_PER_RADIAN = 125.0
@@ -520,18 +521,6 @@ def _reach_target(
     }
 
 
-def _visual_reach_arguments(arguments: Mapping[str, JsonValue]) -> Mapping[str, object]:
-    if set(arguments) != {"target_y_px"}:
-        raise ValueError("visual reach requires exactly target_y_px")
-    target = arguments["target_y_px"]
-    if isinstance(target, bool) or not isinstance(target, (int, float)):
-        raise ValueError("target_y_px must be a number")
-    target_y_px = float(target)
-    if not math.isfinite(target_y_px) or not 0 <= target_y_px < 480:
-        raise ValueError("target_y_px must be finite and inside the 480 pixel image")
-    return {"target_y_px": target_y_px}
-
-
 async def _agent_reach(
     node: Observer,
     anchor: dict[str, float],
@@ -593,7 +582,7 @@ async def _agent_reach(
                 True,
                 30.0,
                 10.0,
-                _visual_reach_arguments,
+                visual_reach_arguments,
                 run_visual_reach,
             ),
         )
