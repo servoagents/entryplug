@@ -20,12 +20,14 @@ from entryplug.visual_task import VISUAL_REACH
 class FakeResident:
     run_id: str
     evidence_path: Path
-    ready: dict[str, object] = field(default_factory=lambda: {
-        "source_id": SOURCE_ID,
-        "lineage_id": SOURCE_LINEAGE,
-        "initial_y_px": 220.0,
-        "acquisition_ms": 3000.0,
-    })
+    ready: dict[str, object] = field(
+        default_factory=lambda: {
+            "source_id": SOURCE_ID,
+            "lineage_id": SOURCE_LINEAGE,
+            "initial_y_px": 220.0,
+            "acquisition_ms": 3000.0,
+        }
+    )
     requests: list[tuple[str, float]] = field(default_factory=list)
     canceled: list[str] = field(default_factory=list)
     stop_calls: int = 0
@@ -69,7 +71,8 @@ def test_two_tasks_keep_one_world_and_one_runtime(tmp_path: Path) -> None:
 
     async def scenario() -> None:
         factory = harbor_resident_episode_factory(
-            tmp_path, start_resident=start,
+            tmp_path,
+            start_resident=start,
             image_check=lambda _image: asyncio.sleep(0, result=True),
         )
         episode = await factory(101)
@@ -78,12 +81,16 @@ def test_two_tasks_keep_one_world_and_one_runtime(tmp_path: Path) -> None:
         assert view.capabilities[0]["name"] == VISUAL_REACH
         assert view.capabilities[0]["input_schema"]["required"] == ("target_y_px",)
         first = await session.act(
-            VISUAL_REACH, {"target_y_px": 224}, request_id="first",
+            VISUAL_REACH,
+            {"target_y_px": 224},
+            request_id="first",
             expected_runtime_id=view.runtime_id,
         )
         finished_first = await session.wait(first, 2.0)
         second = await session.act(
-            VISUAL_REACH, {"target_y_px": 216}, request_id="second",
+            VISUAL_REACH,
+            {"target_y_px": 216},
+            request_id="second",
             expected_runtime_id=view.runtime_id,
         )
         finished_second = await session.wait(second, 2.0)
@@ -98,7 +105,9 @@ def test_two_tasks_keep_one_world_and_one_runtime(tmp_path: Path) -> None:
         assert finished_second.runtime_id == view.runtime_id
         with pytest.raises(AdmissionError, match="runtime ID is no longer current"):
             await session.act(
-                VISUAL_REACH, {"target_y_px": 220}, request_id="stale",
+                VISUAL_REACH,
+                {"target_y_px": 220},
+                request_id="stale",
                 expected_runtime_id="old-runtime",
             )
         await session.close()
@@ -113,7 +122,8 @@ def test_cancel_reconciles_and_unconfirmed_result_inhibits_motion(tmp_path: Path
 
     async def scenario() -> None:
         factory = harbor_resident_episode_factory(
-            tmp_path, start_resident=lambda *_args: asyncio.sleep(0, result=run),
+            tmp_path,
+            start_resident=lambda *_args: asyncio.sleep(0, result=run),
             image_check=lambda _image: asyncio.sleep(0, result=True),
         )
         episode = await factory(202)

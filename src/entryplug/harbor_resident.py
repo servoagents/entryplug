@@ -15,6 +15,7 @@ from entryplug.episode import EpisodeFactory, EpisodeStart
 from entryplug.evidence import JsonValue, json_object
 from entryplug.harbor_episode import DockerHarborRun, ImageCheck, StopReport, docker_image_available
 from entryplug.operation import (
+    AdmissionError,
     CapabilitySpec,
     Lifecycle,
     MotionState,
@@ -197,8 +198,10 @@ class ResidentSession(Session):
     async def close(self) -> tuple[OperationSnapshot, ...]:
         snapshots = await super().close()
         if not self._world_closed:
+            stopped = await self._run.stop()
+            if not stopped.confirmed:
+                raise RuntimeError("resident world stop could not be confirmed")
             self._world_closed = True
-            await self._run.stop()
         return snapshots
 
 
@@ -222,6 +225,14 @@ def harbor_resident_episode_factory(
         run = await start_resident(root, image, run_id)
         startup_ms = round((time.monotonic() - started) * 1000, 3)
         ready = run.ready
+        acquisition_value = ready.get("acquisition_ms")
+        container_startup_ms = (
+            round(max(0.0, startup_ms - float(acquisition_value)), 3)
+            if isinstance(acquisition_value, (int, float))
+            and not isinstance(acquisition_value, bool)
+            and 0 <= acquisition_value <= startup_ms
+            else None
+        )
         if (
             ready.get("source_id") != SOURCE_ID
             or ready.get("lineage_id") != SOURCE_LINEAGE
@@ -230,9 +241,17 @@ def harbor_resident_episode_factory(
             await run.stop()
             raise ResidentReplyLost("resident ready record has no supported visual source")
 
+        world_available = True
+
+        def validate_reach(arguments: Mapping[str, JsonValue]) -> Mapping[str, object]:
+            if not world_available:
+                raise AdmissionError("WORLD_UNAVAILABLE", "resident world is unavailable")
+            return visual_reach_arguments(arguments)
+
         async def reach(
             context: OperationContext, arguments: Mapping[str, JsonValue]
         ) -> OperationResult:
+            nonlocal world_available
             target_value = arguments["target_y_px"]
             if isinstance(target_value, bool) or not isinstance(target_value, (int, float)):
                 raise ValueError("validated target was not numeric")
@@ -248,6 +267,7 @@ def harbor_resident_episode_factory(
                     await run.cancel(context.operation_id)
                 record = await reply
             except (ResidentReplyLost, TimeoutError, OSError, ValueError):
+                world_available = False
                 context.report("lost_reply_stopping_world", MotionState.UNKNOWN)
                 stopped = await run.stop()
                 return OperationResult(
@@ -305,7 +325,7 @@ def harbor_resident_episode_factory(
                     True,
                     55.0,
                     12.0,
-                    visual_reach_arguments,
+                    validate_reach,
                     reach,
                     VISUAL_REACH_INPUT_SCHEMA,
                     VISUAL_REACH_RESULT_SCHEMA,
@@ -322,6 +342,7 @@ def harbor_resident_episode_factory(
                 "lineage_id": SOURCE_LINEAGE,
                 "initial_y_px": ready["initial_y_px"],
                 "container_startup_and_acquisition_ms": startup_ms,
+                "container_startup_ms": container_startup_ms,
                 "acquisition_ms": ready.get("acquisition_ms"),
                 "one_world_per_episode": True,
                 "target_semantics": "marker centroid at requested image row in selected camera",
