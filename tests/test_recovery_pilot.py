@@ -145,3 +145,37 @@ def test_development_matrix_links_startup_abort_to_owned_world(tmp_path: Path) -
     assert row["stop_confirmed"] is True
     assert result.trial_count == 9
     assert result.gate_pass_count == 8
+
+
+def test_development_matrix_keeps_run_identity_when_score_is_invalid(tmp_path: Path) -> None:
+    calls = 0
+
+    async def runner(root: Path, **options: Any) -> ResidentDemoResult:
+        nonlocal calls
+        calls += 1
+        path = root / "runs" / f"fake-{calls}"
+        path.mkdir(parents=True)
+        fault = options["evaluation_fault"]
+        return ResidentDemoResult(
+            fault in {None, "kill-active-worker"}, path.name, path, "runtime", ("op",)
+        )
+
+    def scorer(path: Path, *, seed: int, fault: str | None) -> dict[str, object]:
+        return {
+            "seed": seed,
+            "fault": fault,
+            "outcome": "passed",
+            "measurements": {"episode_wall_ms": float("nan") if path.name == "fake-1" else 10.0},
+        }
+
+    result = asyncio.run(
+        run_recovery_development(
+            tmp_path, episode_runner=runner, score_episode=scorer, report_progress=None
+        )
+    )
+    row = json.loads((result.evidence_path / "seed-101-no_fault.json").read_text())
+    assert row["outcome"] == "aborted"
+    assert row["reason_code"] == "runtime_or_evidence_error"
+    assert row["run_id"] == "fake-1"
+    assert row["evidence_path"] == str(tmp_path / "runs" / "fake-1")
+    assert result.gate_pass_count == 8

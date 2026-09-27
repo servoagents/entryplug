@@ -3,32 +3,11 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
 from pathlib import Path
 
 from entryplug.harbor_resident import RESULT_LOSS_FAULT, SOURCE_ID, SOURCE_LINEAGE
 from entryplug.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1 as PROFILE
-
-
-def _object(path: Path) -> Mapping[str, object]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"{path.name} is not a JSON object")
-    return value
-
-
-def _mapping(value: object) -> Mapping[str, object]:
-    return value if isinstance(value, Mapping) else {}
-
-
-def _trace(path: Path) -> tuple[str, ...]:
-    purposes: list[str] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        record = json.loads(line)
-        if not isinstance(record, dict) or not isinstance(record.get("purpose"), str):
-            raise ValueError("native trace has an invalid purpose")
-        purposes.append(record["purpose"])
-    return tuple(purposes)
+from entryplug.recovery_records import object_mapping, read_action_purposes, read_json_object
 
 
 def score_repair_result_loss(evidence_path: Path, *, seed: int) -> dict[str, object]:
@@ -45,10 +24,10 @@ def score_repair_result_loss(evidence_path: Path, *, seed: int) -> dict[str, obj
         "task_outcome": "failed",
     }
     try:
-        summary = _object(evidence_path / "resident-demo.json")
-        first = _object(evidence_path / "task-0001.json")
-        interrupted = _object(evidence_path / "task-0002.json")
-        purposes = _trace(evidence_path / "task-0002-trace.jsonl")
+        summary = read_json_object(evidence_path / "resident-demo.json")
+        first = read_json_object(evidence_path / "task-0001.json")
+        interrupted = read_json_object(evidence_path / "task-0002.json")
+        purposes = read_action_purposes(evidence_path / "task-0002-trace.jsonl")
     except (OSError, ValueError, json.JSONDecodeError) as error:
         return {
             **result,
@@ -60,12 +39,12 @@ def score_repair_result_loss(evidence_path: Path, *, seed: int) -> dict[str, obj
     operation_ids = summary.get("operation_ids")
     outcomes = summary.get("outcomes")
     second_outcome = outcomes[1] if isinstance(outcomes, list) and len(outcomes) == 2 else None
-    second_outcome = _mapping(second_outcome)
-    terminal = _mapping(second_outcome.get("result"))
-    fault = _mapping(interrupted.get("fault_evaluator_only"))
-    recovery = _mapping(interrupted.get("recovery"))
-    worker = _mapping(interrupted.get("detector_worker"))
-    evaluator = _mapping(interrupted.get("evaluator_only"))
+    second_outcome = object_mapping(second_outcome)
+    terminal = object_mapping(second_outcome.get("result"))
+    fault = object_mapping(interrupted.get("fault_evaluator_only"))
+    recovery = object_mapping(interrupted.get("recovery"))
+    worker = object_mapping(interrupted.get("detector_worker"))
+    evaluator = object_mapping(interrupted.get("evaluator_only"))
     first_correction = f"task-0002:servo-step-{PROFILE.fault_servo_step}"
     after_fault = (
         purposes[purposes.index(first_correction) + 1 :]
@@ -91,7 +70,7 @@ def score_repair_result_loss(evidence_path: Path, *, seed: int) -> dict[str, obj
     accepted = (
         summary.get("experiment_seed") == seed
         and summary.get("target_offsets_px") == list(PROFILE.target_offsets(seed))
-        and _mapping(summary.get("qualification_profile")).get("digest") == PROFILE.digest
+        and object_mapping(summary.get("qualification_profile")).get("digest") == PROFILE.digest
         and summary.get("evaluation_fault_profile") == RESULT_LOSS_FAULT
         and summary.get("world_count") == 1
         and summary.get("status") == "failed"
@@ -115,8 +94,8 @@ def score_repair_result_loss(evidence_path: Path, *, seed: int) -> dict[str, obj
         and fault.get("result_drop_phase") == "replacement_validated_before_resume"
         and recovery.get("status") == "validated"
         and recovery.get("old_binding_revision_invalidated") is True
-        and _mapping(recovery.get("quiescence")).get("confirmed") is True
-        and _mapping(recovery.get("validation")).get("status") == "reused"
+        and object_mapping(recovery.get("quiescence")).get("confirmed") is True
+        and object_mapping(recovery.get("validation")).get("status") == "reused"
         and recovery.get("validation_probe_count") == len(PROFILE.replacement_probes_radians)
         and interrupted.get("binding_revision") == 2
         and worker.get("worker_generation") == 2

@@ -10,9 +10,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from entryplug.evidence import json_object
 from entryplug.harbor_resident import ResidentStartupFailure
 from entryplug.recovery_evaluation import summarize_recovery_episode
 from entryplug.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1 as PROFILE
+from entryplug.recovery_records import finite_float, nonnegative_int
 from entryplug.resident_demo import ResidentDemoResult, run_resident_demo
 from entryplug.runtime import DEFAULT_HARBOR_IMAGE
 
@@ -36,19 +38,15 @@ class RecoveryPilotResult:
     gate_pass_count: int
 
 
-def _integer(value: object) -> int:
-    return value if isinstance(value, int) and not isinstance(value, bool) else 0
-
-
 def _median(rows: list[dict[str, object]], key: str) -> float | None:
     values: list[float] = []
     for row in rows:
         measurements = row.get("measurements")
         if not isinstance(measurements, Mapping):
             continue
-        value = measurements.get(key)
-        if isinstance(value, (float, int)) and not isinstance(value, bool):
-            values.append(float(value))
+        value = finite_float(measurements.get(key))
+        if value is not None and value >= 0:
+            values.append(value)
     return round(statistics.median(values), 6) if values else None
 
 
@@ -71,7 +69,9 @@ def _aggregate(rows: list[dict[str, object]]) -> dict[str, object]:
                 and row.get("passed_tasks") == len(PROFILE.base_offsets_px)
                 for row in subset
             ),
-            "false_completions": sum(_integer(row.get("false_completion_count")) for row in subset),
+            "false_completions": sum(
+                nonnegative_int(row.get("false_completion_count")) for row in subset
+            ),
             "gate_pass_conditioned_median_episode_wall_ms": _median(passed, "episode_wall_ms"),
             "gate_pass_conditioned_median_repair_ms": _median(passed, "repair_ms"),
         }
@@ -108,6 +108,8 @@ async def run_recovery_development(
     rows: list[dict[str, object]] = []
     for seed in PROFILE.development_seeds:
         for scenario, fault in SCENARIOS:
+            result: ResidentDemoResult | None = None
+            row: dict[str, object]
             try:
                 result = await episode_runner(
                     root,
@@ -115,7 +117,12 @@ async def run_recovery_development(
                     image=image,
                     evaluation_fault=fault,
                 )
-                row = score_episode(result.evidence_path, seed=seed, fault=fault)
+                row = dict(
+                    json_object(
+                        score_episode(result.evidence_path, seed=seed, fault=fault),
+                        "recovery development trial",
+                    )
+                )
                 row["demo_passed"] = result.passed
                 expected_demo_pass = fault in {None, "kill-active-worker"}
                 if row.get("outcome") == "passed" and result.passed != expected_demo_pass:
@@ -145,6 +152,9 @@ async def run_recovery_development(
                     "error_type": type(error).__name__,
                     "error": str(error),
                 }
+                if result is not None:
+                    row["run_id"] = result.run_id
+                    row["evidence_path"] = str(result.evidence_path)
             row["scenario"] = scenario
             rows.append(row)
             trial_path = evidence_path / f"seed-{seed}-{scenario}.json"

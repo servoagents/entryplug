@@ -10,8 +10,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from entryplug.evidence import json_object
 from entryplug.recovery_evaluation import summarize_recovery_episode
 from entryplug.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1 as PROFILE
+from entryplug.recovery_records import finite_float, read_json_object
 
 SCENARIOS: Mapping[str, str | None] = {
     "no_fault": None,
@@ -30,16 +32,10 @@ class RecoveryComparison:
     paired_success_count: int
 
 
-def _number(value: object) -> float | None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        return None
-    return float(value)
-
-
 def _warm_ms(measurements: Mapping[str, object]) -> float | None:
-    wall = _number(measurements.get("episode_wall_ms"))
-    startup = _number(measurements.get("container_startup_ms"))
-    acquisition = _number(measurements.get("acquisition_ms"))
+    wall = finite_float(measurements.get("episode_wall_ms"))
+    startup = finite_float(measurements.get("container_startup_ms"))
+    acquisition = finite_float(measurements.get("acquisition_ms"))
     if wall is None or startup is None or acquisition is None:
         return None
     return round(wall - startup - acquisition, 3)
@@ -48,8 +44,8 @@ def _warm_ms(measurements: Mapping[str, object]) -> float | None:
 def _difference(
     session: Mapping[str, object], direct: Mapping[str, object], key: str
 ) -> float | None:
-    session_value = _number(session.get(key))
-    direct_value = _number(direct.get(key))
+    session_value = finite_float(session.get(key))
+    direct_value = finite_float(direct.get(key))
     if session_value is None or direct_value is None:
         return None
     return round(session_value - direct_value, 3)
@@ -81,11 +77,14 @@ def _attempt(
         raise ValueError("comparison attempt has an unsupported execution path")
     if not isinstance(run_id, str) or RUN_ID.fullmatch(run_id) is None:
         raise ValueError("comparison attempt has an invalid resident run ID")
-    score = scorer(
-        root / "runs" / run_id,
-        seed=seed,
-        fault=SCENARIOS[scenario],
-        execution_path=path,
+    score = json_object(
+        scorer(
+            root / "runs" / run_id,
+            seed=seed,
+            fault=SCENARIOS[scenario],
+            execution_path=path,
+        ),
+        "comparison episode score",
     )
     return {
         "seed": seed,
@@ -208,7 +207,7 @@ def summarize_recovery_comparison(
 def record_recovery_comparison(root: Path, manifest_path: Path) -> RecoveryComparison:
     """Write the exact input and reduced result into a new ignored runs directory."""
 
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = read_json_object(manifest_path)
     summary = summarize_recovery_comparison(root, manifest)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     run_id = f"harbor-resident-compare-development-{stamp}-{uuid.uuid4().hex[:8]}"

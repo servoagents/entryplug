@@ -299,3 +299,13 @@ def test_recovery_evaluator_separates_safe_task_refusal_from_structural_failure(
     assert scored["outcome"] == "failed"
     assert scored["structural_gates_passed"] is True
     assert scored["reason_code"] == "task_not_completed"
+
+
+def test_recovery_evaluator_rejects_nonfinite_summary(tmp_path: Path) -> None:
+    path = tmp_path / "nonfinite-summary"
+    _episode(path, fault=None)
+    summary = path / "resident-demo.json"
+    summary.write_text('{"episode_wall_ms": NaN}', encoding="utf-8")
+    result = summarize_recovery_episode(path, seed=101, fault=None)
+    assert result["outcome"] == "failed"
+    assert result["reason_code"] == "missing_or_invalid_summary"

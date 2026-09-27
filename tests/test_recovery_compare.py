@@ -136,3 +136,19 @@ def test_unique_failed_pair_has_no_timing_delta(tmp_path: Path) -> None:
     assert report["paired_success_count"] == 0
     assert report["cells"][0]["comparison_status"] == "mixed_outcome"
     assert report["cells"][0]["timing"] is None
+
+
+def test_comparison_rejects_nonfinite_score_and_manifest(tmp_path: Path) -> None:
+    def score(*_args: object, **_kwargs: object) -> dict[str, object]:
+        return {"outcome": "passed", "measurements": {"episode_wall_ms": float("nan")}}
+
+    with pytest.raises(ValueError, match="finite JSON-safe"):
+        summarize_recovery_comparison(
+            tmp_path, _manifest(_entry(1, "no_fault", "session")), scorer=score
+        )
+
+    manifest_path = tmp_path / "nonfinite-manifest.json"
+    manifest_path.write_text('{"schema_version": NaN}', encoding="utf-8")
+    with pytest.raises(ValueError, match="non-finite"):
+        record_recovery_comparison(tmp_path, manifest_path)
+    assert not (tmp_path / "runs").exists()
