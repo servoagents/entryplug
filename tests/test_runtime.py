@@ -8,8 +8,8 @@ from typing import Any
 import pytest
 
 from entryplug.runtime import (
-    harbor_container_name,
     harbor_build_command,
+    harbor_container_name,
     harbor_run_command,
     new_harbor_run_id,
     run_harbor,

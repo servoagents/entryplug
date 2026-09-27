@@ -439,12 +439,9 @@ class OperationHost:
             raise AdmissionError("STALE_RUNTIME", "runtime ID is no longer current")
         current_generation = self._reconfiguration_generations.get(slot, 1)
         if expected_generation is not None and (
-            isinstance(expected_generation, bool)
-            or expected_generation != current_generation
+            isinstance(expected_generation, bool) or expected_generation != current_generation
         ):
-            raise AdmissionError(
-                "STALE_GENERATION", "runtime slot generation is no longer current"
-            )
+            raise AdmissionError("STALE_GENERATION", "runtime slot generation is no longer current")
         if self._reconfiguration_slot is not None:
             raise AdmissionError(
                 "RECONFIGURING",
@@ -495,10 +492,7 @@ class OperationHost:
                 f"runtime has no active reconfiguration for {slot}",
             )
         current_generation = self._reconfiguration_generations[slot]
-        if (
-            isinstance(expected_generation, bool)
-            or expected_generation != current_generation
-        ):
+        if isinstance(expected_generation, bool) or expected_generation != current_generation:
             raise AdmissionError(
                 "STALE_GENERATION",
                 "runtime slot generation is no longer current",

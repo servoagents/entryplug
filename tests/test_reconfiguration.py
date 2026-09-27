@@ -214,9 +214,7 @@ def test_active_operation_refuses_replacement_and_releases_candidate() -> None:
         def validate(arguments: Mapping[str, JsonValue]) -> Mapping[str, object]:
             return dict(arguments)
 
-        async def run(
-            _: OperationContext, __: Mapping[str, JsonValue]
-        ) -> OperationResult:
+        async def run(_: OperationContext, __: Mapping[str, JsonValue]) -> OperationResult:
             await release.wait()
             return OperationResult(Lifecycle.SUCCEEDED, MotionState.IDLE)
 

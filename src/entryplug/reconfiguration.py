@@ -270,4 +270,3 @@ class EvidenceCacheSlot:
             return
         self._closed = True
         self._cache.close()
-

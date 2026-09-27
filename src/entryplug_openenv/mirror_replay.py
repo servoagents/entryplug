@@ -107,21 +107,15 @@ async def _replay(
         if accepted_result.get("request_id") != request_id:
             raise RuntimeError("OpenEnv did not preserve the stable association request ID")
         completed = await client.step(
-            EntryplugAction(
-                decision=WaitDecision(operation_id=operation_id, timeout_seconds=1.0)
-            )
+            EntryplugAction(decision=WaitDecision(operation_id=operation_id, timeout_seconds=1.0))
         )
         completed_result = completed.observation.result or {}
         if completed_result.get("lifecycle") != "succeeded":
             raise RuntimeError("OpenEnv association operation did not succeed")
         inspected = await client.step(
-            EntryplugAction(
-                decision=InspectDecision(reference=operation_id, detail="result")
-            )
+            EntryplugAction(decision=InspectDecision(reference=operation_id, detail="result"))
         )
-        await client.step(
-            EntryplugAction(decision=StopDecision(reason="mirror replay complete"))
-        )
+        await client.step(EntryplugAction(decision=StopDecision(reason="mirror replay complete")))
         state = await client.state()
 
     snapshot = inspected.observation.result or {}
@@ -160,9 +154,7 @@ def run_openenv_mirror_replay(root: Path, source_run_id: str) -> OpenEnvMirrorRe
     if not isinstance(replay_candidate, str):
         raise RuntimeError("OpenEnv association did not select a candidate")
     selected_role = source.private_source_roles.get(replay_candidate)
-    equivalent = (
-        replay_candidate == source.recorded_candidate_id == source.direct_candidate_id
-    )
+    equivalent = replay_candidate == source.recorded_candidate_id == source.direct_candidate_id
     controlled = selected_role == "controlled_rendered_camera"
     passed = equivalent and controlled
 

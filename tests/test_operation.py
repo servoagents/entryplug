@@ -481,9 +481,7 @@ def test_session_can_reject_a_stale_external_runtime_id() -> None:
 
 def test_reconfiguration_barrier_closes_admission_and_is_observable() -> None:
     async def scenario() -> None:
-        async def read(
-            _: OperationContext, arguments: Mapping[str, JsonValue]
-        ) -> OperationResult:
+        async def read(_: OperationContext, arguments: Mapping[str, JsonValue]) -> OperationResult:
             return OperationResult(Lifecycle.SUCCEEDED, MotionState.IDLE, arguments)
 
         host = OperationHost(
@@ -523,9 +521,7 @@ def test_reconfiguration_requires_current_idle_runtime() -> None:
     async def scenario() -> None:
         release = asyncio.Event()
 
-        async def read(
-            _: OperationContext, arguments: Mapping[str, JsonValue]
-        ) -> OperationResult:
+        async def read(_: OperationContext, arguments: Mapping[str, JsonValue]) -> OperationResult:
             await release.wait()
             return OperationResult(Lifecycle.SUCCEEDED, MotionState.IDLE, arguments)
 

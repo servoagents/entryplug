@@ -85,9 +85,7 @@ def candidate_from_record(value: object) -> CandidateEvidence:
         validation_commands_radians=_number_tuple(
             value["validation_commands_radians"], "validation commands"
         ),
-        validation_effects_px=_number_tuple(
-            value["validation_effects_px"], "validation effects"
-        ),
+        validation_effects_px=_number_tuple(value["validation_effects_px"], "validation effects"),
     )
 
 

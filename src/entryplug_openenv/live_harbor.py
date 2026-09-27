@@ -17,7 +17,7 @@ from entryplug.episode import EpisodeFactory
 from entryplug.harbor_episode import ACQUIRE_VISUAL_BINDING, harbor_mirrors_episode_factory
 from entryplug.pilot import summarize_mirrors_episode
 from entryplug.qualification import HARBOR_MIRRORS_V1
-from entryplug.runtime import DEFAULT_HARBOR_IMAGE, RuntimeResult, RUN_ID_PATTERN
+from entryplug.runtime import DEFAULT_HARBOR_IMAGE, RUN_ID_PATTERN, RuntimeResult
 from entryplug.seeding import validate_experiment_seed
 from entryplug_openenv.client import EntryplugEnvClient
 from entryplug_openenv.environment import EntryplugEnvironment
@@ -88,9 +88,7 @@ async def _drive_live_harbor(port: int, seed: int) -> dict[str, Any]:
                 raise RuntimeError("OpenEnv Harbor operation exceeded forty bounded waits")
 
         inspected = await client.step(
-            EntryplugAction(
-                decision=InspectDecision(reference=operation_id, detail="result")
-            )
+            EntryplugAction(decision=InspectDecision(reference=operation_id, detail="result"))
         )
         stopped = await client.step(
             EntryplugAction(decision=StopDecision(reason="live Harbor episode complete"))

@@ -138,18 +138,12 @@ def test_read_only_sqlite_cache_requires_existing_file(tmp_path: Path) -> None:
 
 def test_json_object_normalizes_nested_immutable_runtime_views() -> None:
     frozen = MappingProxyType(
-        {
-            "selection": MappingProxyType(
-                {"candidate_id": "view-a", "scores": (1.0, 0.5)}
-            )
-        }
+        {"selection": MappingProxyType({"candidate_id": "view-a", "scores": (1.0, 0.5)})}
     )
 
     normalized = json_object(frozen, "public event")
 
-    assert normalized == {
-        "selection": {"candidate_id": "view-a", "scores": [1.0, 0.5]}
-    }
+    assert normalized == {"selection": {"candidate_id": "view-a", "scores": [1.0, 0.5]}}
     selection = normalized["selection"]
     assert isinstance(selection, dict)
     selection["candidate_id"] = "detached"

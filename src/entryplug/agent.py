@@ -699,9 +699,7 @@ class AgentRunner:
                     expected_generation=expected_generation,
                 ):
                     if self._decision_in_flight:
-                        raise AgentBusyError(
-                            "cannot replace an agent with a decision outstanding"
-                        )
+                        raise AgentBusyError("cannot replace an agent with a decision outstanding")
                     if self._generation != previous_agent_generation:
                         raise StaleAgentDecision(
                             "agent generation changed before replacement commit"

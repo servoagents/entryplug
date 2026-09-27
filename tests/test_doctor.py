@@ -241,9 +241,7 @@ def test_os_release_parser_does_not_execute_values(tmp_path: Path) -> None:
 def test_missing_parent_of_dotted_module_is_reported_as_missing(tmp_path: Path) -> None:
     profile = _profile(tmp_path / "profile.json")
     data = json.loads(profile.read_text(encoding="utf-8"))
-    data["required_imports"].append(
-        {"distribution": "protobuf", "module": "google.protobuf"}
-    )
+    data["required_imports"].append({"distribution": "protobuf", "module": "google.protobuf"})
     profile.write_text(json.dumps(data), encoding="utf-8")
     context = _context(healthy=True)
     original_find_spec = context.find_spec

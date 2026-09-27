@@ -195,9 +195,7 @@ def test_active_operation_refuses_detector_selection_and_releases_candidate() ->
         def validate(arguments: Mapping[str, JsonValue]) -> Mapping[str, object]:
             return dict(arguments)
 
-        async def read(
-            _: OperationContext, __: Mapping[str, JsonValue]
-        ) -> OperationResult:
+        async def read(_: OperationContext, __: Mapping[str, JsonValue]) -> OperationResult:
             await release.wait()
             return OperationResult(Lifecycle.SUCCEEDED, MotionState.IDLE)
 
@@ -252,4 +250,3 @@ def test_marker_detection_rejects_invalid_geometry() -> None:
             right_px=10,
             bottom_px=10,
         )
-
