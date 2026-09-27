@@ -128,6 +128,12 @@ def _parser() -> argparse.ArgumentParser:
         default="kill-active-worker",
     )
 
+    comparison = commands.add_parser(
+        "resident-compare",
+        help="score declared direct and Session development attempts",
+    )
+    comparison.add_argument("--manifest", type=Path, required=True)
+
     recovery_pilot = commands.add_parser(
         "resident-pilot", help="run the declared resident recovery development matrix"
     )
@@ -363,6 +369,25 @@ def _resident_handwritten(args: argparse.Namespace) -> int:
     return 0 if result.passed else 1
 
 
+def _resident_compare(args: argparse.Namespace) -> int:
+    root = source_root()
+    if root is None:
+        print("entryplug resident-compare: run from a source checkout", file=sys.stderr)
+        return 2
+    from entryplug.recovery_compare import record_recovery_comparison
+
+    try:
+        result = record_recovery_comparison(root, args.manifest)
+    except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as error:
+        print(f"entryplug resident-compare: {error}", file=sys.stderr)
+        return 2
+    print(
+        f"paired passing cells: {result.paired_success_count}/{result.cell_count}\n"
+        f"evidence: {result.evidence_path}"
+    )
+    return 0
+
+
 def _recovery_pilot(args: argparse.Namespace) -> int:
     root = source_root()
     if root is None:
@@ -541,6 +566,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _resident_demo(args)
     if args.command == "resident-handwritten":
         return _resident_handwritten(args)
+    if args.command == "resident-compare":
+        return _resident_compare(args)
     if args.command == "resident-pilot":
         return _recovery_pilot(args)
     if args.command == "pilot":

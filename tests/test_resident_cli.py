@@ -63,3 +63,11 @@ def test_handwritten_baseline_is_explicit_private_command() -> None:
                 "kill-both-workers",
             ]
         )
+
+
+def test_recovery_comparison_requires_explicit_manifest() -> None:
+    args = _parse_args(["resident-compare", "--manifest", ".planning/attempts.json"])
+    assert args.command == "resident-compare"
+    assert args.manifest.name == "attempts.json"
+    with pytest.raises(SystemExit):
+        _parse_args(["resident-compare"])
