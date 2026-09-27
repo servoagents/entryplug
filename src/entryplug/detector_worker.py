@@ -434,7 +434,14 @@ class ActiveDetectorPath:
         if (
             self.selected is self.alternate
             and self.binding_revision == 1
-            and ":replacement-check-" not in purpose
+            and not any(
+                token in purpose
+                for token in (
+                    ":replacement-check-",
+                    ":reacquire-fit-",
+                    ":reacquire-validation-",
+                )
+            )
         ):
             raise WorkerUnavailable("BINDING_NOT_VALIDATED")
 

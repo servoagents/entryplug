@@ -18,3 +18,21 @@ def test_resident_pilot_exposes_only_development_phase() -> None:
     assert args.command == "resident-pilot"
     with pytest.raises(SystemExit):
         _parse_args(["resident-pilot", "--runtime", "container", "--phase", "holdout"])
+
+
+def test_full_reacquisition_requires_explicit_resident_demo_switch() -> None:
+    args = _parse_args(
+        [
+            "resident-demo",
+            "--runtime",
+            "container",
+            "--seed",
+            "303",
+            "--fault",
+            "kill-active-worker",
+            "--recovery-strategy",
+            "full_reacquisition",
+        ]
+    )
+    assert args.recovery_strategy == "full_reacquisition"
+    assert args.fault == "kill-active-worker"

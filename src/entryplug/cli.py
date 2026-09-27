@@ -108,6 +108,12 @@ def _parser() -> argparse.ArgumentParser:
         default="none",
         help="private evaluator fault applied to the second goal",
     )
+    resident.add_argument(
+        "--recovery-strategy",
+        choices=("checked_reuse", "full_reacquisition"),
+        default="checked_reuse",
+        help="private same-world detector recovery comparison",
+    )
 
     recovery_pilot = commands.add_parser(
         "resident-pilot", help="run the declared resident recovery development matrix"
@@ -302,6 +308,7 @@ def _resident_demo(args: argparse.Namespace) -> int:
                 seed=args.seed,
                 image=args.image,
                 evaluation_fault=None if args.fault == "none" else args.fault,
+                evaluation_recovery_strategy=args.recovery_strategy,
             )
         )
     except (OSError, RuntimeError, ValueError) as error:

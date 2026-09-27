@@ -79,6 +79,7 @@ class ResidentRun(Protocol):
         target_y_px: float,
         *,
         evaluation_fault: str | None = None,
+        evaluation_recovery_strategy: str = "checked_reuse",
         deadline_monotonic: float | None = None,
     ) -> Mapping[str, JsonValue]: ...
 
@@ -160,6 +161,7 @@ class DockerResidentRun(DockerHarborRun):
         *,
         evaluation_fault: str | None = None,
         deadline_monotonic: float | None = None,
+        evaluation_recovery_strategy: str = "checked_reuse",
     ) -> Mapping[str, JsonValue]:
         async with self._request_lock:
             command: dict[str, object] = {
@@ -172,6 +174,8 @@ class DockerResidentRun(DockerHarborRun):
                 command["evaluation_fault"] = evaluation_fault
             if deadline_monotonic is not None:
                 command["deadline_monotonic"] = deadline_monotonic
+            if evaluation_recovery_strategy != "checked_reuse":
+                command["evaluation_recovery_strategy"] = evaluation_recovery_strategy
             await self._write(command)
             record = await self._read(HARBOR_RESIDENT_RECOVERY_V1.operation_deadline_seconds)
             if record.get("type") != "result" or record.get("operation_id") != operation_id:
@@ -255,6 +259,7 @@ def harbor_resident_episode_factory(
     start_resident: StartResident = start_owned_resident,
     image_check: ImageCheck = docker_image_available,
     evaluation_fault: str | None = None,
+    evaluation_recovery_strategy: str = "checked_reuse",
 ) -> EpisodeFactory:
     """Create an episode whose one world serves sequential visual reach operations."""
 
@@ -265,6 +270,11 @@ def harbor_resident_episode_factory(
         "kill-active-worker-stale-alternate",
     }:
         raise ValueError("unsupported resident evaluation fault")
+    if evaluation_recovery_strategy not in {"checked_reuse", "full_reacquisition"} or (
+        evaluation_recovery_strategy == "full_reacquisition"
+        and evaluation_fault != "kill-active-worker"
+    ):
+        raise ValueError("unsupported private recovery strategy")
 
     async def factory(seed: int) -> EpisodeStart:
         validate_experiment_seed(seed)
@@ -343,6 +353,7 @@ def harbor_resident_episode_factory(
                         context.operation_id,
                         target,
                         evaluation_fault=evaluation_fault,
+                        evaluation_recovery_strategy=evaluation_recovery_strategy,
                         deadline_monotonic=context.deadline_monotonic,
                     )
                 )

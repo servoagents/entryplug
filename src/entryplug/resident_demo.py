@@ -61,11 +61,17 @@ async def run_resident_demo(
     seed: int = 101,
     image: str = DEFAULT_HARBOR_IMAGE,
     evaluation_fault: str | None = None,
+    evaluation_recovery_strategy: str = "checked_reuse",
 ) -> ResidentDemoResult:
     """Qualify sequential external tasks without a reset between targets."""
 
     controller = EpisodeController(
-        harbor_resident_episode_factory(root, image=image, evaluation_fault=evaluation_fault),
+        harbor_resident_episode_factory(
+            root,
+            image=image,
+            evaluation_fault=evaluation_fault,
+            evaluation_recovery_strategy=evaluation_recovery_strategy,
+        ),
         timeout_seconds=300.0,
     )
     runner: AgentRunner | None = None
@@ -157,6 +163,7 @@ async def run_resident_demo(
                 ],
                 "world_count": 1,
                 "evaluation_fault_profile": evaluation_fault,
+                "evaluation_recovery_strategy": evaluation_recovery_strategy,
                 "private_evaluator": {
                     "all_targets_inside_tolerance": independent_pass,
                     "results": evaluator_results,

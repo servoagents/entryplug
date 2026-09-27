@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from entryplug.association import make_visual_binding_record
 from entryplug.recovery_evaluation import summarize_recovery_episode
 from entryplug.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1 as PROFILE
 
@@ -153,3 +154,132 @@ def test_recovery_evaluator_rejects_profile_mismatch(tmp_path: Path) -> None:
     assert summarize_recovery_episode(path, seed=202, fault=None)["reason_code"] == (
         "profile_or_trial_mismatch"
     )
+
+
+def test_full_reacquisition_requires_new_content_addressed_binding(tmp_path: Path) -> None:
+    path = tmp_path / "same-world-reacquisition"
+    _episode(path, fault="kill-active-worker")
+    summary_path = path / "resident-demo.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["evaluation_recovery_strategy"] = "full_reacquisition"
+    _write(summary_path, summary)
+    record = make_visual_binding_record(
+        context={"task": "visual_reach", "recovery_strategy": "full_reacquisition"},
+        candidate_id="camera-color-v1",
+        lineage_id="camera-color-capture-v1",
+        gain_px_per_radian=95.0,
+        validity_radians=(-0.045, 0.05),
+        noise_range_px=0.5,
+        maximum_age_ms=250.0,
+        timing_method_id="settled-before-after-v1",
+        evidence_refs=("task-0002.json", "task-0002-trace.jsonl"),
+        created_at="2026-09-27T00:00:00+00:00",
+    )
+    for index in range(1, 5):
+        task_path = path / f"task-{index:04d}.json"
+        task = json.loads(task_path.read_text(encoding="utf-8"))
+        task["binding_evidence_key"] = "sha256:old" if index == 1 else record.key
+        if index == 2:
+            task["source_id"] = "camera-color-v1"
+            task["lineage_id"] = "camera-color-capture-v1"
+            task["recovery"].update(
+                strategy="full_reacquisition",
+                validation={"status": "passed"},
+                identification_probe_count=4,
+                validation_probe_count=2,
+                old_binding_evidence_key="sha256:old",
+                new_binding_evidence_key=record.key,
+                new_binding_record=record.to_dict(),
+            )
+        _write(task_path, task)
+    purposes = ["task-0002:servo-step-1"]
+    purposes.extend(f"task-0002:reacquire-fit-{index}" for index in range(1, 5))
+    purposes.extend(f"task-0002:reacquire-validation-{index}" for index in range(1, 3))
+    purposes.append("task-0002:resumed:servo-step-1")
+    with (path / "task-0002-trace.jsonl").open("w", encoding="utf-8") as stream:
+        for purpose in purposes:
+            stream.write(json.dumps({"purpose": purpose}) + "\n")
+    scored = summarize_recovery_episode(
+        path, seed=101, fault="kill-active-worker", recovery_strategy="full_reacquisition"
+    )
+    assert scored["outcome"] == "passed"
+    assert scored["measurements"]["recovery_identification_probes"] == 4
+    interrupted_path = path / "task-0002.json"
+    interrupted = json.loads(interrupted_path.read_text(encoding="utf-8"))
+    interrupted["recovery"]["new_binding_record"]["payload"]["maximum_age_ms"] = 999.0
+    _write(interrupted_path, interrupted)
+    assert (
+        summarize_recovery_episode(
+            path, seed=101, fault="kill-active-worker", recovery_strategy="full_reacquisition"
+        )["outcome"]
+        == "failed"
+    )
+
+
+def test_full_reacquisition_budget_exhaustion_is_safe_but_not_success(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "budget-exhausted"
+    _episode(path, fault="kill-active-worker", count=2)
+    summary_path = path / "resident-demo.json"
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    summary["evaluation_recovery_strategy"] = "full_reacquisition"
+    _write(summary_path, summary)
+    task_path = path / "task-0002.json"
+    task = json.loads(task_path.read_text(encoding="utf-8"))
+    task.update(
+        status="failed",
+        reason_code="VISUAL_CAPABILITY_UNAVAILABLE",
+        final_y_px=None,
+        recovery={
+            "status": "unavailable",
+            "strategy": "full_reacquisition",
+            "failure_reason": "REPAIR_BUDGET_EXHAUSTED",
+        },
+    )
+    _write(task_path, task)
+    trace_path = path / "task-0002-trace.jsonl"
+    with trace_path.open("w", encoding="utf-8") as stream:
+        for purpose in (
+            "task-0002:servo-step-1",
+            "task-0002:reacquire-fit-1",
+            "task-0002:reacquire-fit-2",
+        ):
+            stream.write(json.dumps({"purpose": purpose}) + "\n")
+
+    scored = summarize_recovery_episode(
+        path, seed=101, fault="kill-active-worker", recovery_strategy="full_reacquisition"
+    )
+    assert scored["outcome"] == "failed"
+    assert scored["reason_code"] == "repair_budget_exhausted"
+    assert scored["structural_gates_passed"] is True
+    assert scored["measurements"]["completed_reacquisition_fit_probes"] == 2
+
+    with trace_path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps({"purpose": "task-0002:resumed:servo-step-1"}) + "\n")
+    unsafe = summarize_recovery_episode(
+        path, seed=101, fault="kill-active-worker", recovery_strategy="full_reacquisition"
+    )
+    assert unsafe["structural_gates_passed"] is False
+    assert unsafe["reason_code"] == "structural_gate_failed"
+
+
+def test_recovery_evaluator_rejects_old_correction_before_revalidation(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "premature-correction"
+    _episode(path, fault="kill-active-worker")
+    trace_path = path / "task-0002-trace.jsonl"
+    purposes = [
+        "task-0002:servo-step-1",
+        "task-0002:servo-step-2",
+        "task-0002:replacement-check-1",
+        "task-0002:replacement-check-2",
+        "task-0002:resumed:servo-step-1",
+    ]
+    with trace_path.open("w", encoding="utf-8") as stream:
+        for purpose in purposes:
+            stream.write(json.dumps({"purpose": purpose}) + "\n")
+    result = summarize_recovery_episode(path, seed=101, fault="kill-active-worker")
+    assert result["outcome"] == "failed"
+    assert result["structural_gates_passed"] is False

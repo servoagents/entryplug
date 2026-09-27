@@ -74,6 +74,10 @@ def test_worker_preserves_capture_identity_and_actual_process_death() -> None:
         with pytest.raises(WorkerUnavailable, match="BINDING_NOT_VALIDATED"):
             paths.assert_ready_for_segment("task:servo-step-2", alternate_observation)
         paths.assert_ready_for_segment("task:replacement-check-1", alternate_observation)
+        paths.assert_ready_for_segment("task:reacquire-fit-1", alternate_observation)
+        paths.assert_ready_for_segment("task:reacquire-validation-1", alternate_observation)
+        with pytest.raises(WorkerUnavailable, match="BINDING_NOT_VALIDATED"):
+            paths.assert_ready_for_segment("task:reacquire-servo-step-1", alternate_observation)
         assert paths.binding_revision == 1
         assert paths.commit_binding_revision() == 2
         paths.assert_ready_for_segment("task:resumed:servo-step-1", alternate_observation)

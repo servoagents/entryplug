@@ -36,6 +36,7 @@ from reach import (
     _validate_gain,
 )
 from resident_evaluator import score_raw_completion
+from resident_reacquire import reacquire_after_loss
 from smoke import _current_positions, _wait_stationary, _write_create_only, _write_png_create_only
 
 from entryplug.association import (
@@ -217,8 +218,9 @@ def _task(
     cancel: threading.Event,
     paths: ActiveDetectorPath,
     evaluation_fault: str | None,
+    recovery_strategy: str,
     deadline_monotonic: float,
-) -> dict[str, object]:
+) -> tuple[dict[str, object], CachedVisualBinding]:
     from entryplug.association import CachedVisualBinding
 
     assert isinstance(binding, CachedVisualBinding)
@@ -347,18 +349,33 @@ def _task(
                     recovery = {
                         "status": "loss_detected",
                         "loss_reason": loss.reason_code,
+                        "strategy": recovery_strategy,
                     }
+                    repair_started = time.monotonic()
                     try:
-                        recovered = _repair_binding(
-                            node,
-                            anchor,
-                            binding,
-                            paths,
-                            trace,
-                            prefix,
-                            cancel,
-                            deadline_monotonic,
-                        )
+                        if recovery_strategy == "full_reacquisition":
+                            recovered, binding = reacquire_after_loss(
+                                node,
+                                anchor,
+                                binding,
+                                paths,
+                                trace,
+                                prefix,
+                                cancel,
+                                deadline_monotonic,
+                            )
+                        else:
+                            recovered = _repair_binding(
+                                node,
+                                anchor,
+                                binding,
+                                paths,
+                                trace,
+                                prefix,
+                                cancel,
+                                deadline_monotonic,
+                            )
+                            recovered["strategy"] = "checked_reuse"
                         recovery.update(recovered)
                         if cancel.is_set():
                             raise ReachCanceled(prefix)
@@ -378,6 +395,9 @@ def _task(
                         else:
                             recovery["status"] = "unavailable"
                             recovery["failure_reason"] = "REPAIR_BUDGET_EXHAUSTED"
+                            recovery["repair_ms"] = _round(
+                                (time.monotonic() - repair_started) * 1000
+                            )
                             trial = {
                                 "status": "failed",
                                 "reason_code": "VISUAL_CAPABILITY_UNAVAILABLE",
@@ -385,6 +405,7 @@ def _task(
                     except WorkerUnavailable as repair_error:
                         recovery["status"] = "unavailable"
                         recovery["failure_reason"] = repair_error.reason_code
+                        recovery["repair_ms"] = _round((time.monotonic() - repair_started) * 1000)
                         trial = {
                             "status": "failed",
                             "reason_code": "VISUAL_CAPABILITY_UNAVAILABLE",
@@ -482,7 +503,7 @@ def _task(
             "evaluator_only": evaluator,
         },
     )
-    return result
+    return result, binding
 
 
 def _unavailable_task_result(
@@ -731,6 +752,11 @@ def serve(run_dir: Path, run_id: str) -> None:
                     "kill-active-worker-stale-alternate",
                 }:
                     raise ValueError("unknown private evaluator fault")
+                strategy_value = command.get("evaluation_recovery_strategy", "checked_reuse")
+                if strategy_value not in {"checked_reuse", "full_reacquisition"} or (
+                    strategy_value == "full_reacquisition" and fault_value != "kill-active-worker"
+                ):
+                    raise ValueError("unsupported private recovery strategy")
                 deadline_value = command.get("deadline_monotonic")
                 if deadline_value is None:
                     deadline_value = (
@@ -739,7 +765,7 @@ def serve(run_dir: Path, run_id: str) -> None:
                 if isinstance(deadline_value, bool) or not isinstance(deadline_value, (int, float)):
                     raise ValueError("resident operation deadline is invalid")
                 assert detector_paths is not None
-                result = _task(
+                result, binding = _task(
                     node,
                     anchor,
                     binding,
@@ -750,6 +776,7 @@ def serve(run_dir: Path, run_id: str) -> None:
                     cancel,
                     detector_paths,
                     fault_value,
+                    strategy_value,
                     float(deadline_value),
                 )
             except WorkerUnavailable as loss:

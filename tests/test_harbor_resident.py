@@ -199,12 +199,16 @@ def test_unavailable_visual_path_inhibits_later_motion(tmp_path: Path) -> None:
     asyncio.run(scenario())
 
 
-def test_private_fault_uses_one_existing_operation_during_repair(tmp_path: Path) -> None:
+@pytest.mark.parametrize("strategy", ["checked_reuse", "full_reacquisition"])
+def test_private_fault_uses_one_existing_operation_during_repair(
+    tmp_path: Path, strategy: str
+) -> None:
     class FaultResident(FakeResident):
         def __init__(self) -> None:
             super().__init__("resident-repair", tmp_path / "runs" / "resident-repair")
             self.faults: list[str | None] = []
             self.deadlines: list[float | None] = []
+            self.strategies: list[str] = []
 
         async def request(
             self,
@@ -212,10 +216,12 @@ def test_private_fault_uses_one_existing_operation_during_repair(tmp_path: Path)
             target_y_px: float,
             *,
             evaluation_fault: str | None = None,
+            evaluation_recovery_strategy: str = "checked_reuse",
             deadline_monotonic: float | None = None,
         ) -> dict[str, object]:
             self.faults.append(evaluation_fault)
             self.deadlines.append(deadline_monotonic)
+            self.strategies.append(evaluation_recovery_strategy)
             return await super().request(operation_id, target_y_px)
 
     run = FaultResident()
@@ -226,6 +232,7 @@ def test_private_fault_uses_one_existing_operation_during_repair(tmp_path: Path)
             start_resident=lambda *_args: asyncio.sleep(0, result=run),
             image_check=lambda _image: asyncio.sleep(0, result=True),
             evaluation_fault="kill-active-worker",
+            evaluation_recovery_strategy=strategy,
         )
         session = (await factory(101)).session
         first = await session.act(VISUAL_REACH, {"target_y_px": 225}, request_id="first")
@@ -239,6 +246,7 @@ def test_private_fault_uses_one_existing_operation_during_repair(tmp_path: Path)
         assert run.faults == [None, "kill-active-worker"]
         assert run.deadlines[0] is None
         assert isinstance(run.deadlines[1], float)
+        assert run.strategies == ["checked_reuse", strategy]
         run.pending.set()
         assert (await session.wait(second, 2.0)).lifecycle == Lifecycle.SUCCEEDED
         await session.close()
