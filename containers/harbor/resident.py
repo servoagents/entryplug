@@ -48,7 +48,7 @@ from entryplug.association import (
     validate_cached_binding,
 )
 from entryplug.detector_worker import ActiveDetectorPath, DetectorWorker, WorkerUnavailable
-from entryplug.harbor_resident import MAX_RECORD_BYTES, SOURCE_ID, SOURCE_LINEAGE
+from entryplug.harbor_resident import MAX_RECORD_BYTES, RESULT_LOSS_FAULT, SOURCE_ID, SOURCE_LINEAGE
 from entryplug.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1
 from entryplug.visual_task import visual_reach_arguments
 
@@ -379,16 +379,23 @@ def _task(
                         recovery.update(recovered)
                         if cancel.is_set():
                             raise ReachCanceled(prefix)
-                        trial = _reach_target(
-                            node,
-                            anchor,
-                            gain=binding.gain_px_per_radian,
-                            target_y_px=target_y_px,
-                            calibration_source=binding.evidence_key,
-                            purpose=f"{prefix}:resumed",
-                            trace=trace,
-                            cancel_requested=cancel.is_set,
-                        )
+                        if evaluation_fault == RESULT_LOSS_FAULT:
+                            fault_event["result_drop_phase"] = "replacement_validated_before_resume"
+                            trial = {
+                                "status": "failed",
+                                "reason_code": "EVALUATOR_RESULT_DROPPED_BEFORE_RESUME",
+                            }
+                        else:
+                            trial = _reach_target(
+                                node,
+                                anchor,
+                                gain=binding.gain_px_per_radian,
+                                target_y_px=target_y_px,
+                                calibration_source=binding.evidence_key,
+                                purpose=f"{prefix}:resumed",
+                                trace=trace,
+                                cancel_requested=cancel.is_set,
+                            )
                     except ReachCanceled:
                         if cancel.is_set():
                             trial = {"status": "canceled", "reason_code": "CANCEL_REQUESTED"}
@@ -476,6 +483,8 @@ def _task(
         "trace_path": f"{prefix}-trace.jsonl",
         "reticle_path": f"{prefix}-reticle.observer.png",
     }
+    if fault_event.get("result_drop_phase") == "replacement_validated_before_resume":
+        result["evaluator_only_result_drop"] = True
     if end is None:
         evaluator = {
             "status": "not_scored_without_detector",
@@ -750,6 +759,7 @@ def serve(run_dir: Path, run_id: str) -> None:
                     "kill-active-worker",
                     "kill-both-workers",
                     "kill-active-worker-stale-alternate",
+                    RESULT_LOSS_FAULT,
                 }:
                     raise ValueError("unknown private evaluator fault")
                 strategy_value = command.get("evaluation_recovery_strategy", "checked_reuse")
@@ -793,6 +803,8 @@ def serve(run_dir: Path, run_id: str) -> None:
             finally:
                 with lock:
                     active.clear()
+            if result.get("evaluator_only_result_drop") is True:
+                break
             if not client_gone.is_set():
                 _send(result)
     finally:

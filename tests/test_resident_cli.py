@@ -71,3 +71,26 @@ def test_recovery_comparison_requires_explicit_manifest() -> None:
     assert args.manifest.name == "attempts.json"
     with pytest.raises(SystemExit):
         _parse_args(["resident-compare"])
+
+
+def test_repair_result_loss_is_private_resident_demo_fault_only() -> None:
+    args = _parse_args(
+        [
+            "resident-demo",
+            "--runtime",
+            "container",
+            "--fault",
+            "kill-active-worker-drop-repair-result",
+        ]
+    )
+    assert args.fault == "kill-active-worker-drop-repair-result"
+    with pytest.raises(SystemExit):
+        _parse_args(
+            [
+                "resident-handwritten",
+                "--runtime",
+                "container",
+                "--fault",
+                "kill-active-worker-drop-repair-result",
+            ]
+        )
