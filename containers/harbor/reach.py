@@ -34,6 +34,7 @@ from smoke import (
 
 from entryplug.agent import AgentRunner, ScriptedExplorer, agent_execution_record
 from entryplug.detection import DETECTOR_INTERFACE_VERSION, MarkerDetection, MarkerFrame
+from entryplug.detector_worker import WorkerUnavailable
 from entryplug.evidence import JsonValue
 from entryplug.operation import (
     CapabilitySpec,
@@ -58,6 +59,7 @@ MAX_ACTION_DELTA_RADIANS = 0.065
 LOCAL_REQUEST_LIMIT_RADIANS = 0.12
 TARGET_TOLERANCE_PX = 3.0
 MIN_USEFUL_GAIN_PX_PER_RADIAN = 40.0
+MAX_STALE_FRAME_DISCARDS = 2
 
 
 class ReachCanceled(RuntimeError):
@@ -135,13 +137,24 @@ def _fresh_observation(
     observations: list[dict[str, object]] = []
     frames: list[Frame] = []
     last_sequence = start_sequence
+    stale_frame_discards = 0
     deadline = time.monotonic() + 4.0
     while rclpy.ok() and time.monotonic() < deadline and len(observations) < samples:
         rclpy.spin_once(node, timeout_sec=0.1)
         frame = node.frame
         if frame is None or frame.sequence <= last_sequence:
             continue
-        observations.append(_marker(frame))
+        try:
+            observation = _marker(frame)
+        except WorkerUnavailable as error:
+            if error.reason_code != "STALE_WORKER_OBSERVATION":
+                raise
+            last_sequence = frame.sequence
+            if stale_frame_discards >= MAX_STALE_FRAME_DISCARDS:
+                raise
+            stale_frame_discards += 1
+            continue
+        observations.append(observation)
         frames.append(frame)
         last_sequence = frame.sequence
     if len(observations) != samples:
@@ -167,6 +180,7 @@ def _fresh_observation(
         "x_px": _round(statistics.median(x_values)),
         "y_px": _round(statistics.median(y_values)),
         "sample_count": samples,
+        "stale_frame_discards": stale_frame_discards,
         "x_range_px": _round(max(x_values) - min(x_values)),
         "y_range_px": _round(max(y_values) - min(y_values)),
         "first_frame_sequence": observations[0]["frame"]["sequence"],
