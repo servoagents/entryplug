@@ -109,6 +109,13 @@ def _parser() -> argparse.ArgumentParser:
         help="private evaluator fault applied to the second goal",
     )
 
+    recovery_pilot = commands.add_parser(
+        "resident-pilot", help="run the declared resident recovery development matrix"
+    )
+    recovery_pilot.add_argument("--runtime", choices=("container",), required=True)
+    recovery_pilot.add_argument("--phase", choices=("development",), required=True)
+    recovery_pilot.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
+
     pilot = commands.add_parser("pilot", help="run a declared Hall of Mirrors seed suite")
     pilot.add_argument("--runtime", choices=("container",), required=True)
     pilot.add_argument("--phase", choices=("development", "holdout"), required=True)
@@ -309,6 +316,25 @@ def _resident_demo(args: argparse.Namespace) -> int:
     return 0 if result.passed else 1
 
 
+def _recovery_pilot(args: argparse.Namespace) -> int:
+    root = source_root()
+    if root is None:
+        print("entryplug resident-pilot: run from a source checkout", file=sys.stderr)
+        return 2
+    from entryplug.recovery_pilot import run_recovery_development
+
+    try:
+        result = asyncio.run(run_recovery_development(root, image=args.image))
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"entryplug resident-pilot: {error}", file=sys.stderr)
+        return 2
+    print(
+        f"resident development gates: {result.gate_pass_count}/{result.trial_count} passed\n"
+        f"evidence: {result.evidence_path}"
+    )
+    return 0 if result.passed else 1
+
+
 def _pilot(args: argparse.Namespace) -> int:
     root = source_root()
     if root is None:
@@ -466,6 +492,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _up(args)
     if args.command == "resident-demo":
         return _resident_demo(args)
+    if args.command == "resident-pilot":
+        return _recovery_pilot(args)
     if args.command == "pilot":
         return _pilot(args)
     if args.command == "openenv-replay":

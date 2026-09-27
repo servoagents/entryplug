@@ -135,6 +135,18 @@ def test_recovery_evaluator_does_not_hide_pre_trigger_failure(tmp_path: Path) ->
     assert result["fault_applied"] is False
 
 
+def test_recovery_evaluator_marks_unknown_fault_application(tmp_path: Path) -> None:
+    path = tmp_path / "fault-unknown"
+    _episode(path, fault="kill-active-worker", count=2)
+    artifact = path / "task-0002.json"
+    task = json.loads(artifact.read_text(encoding="utf-8"))
+    task["fault_evaluator_only"]["applied"] = None
+    _write(artifact, task)
+    result = summarize_recovery_episode(path, seed=101, fault="kill-active-worker")
+    assert result["outcome"] == "failed"
+    assert result["reason_code"] == "fault_application_unknown"
+
+
 def test_recovery_evaluator_rejects_profile_mismatch(tmp_path: Path) -> None:
     path = tmp_path / "wrong-seed"
     _episode(path, fault=None)

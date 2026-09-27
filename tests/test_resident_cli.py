@@ -11,3 +11,10 @@ def test_resident_demo_is_explicit_and_not_an_unattended_up_case() -> None:
     assert args.seed == 202
     with pytest.raises(SystemExit):
         _parse_args(["up", "--runtime", "container", "--case", "resident"])
+
+
+def test_resident_pilot_exposes_only_development_phase() -> None:
+    args = _parse_args(["resident-pilot", "--runtime", "container", "--phase", "development"])
+    assert args.command == "resident-pilot"
+    with pytest.raises(SystemExit):
+        _parse_args(["resident-pilot", "--runtime", "container", "--phase", "holdout"])

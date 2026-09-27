@@ -29,6 +29,10 @@ def _number(value: object) -> float | None:
     return float(value)
 
 
+def _integer(value: object) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
 def _trace_purposes(path: Path) -> tuple[str, ...]:
     purposes: list[str] = []
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -146,9 +150,7 @@ def summarize_recovery_episode(
         "repair_ms": _number(recovery.get("repair_ms")),
         "post_fault_trace_order_ok": trace_order_ok if fault_applied else None,
         "total_validation_probes": sum(
-            int(task.get("validation_probe_count", 0))
-            for task in tasks
-            if isinstance(task.get("validation_probe_count"), int)
+            _integer(task.get("validation_probe_count")) for task in tasks
         ),
         "replacement_validation_probes": recovery.get("validation_probe_count"),
         "commanded_travel_radians": round(
@@ -212,15 +214,16 @@ def summarize_recovery_episode(
             and recovery.get("status") == "unavailable"
             and not any(evidence_path.glob("task-0003*"))
         )
-    reason = (
-        None
-        if accepted
-        else (
-            "pre_trigger_failure"
-            if fault is not None and not fault_applied
-            else "structural_gate_failed"
-        )
-    )
+    if accepted:
+        reason = None
+    elif fault is not None and (
+        len(tasks) < PROFILE.fault_task_index or fault_event.get("applied") is False
+    ):
+        reason = "pre_trigger_failure"
+    elif fault is not None and fault_event.get("applied") is None:
+        reason = "fault_application_unknown"
+    else:
+        reason = "structural_gate_failed"
     return {
         **record,
         "outcome": "passed" if accepted else "failed",
