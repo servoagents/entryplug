@@ -134,6 +134,7 @@ async def run_resident_demo(
             {
                 "schema_version": 1,
                 "status": "passed" if passed else "failed",
+                "execution_path": "session",
                 "run_id": run_id,
                 "experiment_seed": seed,
                 "target_offsets_px": offsets,

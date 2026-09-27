@@ -115,6 +115,19 @@ def _parser() -> argparse.ArgumentParser:
         help="private same-world detector recovery comparison",
     )
 
+    handwritten = commands.add_parser(
+        "resident-handwritten",
+        help="run the private direct-client recovery comparison",
+    )
+    handwritten.add_argument("--runtime", choices=("container",), required=True)
+    handwritten.add_argument("--seed", type=int, default=101)
+    handwritten.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
+    handwritten.add_argument(
+        "--fault",
+        choices=("none", "kill-active-worker"),
+        default="kill-active-worker",
+    )
+
     recovery_pilot = commands.add_parser(
         "resident-pilot", help="run the declared resident recovery development matrix"
     )
@@ -323,6 +336,33 @@ def _resident_demo(args: argparse.Namespace) -> int:
     return 0 if result.passed else 1
 
 
+def _resident_handwritten(args: argparse.Namespace) -> int:
+    root = source_root()
+    if root is None:
+        print("entryplug resident-handwritten: run from a source checkout", file=sys.stderr)
+        return 2
+    from entryplug.resident_handwritten import run_handwritten_recovery
+
+    try:
+        result = asyncio.run(
+            run_handwritten_recovery(
+                root,
+                seed=args.seed,
+                image=args.image,
+                evaluation_fault=None if args.fault == "none" else args.fault,
+            )
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"entryplug resident-handwritten: {error}", file=sys.stderr)
+        return 2
+    print(
+        f"direct resident tasks: {'passed' if result.passed else 'failed'}\n"
+        f"operations: {', '.join(result.operation_ids)}\n"
+        f"evidence: {result.evidence_path}"
+    )
+    return 0 if result.passed else 1
+
+
 def _recovery_pilot(args: argparse.Namespace) -> int:
     root = source_root()
     if root is None:
@@ -499,6 +539,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _up(args)
     if args.command == "resident-demo":
         return _resident_demo(args)
+    if args.command == "resident-handwritten":
+        return _resident_handwritten(args)
     if args.command == "resident-pilot":
         return _recovery_pilot(args)
     if args.command == "pilot":

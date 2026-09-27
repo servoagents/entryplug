@@ -283,3 +283,19 @@ def test_recovery_evaluator_rejects_old_correction_before_revalidation(
     result = summarize_recovery_episode(path, seed=101, fault="kill-active-worker")
     assert result["outcome"] == "failed"
     assert result["structural_gates_passed"] is False
+
+
+def test_recovery_evaluator_separates_safe_task_refusal_from_structural_failure(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "safe-refusal"
+    _episode(path, fault=None, count=1)
+    task_path = path / "task-0001.json"
+    task = json.loads(task_path.read_text(encoding="utf-8"))
+    task["status"] = "refused"
+    task["reason_code"] = "BINDING_CHECK_FAILED"
+    _write(task_path, task)
+    scored = summarize_recovery_episode(path, seed=101, fault=None)
+    assert scored["outcome"] == "failed"
+    assert scored["structural_gates_passed"] is True
+    assert scored["reason_code"] == "task_not_completed"

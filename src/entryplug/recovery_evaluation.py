@@ -78,6 +78,7 @@ def summarize_recovery_episode(
     seed: int,
     fault: str | None,
     recovery_strategy: str = "checked_reuse",
+    execution_path: str = "session",
 ) -> dict[str, object]:
     """Apply structural gates to one create-only live episode's private evidence."""
 
@@ -87,6 +88,8 @@ def summarize_recovery_episode(
         recovery_strategy == "full_reacquisition" and fault != RECOVERABLE
     ):
         raise ValueError("unsupported recovery evaluation strategy")
+    if execution_path not in {"session", "direct_handwritten"}:
+        raise ValueError("unsupported recovery execution path")
     record: dict[str, object] = {
         "seed": seed,
         "fault": fault,
@@ -98,6 +101,7 @@ def summarize_recovery_episode(
         },
         "offered_tasks": len(PROFILE.base_offsets_px),
         "recovery_strategy": recovery_strategy,
+        "execution_path": execution_path,
     }
     try:
         summary = _object(evidence_path / "resident-demo.json")
@@ -116,6 +120,7 @@ def summarize_recovery_episode(
         and summary.get("evaluation_fault_profile") == fault
         and summary.get("world_count") == 1
         and summary.get("evaluation_recovery_strategy", "checked_reuse") == recovery_strategy
+        and summary.get("execution_path", "session") == execution_path
     )
     if not identity_ok:
         return {**record, "outcome": "failed", "reason_code": "profile_or_trial_mismatch"}
@@ -217,6 +222,7 @@ def summarize_recovery_episode(
         and len(set(operation_ids)) == len(operation_ids)
         and false_completions == 0
         and all(task.get("quiescence_confirmed") is True for task in tasks)
+        and (execution_path != "direct_handwritten" or summary.get("world_stop_confirmed") is True)
         and not (recovery.get("status") == "unavailable" and any(evidence_path.glob("task-0003*")))
     )
     reuse_method_ok = (
@@ -298,6 +304,8 @@ def summarize_recovery_episode(
         and recovery.get("status") == "unavailable"
     ):
         reason = "repair_budget_exhausted"
+    elif structural and summary.get("status") == "failed":
+        reason = "task_not_completed"
     else:
         reason = "structural_gate_failed"
     return {

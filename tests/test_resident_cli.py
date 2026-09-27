@@ -36,3 +36,30 @@ def test_full_reacquisition_requires_explicit_resident_demo_switch() -> None:
     )
     assert args.recovery_strategy == "full_reacquisition"
     assert args.fault == "kill-active-worker"
+
+
+def test_handwritten_baseline_is_explicit_private_command() -> None:
+    args = _parse_args(
+        [
+            "resident-handwritten",
+            "--runtime",
+            "container",
+            "--seed",
+            "202",
+            "--fault",
+            "kill-active-worker",
+        ]
+    )
+    assert args.command == "resident-handwritten"
+    assert args.seed == 202
+    assert args.fault == "kill-active-worker"
+    with pytest.raises(SystemExit):
+        _parse_args(
+            [
+                "resident-handwritten",
+                "--runtime",
+                "container",
+                "--fault",
+                "kill-both-workers",
+            ]
+        )
