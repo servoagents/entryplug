@@ -151,17 +151,29 @@ def _worker_main(
                 continue
             if request.get("type") != "detect":
                 return
-            if len(data) != request.get("height", -1) * request.get("step", -1) or hashlib.sha256(
-                data
-            ).hexdigest() != request.get("sha256"):
+            width = request.get("width")
+            height = request.get("height")
+            step = request.get("step")
+            encoding = request.get("encoding")
+            digest = request.get("sha256")
+            if (
+                isinstance(width, bool)
+                or not isinstance(width, int)
+                or width <= 0
+                or isinstance(height, bool)
+                or not isinstance(height, int)
+                or height <= 0
+                or isinstance(step, bool)
+                or not isinstance(step, int)
+                or step != width * 3
+                or not isinstance(encoding, str)
+                or encoding != "rgb8"
+                or not isinstance(digest, str)
+                or len(data) != height * step
+                or hashlib.sha256(data).hexdigest() != digest
+            ):
                 return
-            frame = _PackedFrame(
-                width=int(request["width"]),
-                height=int(request["height"]),
-                encoding=str(request["encoding"]),
-                step=int(request["step"]),
-                data=data,
-            )
+            frame = _PackedFrame(width, height, encoding, step, data)
             marker = detector.detect(frame)
             if delay_seconds:
                 time.sleep(delay_seconds)

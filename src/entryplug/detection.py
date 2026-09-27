@@ -14,11 +14,20 @@ _MAX_APPROVED_DETECTORS = 16
 
 
 class MarkerFrame(Protocol):
-    width: int
-    height: int
-    encoding: str
-    step: int
-    data: bytes
+    @property
+    def width(self) -> int: ...
+
+    @property
+    def height(self) -> int: ...
+
+    @property
+    def encoding(self) -> str: ...
+
+    @property
+    def step(self) -> int: ...
+
+    @property
+    def data(self) -> bytes: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,10 +281,7 @@ class MarkerDetectorSlot:
                 "ALREADY_SELECTED",
                 f"marker detector {detector_id!r} is already selected",
             )
-        if (
-            isinstance(expected_generation, bool)
-            or expected_generation != self._generation
-        ):
+        if isinstance(expected_generation, bool) or expected_generation != self._generation:
             raise DetectorSelectionError(
                 "STALE_GENERATION",
                 "marker detector generation is no longer current",
@@ -335,4 +341,3 @@ class MarkerDetectorSlot:
             return
         self._closed = True
         self._detector.close()
-

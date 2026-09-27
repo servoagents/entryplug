@@ -11,6 +11,7 @@ from entryplug.harbor_episode import StopReport
 from entryplug.harbor_resident import (
     SOURCE_ID,
     SOURCE_LINEAGE,
+    ResidentStartupFailure,
     harbor_resident_episode_factory,
 )
 from entryplug.operation import AdmissionError, Lifecycle
@@ -263,5 +264,25 @@ def test_success_claim_with_unavailable_vision_is_rejected(tmp_path: Path) -> No
         with pytest.raises(AdmissionError, match="resident world is unavailable"):
             await session.act(VISUAL_REACH, {"target_y_px": 226})
         await session.close()
+
+    asyncio.run(scenario())
+
+
+def test_invalid_ready_record_keeps_owned_world_evidence_path(tmp_path: Path) -> None:
+    run = FakeResident("invalid-ready", tmp_path / "runs" / "invalid-ready")
+    run.ready["source_id"] = "other-camera"
+
+    async def scenario() -> None:
+        factory = harbor_resident_episode_factory(
+            tmp_path,
+            start_resident=lambda *_args: asyncio.sleep(0, result=run),
+            image_check=lambda _image: asyncio.sleep(0, result=True),
+        )
+        with pytest.raises(ResidentStartupFailure) as caught:
+            await factory(101)
+        assert caught.value.run_id == run.run_id
+        assert caught.value.evidence_path == run.evidence_path
+        assert caught.value.stop_confirmed is True
+        assert run.stop_calls == 1
 
     asyncio.run(scenario())

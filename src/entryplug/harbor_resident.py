@@ -49,6 +49,25 @@ class ResidentReplyLost(RuntimeError):
     """A task reply is absent, so physical state cannot be inferred from it."""
 
 
+class ResidentStartupFailure(ResidentReplyLost):
+    """A failed owned world with a retained run directory and stop result."""
+
+    def __init__(
+        self,
+        run_id: str,
+        evidence_path: Path,
+        reason: str,
+        *,
+        stop_confirmed: bool,
+        process_exit_code: int | None = None,
+    ) -> None:
+        self.run_id = run_id
+        self.evidence_path = evidence_path
+        self.stop_confirmed = stop_confirmed
+        self.process_exit_code = process_exit_code
+        super().__init__(f"resident {run_id} failed before ready: {reason}")
+
+
 class ResidentRun(Protocol):
     run_id: str
     evidence_path: Path
@@ -196,9 +215,15 @@ async def start_owned_resident(root: Path, image: str, run_id: str) -> ResidentR
     )
     try:
         await run.initialize()
-    except Exception:
-        await run.stop()
-        raise
+    except Exception as error:
+        stopped = await run.stop()
+        raise ResidentStartupFailure(
+            run_id,
+            run.evidence_path,
+            f"{type(error).__name__}: {error}",
+            stop_confirmed=stopped.confirmed,
+            process_exit_code=process.returncode,
+        ) from error
     return run
 
 
@@ -265,8 +290,13 @@ def harbor_resident_episode_factory(
             or ready.get("lineage_id") != SOURCE_LINEAGE
             or not isinstance(ready.get("initial_y_px"), (int, float))
         ):
-            await run.stop()
-            raise ResidentReplyLost("resident ready record has no supported visual source")
+            stopped = await run.stop()
+            raise ResidentStartupFailure(
+                run.run_id,
+                run.evidence_path,
+                "ready record has no supported visual source",
+                stop_confirmed=stopped.confirmed,
+            )
 
         world_available = True
         goal_index = 0

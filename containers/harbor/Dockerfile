@@ -70,6 +70,9 @@ ENV HOME=/home/entryplug \
     PYTHONPATH=/workspace/entryplug/src
 
 RUN python3 -m pytest -q
+RUN source /opt/ros/jazzy/setup.bash && \
+    PYTHONPATH="/workspace/entryplug/src:/workspace/entryplug/containers/harbor:${PYTHONPATH}" \
+    python3 -m pytest -q optional_tests/harbor
 
 ENTRYPOINT ["/usr/local/bin/entryplug-container"]
 CMD ["./entryplug", "doctor", "--profile", "harbor", "--no-record"]

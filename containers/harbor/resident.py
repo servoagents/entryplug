@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import queue
 import sys
 import threading
@@ -63,6 +64,22 @@ def _send(record: dict[str, object]) -> None:
     sys.stdout.flush()
 
 
+def _read_control_line() -> bytes:
+    """Read a bounded private command without locking buffered stdin on shutdown."""
+    line = bytearray()
+    try:
+        while len(line) <= MAX_RECORD_BYTES:
+            byte = os.read(0, 1)
+            if not byte:
+                return b""
+            line.extend(byte)
+            if byte == b"\n":
+                return bytes(line)
+    except OSError:
+        return b""
+    return bytes(line)
+
+
 def _reader(
     pending: queue.Queue[dict[str, object] | None],
     active: dict[str, object],
@@ -70,7 +87,7 @@ def _reader(
     client_gone: threading.Event,
 ) -> None:
     while True:
-        line = sys.stdin.buffer.readline(MAX_RECORD_BYTES + 1)
+        line = _read_control_line()
         if not line or len(line) > MAX_RECORD_BYTES:
             client_gone.set()
             with lock:
@@ -468,6 +485,69 @@ def _task(
     return result
 
 
+def _unavailable_task_result(
+    node: Observer,
+    run_dir: Path,
+    index: int,
+    operation_id: str,
+    target_y_px: float,
+    binding: CachedVisualBinding,
+    paths: ActiveDetectorPath,
+    loss: WorkerUnavailable,
+) -> dict[str, object]:
+    """Reconcile an observation-path loss outside the normal repair phase."""
+
+    stop_error: str | None = None
+    try:
+        stationary = _wait_stationary(node, timeout=3.0)
+        confirmed = stationary["confirmed"] is True
+    except Exception as error:
+        confirmed = False
+        stop_error = f"{type(error).__name__}: {error}"
+    result: dict[str, object] = {
+        "version": 1,
+        "type": "result",
+        "operation_id": operation_id,
+        "status": "failed",
+        "reason_code": "VISUAL_CAPABILITY_UNAVAILABLE",
+        "source_id": SOURCE_ID,
+        "lineage_id": SOURCE_LINEAGE,
+        "source_topic": SOURCE_TOPIC,
+        "target_y_px": _round(target_y_px),
+        "initial_y_px": None,
+        "final_y_px": None,
+        "final_error_px": None,
+        "binding_evidence_key": binding.evidence_key,
+        "binding_revision": paths.binding_revision,
+        "binding_reference": None,
+        "binding_ready": False,
+        "visual_capability_available": False,
+        "detector_worker": None,
+        "validation": None,
+        "validation_probe_count": None,
+        "commanded_travel_radians": None,
+        "quiescence_confirmed": confirmed,
+        "recovery": {"status": "unavailable", "failure_reason": loss.reason_code},
+    }
+    _write_create_only(
+        run_dir / f"task-{index:04d}.json",
+        {
+            **result,
+            "fault_evaluator_only": {
+                "applied": False if index != HARBOR_RESIDENT_RECOVERY_V1.fault_task_index else None,
+                "status": "not_observed_at_failure_boundary",
+            },
+            "evaluator_only": {
+                "status": "not_scored_without_detector",
+                "independently_inside_tolerance": False,
+                "false_visual_completion": False,
+            },
+            "stop_error": stop_error,
+        },
+    )
+    return result
+
+
 def _prepare_detector_paths() -> ActiveDetectorPath:
     primary = DetectorWorker(
         FixedRedCentroidDetector,
@@ -671,6 +751,10 @@ def serve(run_dir: Path, run_id: str) -> None:
                     detector_paths,
                     fault_value,
                     float(deadline_value),
+                )
+            except WorkerUnavailable as loss:
+                result = _unavailable_task_result(
+                    node, run_dir, task_index, operation_id, target, binding, detector_paths, loss
                 )
             except Exception as error:
                 print(
