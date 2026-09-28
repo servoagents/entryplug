@@ -275,6 +275,7 @@ def _capability_extension(view: RuntimeView) -> AgentExtension:
                 "name": name,
                 "version": capability.get("version"),
                 "motionProducing": capability.get("motion_producing"),
+                "physicalEffects": capability.get("physical_effects"),
                 "inputSchema": _plain(input_schema),
                 "resultSchema": _plain(capability.get("result_schema")),
             }
@@ -309,6 +310,7 @@ def _skill(capability: Mapping[str, JsonValue]) -> AgentSkill | None:
     version = capability.get("version")
     description = capability.get("description")
     motion = capability.get("motion_producing")
+    physical_effects = capability.get("physical_effects")
     if not isinstance(schema, Mapping):
         return None
     if (
@@ -319,12 +321,18 @@ def _skill(capability: Mapping[str, JsonValue]) -> AgentSkill | None:
         raise ValueError("capability catalog entry has no stable identity")
     if not isinstance(motion, bool):
         raise ValueError("capability motion classification is missing")
+    if not isinstance(physical_effects, bool) or (motion and not physical_effects):
+        raise ValueError("capability physical-effect classification is missing")
     request_schema = json.dumps(_plain(schema), separators=(",", ":"), sort_keys=True)
     return AgentSkill(
         id=f"entryplug.{name}",
         name=name,
         description=f"{description} Input schema: {request_schema}",
-        tags=["entryplug-capability", "motion" if motion else "read-only", f"version-{version}"],
+        tags=[
+            "entryplug-capability",
+            "motion" if motion else "physical-effect" if physical_effects else "read-only",
+            f"version-{version}",
+        ],
         input_modes=[MEDIA_TYPE],
         output_modes=[MEDIA_TYPE],
     )

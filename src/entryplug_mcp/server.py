@@ -151,20 +151,23 @@ def _capability_tool(capability: Mapping[str, JsonValue]) -> types.Tool | None:
     name = capability.get("name")
     description = capability.get("description")
     motion_producing = capability.get("motion_producing")
+    physical_effects = capability.get("physical_effects")
     if not isinstance(name, str) or not isinstance(description, str):
         raise ValueError("capability catalog entry has no stable identity")
     if name in _RESERVED_TOOLS:
         raise ValueError(f"capability name is reserved by the MCP adapter: {name}")
     if not isinstance(motion_producing, bool):
         raise ValueError("capability motion classification is missing")
+    if not isinstance(physical_effects, bool) or (motion_producing and not physical_effects):
+        raise ValueError("capability physical-effect classification is missing")
     return types.Tool(
         name=name,
         description=description,
         input_schema=schema,
         output_schema=_OPERATION_SCHEMA,
         annotations=types.ToolAnnotations(
-            read_only_hint=not motion_producing,
-            destructive_hint=motion_producing,
+            read_only_hint=not physical_effects,
+            destructive_hint=physical_effects,
             idempotent_hint=True,
             open_world_hint=False,
         ),

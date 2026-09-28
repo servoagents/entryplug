@@ -36,6 +36,16 @@ class MotionState(StrEnum):
     UNKNOWN = "unknown"
 
 
+class EffectState(StrEnum):
+    """Knowledge of a physical effect, separate from arm motion."""
+
+    NONE = "none"
+    REQUESTED = "requested"
+    REPORTED = "reported"
+    OBSERVED = "observed"
+    UNKNOWN = "unknown"
+
+
 TERMINAL_LIFECYCLES = frozenset(
     {
         Lifecycle.SUCCEEDED,
@@ -98,10 +108,13 @@ class OperationResult:
     motion_state: MotionState
     result: Mapping[str, object] = field(default_factory=dict)
     reason_code: str | None = None
+    effect_state: EffectState = EffectState.NONE
 
     def __post_init__(self) -> None:
         if self.lifecycle not in TERMINAL_LIFECYCLES - {Lifecycle.REJECTED}:
             raise ValueError("handler result lifecycle must be terminal")
+        if not isinstance(self.effect_state, EffectState):
+            raise ValueError("effect state must be an EffectState value")
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,6 +132,7 @@ class OperationSnapshot:
     cancel_requested: bool
     reason_code: str | None
     result: Mapping[str, JsonValue]
+    effect_state: EffectState = EffectState.NONE
 
     @property
     def terminal(self) -> bool:
@@ -138,6 +152,8 @@ class RuntimeView:
     motion_inhibited_reason: str | None
     request_records: int
     maximum_requests: int
+    active_effect_operation: str | None = None
+    effect_inhibited_reason: str | None = None
 
 
 class OperationContext:
@@ -149,11 +165,15 @@ class OperationContext:
         deadline_monotonic: float,
         cancel_event: asyncio.Event,
         update: Callable[[str, MotionState], None],
+        update_effect: Callable[[EffectState], None],
+        physical_effects: bool,
     ) -> None:
         self.operation_id = operation_id
         self.deadline_monotonic = deadline_monotonic
         self._cancel_event = cancel_event
         self._update = update
+        self._update_effect = update_effect
+        self._physical_effects = physical_effects
 
     @property
     def cancel_requested(self) -> bool:
@@ -167,6 +187,14 @@ class OperationContext:
         if not phase:
             raise ValueError("operation phase must be nonempty")
         self._update(phase, motion_state)
+
+    def report_effect(self, state: EffectState) -> None:
+        """Report native effect knowledge without claiming arm motion or task success."""
+        if not isinstance(state, EffectState):
+            raise ValueError("effect state must be an EffectState value")
+        if not self._physical_effects and state != EffectState.NONE:
+            raise ValueError("read-only capability cannot report a physical effect")
+        self._update_effect(state)
 
     async def wait_for_cancel(self) -> None:
         await self._cancel_event.wait()
@@ -188,6 +216,7 @@ class CapabilitySpec:
     run: RunCapability
     input_schema: Mapping[str, object] | None = None
     result_schema: Mapping[str, object] | None = None
+    physical_effects: bool = False
 
     def __post_init__(self) -> None:
         if not self.name or not self.version or not self.description:
@@ -196,6 +225,10 @@ class CapabilitySpec:
             raise ValueError("capability deadline must be finite and positive")
         if not math.isfinite(self.cancel_grace_seconds) or self.cancel_grace_seconds <= 0:
             raise ValueError("cancel grace must be finite and positive")
+        if not isinstance(self.physical_effects, bool):
+            raise ValueError("physical effects declaration must be boolean")
+        if self.motion_producing:
+            object.__setattr__(self, "physical_effects", True)
         for field_name in ("input_schema", "result_schema"):
             schema = getattr(self, field_name)
             if schema is None:
@@ -226,6 +259,7 @@ class _Operation:
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
     terminal_event: asyncio.Event = field(default_factory=asyncio.Event)
     task: asyncio.Task[None] | None = None
+    effect_state: EffectState = EffectState.NONE
 
 
 @dataclass(frozen=True, slots=True)
@@ -261,7 +295,9 @@ class OperationHost:
         self._requests: dict[tuple[str, str, str], _RequestRecord] = {}
         self._operations: dict[str, _Operation] = {}
         self._active_motion_operation: str | None = None
+        self._active_effect_operation: str | None = None
         self._motion_inhibited_reason: str | None = None
+        self._effect_inhibited_reason: str | None = None
         self._reconfiguration_slot: str | None = None
         self._reconfiguration_token: str | None = None
         self._reconfiguration_committed = False
@@ -285,6 +321,7 @@ class OperationHost:
             cancel_requested=operation.cancel_event.is_set(),
             reason_code=operation.reason_code,
             result=cast(Mapping[str, JsonValue], _freeze(decoded)),
+            effect_state=operation.effect_state,
         )
 
     def observe(self) -> RuntimeView:
@@ -295,6 +332,7 @@ class OperationHost:
                 "version": spec.version,
                 "description": spec.description,
                 "motion_producing": spec.motion_producing,
+                "physical_effects": spec.physical_effects,
                 "deadline_seconds": spec.deadline_seconds,
             }
             if spec.input_schema is not None:
@@ -309,6 +347,7 @@ class OperationHost:
             revision=self._revision,
             capabilities=catalog,
             active_motion_operation=self._active_motion_operation,
+            active_effect_operation=self._active_effect_operation,
             operations=recent,
             admission_open=not self._closed and self._reconfiguration_slot is None,
             reconfiguration_slot=self._reconfiguration_slot,
@@ -316,6 +355,7 @@ class OperationHost:
                 dict(sorted(self._reconfiguration_generations.items()))
             ),
             motion_inhibited_reason=self._motion_inhibited_reason,
+            effect_inhibited_reason=self._effect_inhibited_reason,
             request_records=len(self._requests),
             maximum_requests=self._maximum_requests,
         )
@@ -392,6 +432,13 @@ class OperationHost:
                 )
             if spec.motion_producing and self._active_motion_operation is not None:
                 raise AdmissionError("BUSY", "another motion operation owns the actuator")
+            if spec.physical_effects and self._effect_inhibited_reason is not None:
+                raise AdmissionError(
+                    "EFFECT_INHIBITED",
+                    f"physical effects are inhibited: {self._effect_inhibited_reason}",
+                )
+            if spec.physical_effects and self._active_effect_operation is not None:
+                raise AdmissionError("EFFECT_BUSY", "another operation owns physical effects")
         except AdmissionError as error:
             self._remember_rejection(key, fingerprint, error)
             self._revision += 1
@@ -414,6 +461,8 @@ class OperationHost:
         self._requests[key] = _RequestRecord(fingerprint, operation_id, None, None)
         if spec.motion_producing:
             self._active_motion_operation = operation_id
+        if spec.physical_effects:
+            self._active_effect_operation = operation_id
         self._revision += 1
         operation.task = asyncio.create_task(
             self._execute(operation, spec, checked_arguments),
@@ -456,6 +505,11 @@ class OperationHost:
             raise AdmissionError(
                 "PHYSICAL_STATE_UNKNOWN",
                 "runtime physical state is not confirmed quiescent",
+            )
+        if self._effect_inhibited_reason is not None:
+            raise AdmissionError(
+                "PHYSICAL_STATE_UNKNOWN",
+                "runtime physical effect state is not reconciled",
             )
 
         token = uuid.uuid4().hex
@@ -517,6 +571,12 @@ class OperationHost:
         operation.motion_state = motion_state
         self._revision += 1
 
+    def _update_effect(self, operation: _Operation, state: EffectState) -> None:
+        if operation.lifecycle in TERMINAL_LIFECYCLES:
+            return
+        operation.effect_state = state
+        self._revision += 1
+
     async def _deadline(self, operation: _Operation, spec: CapabilitySpec) -> None:
         await asyncio.sleep(max(0.0, operation.deadline_monotonic - time.monotonic()))
         if operation.lifecycle in TERMINAL_LIFECYCLES:
@@ -532,8 +592,9 @@ class OperationHost:
                 operation,
                 OperationResult(
                     Lifecycle.INDETERMINATE,
-                    MotionState.UNKNOWN,
+                    MotionState.UNKNOWN if spec.motion_producing else MotionState.IDLE,
                     reason_code="STOP_UNCONFIRMED",
+                    effect_state=EffectState.UNKNOWN if spec.physical_effects else EffectState.NONE,
                 ),
             )
             if operation.task is not None:
@@ -558,6 +619,8 @@ class OperationHost:
             operation.deadline_monotonic,
             operation.cancel_event,
             lambda phase, motion: self._update_operation(operation, phase, motion),
+            lambda state: self._update_effect(operation, state),
+            spec.physical_effects,
         )
         try:
             result = await spec.run(context, arguments)
@@ -568,22 +631,33 @@ class OperationHost:
                     operation,
                     OperationResult(
                         Lifecycle.INDETERMINATE,
-                        MotionState.UNKNOWN,
+                        MotionState.UNKNOWN if spec.motion_producing else MotionState.IDLE,
                         reason_code="WORKER_CANCELED",
+                        effect_state=EffectState.UNKNOWN
+                        if spec.physical_effects
+                        else EffectState.NONE,
                     ),
                 )
         except Exception as error:
-            uncertain = operation.motion_state in {
+            uncertain_motion = operation.motion_state in {
                 MotionState.MOVING,
                 MotionState.UNKNOWN,
             }
+            uncertain_effect = spec.physical_effects and (
+                not spec.motion_producing
+                or uncertain_motion
+                or operation.effect_state != EffectState.NONE
+            )
             self._finish(
                 operation,
                 OperationResult(
-                    Lifecycle.INDETERMINATE if uncertain else Lifecycle.FAILED,
-                    MotionState.UNKNOWN if uncertain else operation.motion_state,
+                    Lifecycle.INDETERMINATE
+                    if uncertain_motion or uncertain_effect
+                    else Lifecycle.FAILED,
+                    MotionState.UNKNOWN if uncertain_motion else operation.motion_state,
                     result={"error_type": type(error).__name__},
                     reason_code="HANDLER_FAILED",
+                    effect_state=EffectState.UNKNOWN if uncertain_effect else EffectState.NONE,
                 ),
             )
         finally:
@@ -592,6 +666,7 @@ class OperationHost:
     def _finish(self, operation: _Operation, result: OperationResult) -> None:
         if operation.lifecycle in TERMINAL_LIFECYCLES:
             return
+        spec = self._specs[operation.capability]
         if operation.reason_code == "DEADLINE_EXCEEDED" and result.lifecycle in {
             Lifecycle.SUCCEEDED,
             Lifecycle.CANCELED,
@@ -601,24 +676,47 @@ class OperationHost:
                 result.motion_state,
                 result=result.result,
                 reason_code="DEADLINE_EXCEEDED",
+                effect_state=result.effect_state,
             )
+        if not spec.physical_effects and result.effect_state != EffectState.NONE:
+            raise ValueError("read-only capability cannot return a physical effect")
         result_json, _ = _json_object(result.result, "operation result")
-        operation.lifecycle = result.lifecycle
+        effect_state = result.effect_state
+        if effect_state == EffectState.NONE and operation.effect_state != EffectState.NONE:
+            effect_state = (
+                EffectState.UNKNOWN
+                if operation.effect_state == EffectState.REQUESTED
+                else operation.effect_state
+            )
+        if effect_state == EffectState.REQUESTED or (
+            spec.motion_producing and result.motion_state == MotionState.UNKNOWN
+        ):
+            effect_state = EffectState.UNKNOWN
+        lifecycle = result.lifecycle
+        reason_code = result.reason_code
+        if spec.motion_producing and result.motion_state == MotionState.UNKNOWN:
+            lifecycle = Lifecycle.INDETERMINATE
+            if result.lifecycle != Lifecycle.INDETERMINATE:
+                reason_code = "STOP_UNCONFIRMED"
+        elif lifecycle == Lifecycle.SUCCEEDED and effect_state == EffectState.UNKNOWN:
+            lifecycle = Lifecycle.INDETERMINATE
+            reason_code = "EFFECT_UNCONFIRMED"
+        operation.lifecycle = lifecycle
         operation.motion_state = result.motion_state
+        operation.effect_state = effect_state
         operation.phase = "terminal"
-        operation.reason_code = result.reason_code
+        operation.reason_code = reason_code
         operation.result_json = result_json
         operation.completed_monotonic = time.monotonic()
         operation.terminal_event.set()
-        spec = self._specs[operation.capability]
-        if (
-            spec.motion_producing
-            and result.lifecycle == Lifecycle.INDETERMINATE
-            and result.motion_state == MotionState.UNKNOWN
-        ):
-            self._motion_inhibited_reason = result.reason_code or "PHYSICAL_STATE_UNKNOWN"
+        if spec.motion_producing and result.motion_state == MotionState.UNKNOWN:
+            self._motion_inhibited_reason = reason_code or "PHYSICAL_STATE_UNKNOWN"
+        if spec.physical_effects and effect_state == EffectState.UNKNOWN:
+            self._effect_inhibited_reason = reason_code or "EFFECT_UNCONFIRMED"
         if self._active_motion_operation == operation.operation_id:
             self._active_motion_operation = None
+        if self._active_effect_operation == operation.operation_id:
+            self._active_effect_operation = None
         self._revision += 1
 
     def _operation(self, operation_id: str) -> _Operation:
@@ -657,6 +755,7 @@ class OperationHost:
             "capability": snapshot.capability,
             "lifecycle": snapshot.lifecycle.value,
             "motion_state": snapshot.motion_state.value,
+            "effect_state": snapshot.effect_state.value,
             "phase": snapshot.phase,
             "cancel_requested": snapshot.cancel_requested,
             "reason_code": snapshot.reason_code,
@@ -682,8 +781,11 @@ class OperationHost:
                     operation,
                     OperationResult(
                         Lifecycle.INDETERMINATE,
-                        MotionState.UNKNOWN,
+                        MotionState.UNKNOWN if spec.motion_producing else MotionState.IDLE,
                         reason_code="CLOSE_STOP_UNCONFIRMED",
+                        effect_state=EffectState.UNKNOWN
+                        if spec.physical_effects
+                        else EffectState.NONE,
                     ),
                 )
                 if operation.task is not None:
