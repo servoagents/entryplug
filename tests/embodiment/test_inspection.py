@@ -251,3 +251,39 @@ def test_light_transport_failure_is_explicitly_indeterminate() -> None:
         await session.close()
 
     asyncio.run(scenario())
+
+
+def test_buffered_pre_report_frame_cannot_verify_lighting_change() -> None:
+    class BufferedCamera(CameraFixture):
+        def __init__(self) -> None:
+            super().__init__([1, 2, 3])
+            self.buffered_at = time.monotonic()
+
+        async def capture(self) -> CameraFrame:
+            frame = await super().capture()
+            if frame.sequence == 3:
+                return CameraFrame(
+                    frame.source_id,
+                    frame.lineage_id,
+                    frame.sample_id,
+                    frame.sequence,
+                    self.buffered_at,
+                    frame.width,
+                    frame.height,
+                    frame.rgb8,
+                )
+            return frame
+
+    async def scenario() -> None:
+        light = LightFixture()
+        camera = BufferedCamera()
+        worker = WorkerFixture([0.1, 0.1, 0.9])
+        session, _, result = await _run(camera, worker, light)
+        assert result.lifecycle == Lifecycle.FAILED
+        assert result.reason_code == "FRAME_BEFORE_LIGHT_REPORT"
+        assert result.effect_state == EffectState.REPORTED
+        assert worker.calls == 2
+        assert light.writes == [0.25]
+        await session.close()
+
+    asyncio.run(scenario())

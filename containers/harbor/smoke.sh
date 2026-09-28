@@ -68,7 +68,7 @@ ros2 run rmw_zenoh_cpp rmw_zenohd >"${run_dir}/zenoh.log" 2>&1 &
 owned_pids+=("$!")
 sleep 1
 
-if [[ "${case_name}" == lamp-spike ]]; then
+if [[ "${case_name}" == lamp-spike || "${case_name}" == panel-inspection ]]; then
   python3 /workspace/entryplug/containers/harbor/panel_launch.py \
     >"${run_dir}/mujoco.log" 2>&1 &
 elif [[ "${case_name}" == mirrors ]]; then
@@ -80,7 +80,7 @@ else
 fi
 owned_pids+=("$!")
 
-if [[ "${case_name}" != lamp-spike ]]; then
+if [[ "${case_name}" != lamp-spike && "${case_name}" != panel-inspection ]]; then
   ready=false
   for _ in {1..12}; do
     if timeout 5 ros2 control list_controllers \
@@ -130,6 +130,11 @@ fi
 
 set +e
 case "${case_name}" in
+  panel-inspection)
+    python3 /workspace/entryplug/containers/harbor/panel_inspection.py \
+      --output "${run_dir}/panel-inspection.json"
+    case_status=$?
+    ;;
   lamp-spike)
     python3 /workspace/entryplug/containers/harbor/lamp_spike.py \
       --output "${run_dir}/lamp-spike.json"

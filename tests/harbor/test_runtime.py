@@ -35,10 +35,8 @@ def test_harbor_identity_is_shared_and_rejects_unsafe_run_ids() -> None:
         harbor_container_name("../unowned")
 
 
-@pytest.mark.parametrize("case", ("reach", "lamp-spike"))
-def test_harbor_run_drops_privilege_and_only_mounts_evidence(
-    tmp_path: Path, case: str
-) -> None:
+@pytest.mark.parametrize("case", ("reach", "lamp-spike", "panel-inspection"))
+def test_harbor_run_drops_privilege_and_only_mounts_evidence(tmp_path: Path, case: str) -> None:
     command = harbor_run_command(tmp_path, "entryplug:test", "run-123", case)
     joined = " ".join(command)
 
@@ -232,7 +230,13 @@ def test_harbor_rejects_seed_for_non_mirror_case_before_side_effects(
 def test_harbor_exposes_supported_cases_and_rejects_unknown_before_side_effects(
     tmp_path: Path,
 ) -> None:
-    assert supported_cases() == ("render-smoke", "reach", "mirrors", "lamp-spike")
+    assert supported_cases() == (
+        "render-smoke",
+        "reach",
+        "mirrors",
+        "lamp-spike",
+        "panel-inspection",
+    )
 
     def runner(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
         raise AssertionError(f"unexpected runtime call: {command}")

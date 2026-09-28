@@ -112,6 +112,7 @@ def _check_frame(
     frame: CameraFrame,
     previous: CameraFrame | None,
     config: InspectionConfig,
+    not_before_monotonic: float | None = None,
 ) -> None:
     if not isinstance(frame, CameraFrame):
         raise _ObservationFault("FRAME_INVALID")
@@ -136,6 +137,8 @@ def _check_frame(
     age = time.monotonic() - frame.received_monotonic
     if not math.isfinite(age) or not 0 <= age <= config.maximum_frame_age_s:
         raise _ObservationFault("FRAME_STALE")
+    if not_before_monotonic is not None and frame.received_monotonic <= not_before_monotonic:
+        raise _ObservationFault("FRAME_BEFORE_LIGHT_REPORT")
     if previous is not None:
         if (frame.source_id, frame.lineage_id) != (
             previous.source_id,
@@ -186,13 +189,14 @@ async def _observe_pair(
     worker: DetectorWorker,
     config: InspectionConfig,
     previous: CameraFrame | None,
+    not_before_monotonic: float | None = None,
 ) -> tuple[CameraFrame, MarkerMeasurement, bool, list[str]]:
     samples: list[str] = []
     usable = True
     last_measurement: MarkerMeasurement | None = None
     for _ in range(2):
         frame = await camera.capture()
-        _check_frame(frame, previous, config)
+        _check_frame(frame, previous, config, not_before_monotonic)
         measurement = await worker.detect(frame)
         detected = _check_measurement(measurement, frame, worker)
         usable &= detected and measurement.quality >= config.minimum_quality
@@ -229,6 +233,7 @@ def inspection_spec(
         last_level: float | None = None
         writes = 0
         previous: CameraFrame | None = None
+        not_before_monotonic: float | None = None
         context.report("observe_initial", MotionState.IDLE)
 
         for level in (None, *(config.brightness_levels if light is not None else ())):
@@ -271,10 +276,12 @@ def inspection_spec(
                 last_level = report.level
                 effect = EffectState.REPORTED
                 context.report_effect(effect)
+                # A queued pre-report frame cannot verify this lighting change.
+                not_before_monotonic = time.monotonic()
                 context.report("verify_visual", MotionState.IDLE)
             try:
                 previous, measurement, usable, samples = await _observe_pair(
-                    camera, worker, config, previous
+                    camera, worker, config, previous, not_before_monotonic
                 )
             except _ObservationFault as error:
                 return OperationResult(
