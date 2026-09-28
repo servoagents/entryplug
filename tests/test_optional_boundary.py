@@ -14,7 +14,8 @@ def test_core_import_does_not_import_optional_adapter_sdks() -> None:
             sys.executable,
             "-c",
             "import sys; import entryplug; import entryplug.api; "
-            "assert not {'a2a', 'mcp', 'openenv'} & sys.modules.keys()",
+            "assert not {'a2a', 'mcp', 'openenv', 'aiohttp', "
+            "'entryplug_homeassistant'} & sys.modules.keys()",
         ],
         check=False,
         text=True,

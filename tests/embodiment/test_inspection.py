@@ -27,8 +27,14 @@ class CameraFixture:
         sequence = next(self.sequences)
         self.captures += 1
         return CameraFrame(
-            "camera-a", "lineage-a", f"sample-{sequence}", sequence,
-            time.monotonic(), 4, 4, bytes(4 * 4 * 3),
+            "camera-a",
+            "lineage-a",
+            f"sample-{sequence}",
+            sequence,
+            time.monotonic(),
+            4,
+            4,
+            bytes(4 * 4 * 3),
         )
 
 
@@ -69,9 +75,7 @@ class LightFixture:
 async def _run(camera: CameraFixture, worker: WorkerFixture, light: LightFixture | None):
     host = OperationHost((inspection_spec(camera, worker, light=light),), runtime_id="inspection")
     session = Session(host, owns_runtime=True)
-    operation = await session.act(
-        "inspect_target", {"target_id": "bench-marker"}, request_id="one"
-    )
+    operation = await session.act("inspect_target", {"target_id": "bench-marker"}, request_id="one")
     result = await session.wait(operation, 0.5)
     return session, operation, result
 
@@ -217,15 +221,33 @@ def test_worker_failure_after_reported_light_keeps_known_effect_state() -> None:
 
     async def scenario() -> None:
         light = LightFixture()
-        session, _, result = await _run(
-            CameraFixture([1, 2, 3]), FailingWorker([0.1, 0.1]), light
-        )
+        session, _, result = await _run(CameraFixture([1, 2, 3]), FailingWorker([0.1, 0.1]), light)
         assert result.lifecycle == Lifecycle.FAILED
         assert result.reason_code == "OBSERVATION_PROVIDER_FAILED"
         assert result.effect_state == EffectState.REPORTED
         assert result.result["error_type"] == "RuntimeError"
         assert light.writes == [0.25]
         assert (await session.observe()).effect_inhibited_reason is None
+        await session.close()
+
+    asyncio.run(scenario())
+
+
+def test_light_transport_failure_is_explicitly_indeterminate() -> None:
+    class LostLight(LightFixture):
+        async def set_brightness(self, level: float) -> LightReport:
+            self.writes.append(level)
+            raise ConnectionError("service result was lost")
+
+    async def scenario() -> None:
+        light = LostLight()
+        session, _, result = await _run(CameraFixture([1, 2]), WorkerFixture([0.1, 0.1]), light)
+        assert result.lifecycle == Lifecycle.INDETERMINATE
+        assert result.reason_code == "LIGHT_COMMAND_UNCONFIRMED"
+        assert result.effect_state == EffectState.UNKNOWN
+        assert result.result["error_type"] == "ConnectionError"
+        assert light.writes == [0.25]
+        assert (await session.observe()).effect_inhibited_reason == "LIGHT_COMMAND_UNCONFIRMED"
         await session.close()
 
     asyncio.run(scenario())

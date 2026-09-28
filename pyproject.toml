@@ -25,6 +25,7 @@ Repository = "https://github.com/fj-blanco/entryplug"
 entryplug = "entryplug.cli:main"
 
 [project.optional-dependencies]
+homeassistant = ["aiohttp==3.14.3"]
 a2a = [
   "a2a-sdk[http-server]==1.1.5",
   "httpx==0.28.1",

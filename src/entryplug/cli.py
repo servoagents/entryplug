@@ -213,7 +213,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
             forwarded = forwarded[2:]
         elif forwarded[:1] and forwarded[0].startswith("--suite="):
             suite = forwarded.pop(0).split("=", 1)[1]
-        if suite not in {"core", "a2a", "mcp", "openenv", "all"}:
+        if suite not in {"core", "a2a", "mcp", "openenv", "homeassistant", "all"}:
             raise SystemExit(f"entryplug test: unknown suite {suite!r}")
         return argparse.Namespace(command="test", pytest_args=forwarded, test_suite=suite)
 
@@ -280,7 +280,7 @@ def _test(args: argparse.Namespace) -> int:
         return 2
     suite = getattr(args, "test_suite", "core")
     targets: list[str] = []
-    if suite in {"a2a", "mcp", "openenv"}:
+    if suite in {"a2a", "mcp", "openenv", "homeassistant"}:
         targets.append(str(root / "optional_tests" / suite))
     elif suite == "all":
         targets.extend(
@@ -289,6 +289,7 @@ def _test(args: argparse.Namespace) -> int:
                 str(root / "optional_tests" / "a2a"),
                 str(root / "optional_tests" / "mcp"),
                 str(root / "optional_tests" / "openenv"),
+                str(root / "optional_tests" / "homeassistant"),
             )
         )
     command = [sys.executable, "-m", "pytest", *args.pytest_args, *targets]

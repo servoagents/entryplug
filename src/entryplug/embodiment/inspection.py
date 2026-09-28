@@ -94,10 +94,12 @@ class InspectionConfig:
         if not math.isfinite(self.maximum_frame_age_s) or self.maximum_frame_age_s <= 0:
             raise ValueError("maximum frame age must be positive")
         if len(self.brightness_levels) > 3 or any(
-            not math.isfinite(level) or not 0 < level <= 0.75
-            for level in self.brightness_levels
+            not math.isfinite(level) or not 0 < level <= 0.75 for level in self.brightness_levels
         ):
             raise ValueError("at most three brightness levels up to 0.75 are supported")
+
+
+_DEFAULT_INSPECTION_CONFIG = InspectionConfig()
 
 
 class _ObservationFault(Exception):
@@ -173,8 +175,7 @@ def _check_measurement(
     ):
         raise _ObservationFault("WORKER_REPLY_INVALID")
     if not (
-        0 <= measurement.centroid_x < frame.width
-        and 0 <= measurement.centroid_y < frame.height
+        0 <= measurement.centroid_x < frame.width and 0 <= measurement.centroid_y < frame.height
     ):
         raise _ObservationFault("WORKER_REPLY_INVALID")
     return True
@@ -207,7 +208,7 @@ def inspection_spec(
     worker: DetectorWorker,
     *,
     light: BrightnessControl | None = None,
-    config: InspectionConfig = InspectionConfig(),
+    config: InspectionConfig = _DEFAULT_INSPECTION_CONFIG,
 ) -> CapabilitySpec:
     """Bind approved resources to one task, without a provider registry."""
     if not worker.worker_id or not worker.program_id:
@@ -233,7 +234,9 @@ def inspection_spec(
         for level in (None, *(config.brightness_levels if light is not None else ())):
             if context.cancel_requested:
                 return OperationResult(
-                    Lifecycle.CANCELED, MotionState.IDLE, effect_state=effect,
+                    Lifecycle.CANCELED,
+                    MotionState.IDLE,
+                    effect_state=effect,
                     reason_code="CANCEL_REQUESTED",
                 )
             if level is not None:
@@ -242,7 +245,16 @@ def inspection_spec(
                 context.report_effect(EffectState.REQUESTED)
                 effect = EffectState.REQUESTED
                 writes += 1
-                report = await light.set_brightness(level)
+                try:
+                    report = await light.set_brightness(level)
+                except Exception as error:
+                    return OperationResult(
+                        Lifecycle.INDETERMINATE,
+                        MotionState.IDLE,
+                        result={"lighting_writes": writes, "error_type": type(error).__name__},
+                        reason_code="LIGHT_COMMAND_UNCONFIRMED",
+                        effect_state=EffectState.UNKNOWN,
+                    )
                 if (
                     report.entity_id != light.entity_id
                     or not report.available
@@ -282,7 +294,9 @@ def inspection_spec(
                 )
             if context.cancel_requested:
                 return OperationResult(
-                    Lifecycle.CANCELED, MotionState.IDLE, effect_state=effect,
+                    Lifecycle.CANCELED,
+                    MotionState.IDLE,
+                    effect_state=effect,
                     reason_code="CANCEL_REQUESTED",
                 )
             if usable:
@@ -321,7 +335,8 @@ def inspection_spec(
         CAPABILITY_NAME,
         "0.dev",
         "Inspect one configured marker; may set an approved light when needed"
-        if light is not None else "Read-only inspection of one configured marker",
+        if light is not None
+        else "Read-only inspection of one configured marker",
         False,
         30.0,
         0.5,
