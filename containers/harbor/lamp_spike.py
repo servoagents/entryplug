@@ -18,7 +18,9 @@ from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32, Float64MultiArray
 
-IMAGE_TOPIC = "/camera/spectator/image_raw"
+from reach import FixedRedCentroidDetector
+
+IMAGE_TOPIC = "/camera/panel/image_raw"
 COMMAND_TOPIC = "/entryplug_fixture_lamp/command"
 STATE_TOPIC = "/entryplug_fixture_lamp/state"
 MIN_RGB_DELTA = 5.0  # Development-only feasibility threshold, not a frozen task profile.
@@ -41,6 +43,8 @@ def _rgb(message: Image) -> np.ndarray:
 class LampSpike(Node):
     def __init__(self) -> None:
         super().__init__("entryplug_lamp_spike_evaluator")
+        self.detector = FixedRedCentroidDetector()
+        self.detector.prepare()
         self.images: deque[Image] = deque(maxlen=20)
         self.states: deque[Float64MultiArray] = deque(maxlen=20)
         self.command = self.create_publisher(Float32, COMMAND_TOPIC, 1)
@@ -105,11 +109,19 @@ class LampSpike(Node):
                     raise RuntimeError("could not encode a camera frame")
                 with path.open("xb") as stream:
                     stream.write(image.tobytes())
+                try:
+                    marker = self.detector.detect(message).to_dict()
+                except RuntimeError as error:
+                    if not str(error).startswith("red marker detector found only"):
+                        raise
+                    marker = None
                 selected.append(
                     {
                         "sim_stamp_s": stamp,
                         "mean_rgb": [float(value) for value in rgb.mean(axis=(0, 1))],
                         "mean_intensity": float(rgb.mean()),
+                        "marker": marker,
+                        "detector_id": self.detector.detector_id,
                         "image": path.name,
                     }
                 )
@@ -119,6 +131,22 @@ class LampSpike(Node):
         if len(selected) != 2:
             raise TimeoutError(f"two post-apply {label} frames were not available")
         return selected
+
+
+def evaluate_visibility(
+    dark: list[dict[str, object]], bright: list[dict[str, object]]
+) -> tuple[bool, str, float]:
+    """Require real RGB contrast and a usable marker only after illumination."""
+    dark_mean = sum(float(frame["mean_intensity"]) for frame in dark) / len(dark)
+    bright_mean = sum(float(frame["mean_intensity"]) for frame in bright) / len(bright)
+    delta = bright_mean - dark_mean
+    if delta < MIN_RGB_DELTA:
+        return False, "INSUFFICIENT_RGB_CHANGE", delta
+    if any(frame["marker"] is not None for frame in dark):
+        return False, "MARKER_VISIBLE_WHILE_DARK", delta
+    if any(frame["marker"] is None for frame in bright):
+        return False, "MARKER_NOT_VISIBLE_WHILE_BRIGHT", delta
+    return True, "MARKER_VISIBILITY_CHANGED", delta
 
 
 def run(output: Path) -> dict[str, object]:
@@ -132,14 +160,11 @@ def run(output: Path) -> dict[str, object]:
         if bright_revision <= dark_revision or bright_time <= dark_time:
             raise RuntimeError("lamp apply boundary did not progress")
         bright = node.captures_after(bright_time, "bright", output.parent)
-        dark_mean = sum(frame["mean_intensity"] for frame in dark) / 2
-        bright_mean = sum(frame["mean_intensity"] for frame in bright) / 2
-        delta = bright_mean - dark_mean
-        passed = delta >= MIN_RGB_DELTA
+        passed, reason, delta = evaluate_visibility(dark, bright)
         return {
             "status": "passed" if passed else "failed",
-            "reason": "RENDERED_RGB_CHANGED" if passed else "INSUFFICIENT_RGB_CHANGE",
-            "fixture": "hall-of-mirrors stationary spectator camera, no arm commands",
+            "reason": reason,
+            "fixture": "stationary marked panel, no joints or arm commands",
             "commanded_level": 0.75,
             "dark_applied_sim_time": dark_time,
             "bright_applied_sim_time": bright_time,
@@ -151,6 +176,7 @@ def run(output: Path) -> dict[str, object]:
             "minimum_rgb_delta": MIN_RGB_DELTA,
         }
     finally:
+        node.detector.close()
         node.destroy_node()
         rclpy.shutdown()
 

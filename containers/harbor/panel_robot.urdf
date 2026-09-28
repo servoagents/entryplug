@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<robot name="entryplug_borrowed_light_panel">
+  <link name="world"/>
+  <link name="panel_camera_frame"/>
+  <joint name="panel_camera_joint" type="fixed">
+    <parent link="world"/>
+    <child link="panel_camera_frame"/>
+    <origin xyz="0 -1.2 0" rpy="1.57079632679 0 0"/>
+  </joint>
+
+  <ros2_control name="MujocoSystem" type="system">
+    <hardware>
+      <plugin>mujoco_ros2_control/MujocoSystemInterface</plugin>
+      <param name="mujoco_model">/workspace/entryplug/containers/harbor/panel_scene.xml</param>
+      <param name="sim_speed_factor">1.0</param>
+      <param name="headless">false</param>
+    </hardware>
+    <sensor name="panel_camera">
+      <param name="frame_name">panel_camera_frame</param>
+      <param name="info_topic">/camera/panel/camera_info</param>
+      <param name="image_topic">/camera/panel/image_raw</param>
+      <param name="depth_topic">/camera/panel/depth_raw</param>
+    </sensor>
+  </ros2_control>
+</robot>

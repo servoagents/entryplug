@@ -4,11 +4,11 @@
       mujoco_camera_plugin:
         type: "mujoco_ros2_control_plugins/CameraPlugin"
         camera_publish_rate: 6.0
-        spectator_camera:
+        panel_camera:
           policy: streaming
-          frame_name: spectator_camera_mujoco_frame
-          info_topic: /camera/spectator/camera_info
-          image_topic: /camera/spectator/image_raw
-          depth_topic: /camera/spectator/depth_raw
+          frame_name: panel_camera_frame
+          info_topic: /camera/panel/camera_info
+          image_topic: /camera/panel/image_raw
+          depth_topic: /camera/panel/depth_raw
       fixture_lamp:
         type: "entryplug_fixture_lamp/FixtureLamp"

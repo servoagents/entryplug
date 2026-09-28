@@ -69,7 +69,7 @@ owned_pids+=("$!")
 sleep 1
 
 if [[ "${case_name}" == lamp-spike ]]; then
-  python3 /workspace/entryplug/containers/harbor/lamp_spike_launch.py \
+  python3 /workspace/entryplug/containers/harbor/panel_launch.py \
     >"${run_dir}/mujoco.log" 2>&1 &
 elif [[ "${case_name}" == mirrors ]]; then
   python3 /workspace/entryplug/containers/harbor/mirrors_launch.py \
@@ -80,35 +80,36 @@ else
 fi
 owned_pids+=("$!")
 
-ready=false
-for _ in {1..12}; do
-  if timeout 5 ros2 control list_controllers \
-    >"${run_dir}/controllers-initial.txt" 2>&1; then
-    if grep -qE '^position_controller .* active$' "${run_dir}/controllers-initial.txt"; then
-      if [[ "${case_name}" != mirrors ]] || \
-        grep -qE '^mirror_controller .* active$' "${run_dir}/controllers-initial.txt"; then
-        ready=true
-        break
+if [[ "${case_name}" != lamp-spike ]]; then
+  ready=false
+  for _ in {1..12}; do
+    if timeout 5 ros2 control list_controllers \
+      >"${run_dir}/controllers-initial.txt" 2>&1; then
+      if grep -qE '^position_controller .* active$' "${run_dir}/controllers-initial.txt"; then
+        if [[ "${case_name}" != mirrors ]] || \
+          grep -qE '^mirror_controller .* active$' "${run_dir}/controllers-initial.txt"; then
+          ready=true
+          break
+        fi
       fi
     fi
+    sleep 0.25
+  done
+  if [[ "${ready}" != true ]]; then
+    echo "controller manager did not become ready" >&2
+    exit 1
   fi
-  sleep 0.25
-done
-if [[ "${ready}" != true ]]; then
-  echo "controller manager did not become ready" >&2
-  exit 1
+
+  ros2 control switch_controllers --deactivate position_controller --strict \
+    >"${run_dir}/controller-switch.txt" 2>&1
+  ros2 control unload_controller position_controller \
+    >"${run_dir}/controller-unload.txt" 2>&1
+  ros2 run controller_manager spawner trajectory_controller \
+    --param-file /workspace/entryplug/containers/harbor/trajectory_controller.yaml \
+    --controller-manager-timeout 30 \
+    >"${run_dir}/controller-spawn.txt" 2>&1
+  ros2 control list_controllers >"${run_dir}/controllers-final.txt" 2>&1
 fi
-
-ros2 control switch_controllers --deactivate position_controller --strict \
-  >"${run_dir}/controller-switch.txt" 2>&1
-ros2 control unload_controller position_controller \
-  >"${run_dir}/controller-unload.txt" 2>&1
-ros2 run controller_manager spawner trajectory_controller \
-  --param-file /workspace/entryplug/containers/harbor/trajectory_controller.yaml \
-  --controller-manager-timeout 30 \
-  >"${run_dir}/controller-spawn.txt" 2>&1
-ros2 control list_controllers >"${run_dir}/controllers-final.txt" 2>&1
-
 if [[ "${case_name}" == mirrors ]]; then
   if ! grep -qE '^mirror_controller .* active$' "${run_dir}/controllers-final.txt"; then
     echo "mirror fixture controller did not become active" >&2

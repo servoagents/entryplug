@@ -1,0 +1,20 @@
+<mujoco model="entryplug_borrowed_light_panel">
+  <compiler angle="radian"/>
+  <option timestep="0.002"/>
+
+  <visual>
+    <headlight diffuse="0 0 0" ambient="0 0 0" specular="0 0 0"/>
+    <rgba haze="0 0 0 1"/>
+  </visual>
+
+  <worldbody>
+    <light name="fixture_lamp" pos="0 -0.6 0.8" dir="0 1 -0.2"
+      directional="true" castshadow="false" diffuse="1 1 1" ambient="0.1 0.1 0.1"/>
+    <camera name="panel_camera" fovy="50" mode="fixed" resolution="320 240"
+      pos="0 -1.2 0" xyaxes="1 0 0 0 0 1"/>
+    <geom name="panel" type="box" pos="0 0 0" size="0.4 0.02 0.3"
+      rgba="0.35 0.35 0.35 1" contype="0" conaffinity="0"/>
+    <geom name="red_marker" type="sphere" pos="0 -0.045 0" size="0.075"
+      rgba="0.95 0.04 0.04 1" contype="0" conaffinity="0"/>
+  </worldbody>
+</mujoco>
