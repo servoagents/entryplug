@@ -116,6 +116,14 @@ def _parser() -> argparse.ArgumentParser:
         help="private same-world detector recovery comparison",
     )
 
+    repair_cancel = commands.add_parser(
+        "resident-repair-cancel",
+        help="privately qualify cancellation during live detector repair",
+    )
+    repair_cancel.add_argument("--runtime", choices=("container",), required=True)
+    repair_cancel.add_argument("--seed", type=int, default=101)
+    repair_cancel.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
+
     handwritten = commands.add_parser(
         "resident-handwritten",
         help="run the private direct-client recovery comparison",
@@ -337,6 +345,26 @@ def _resident_demo(args: argparse.Namespace) -> int:
     print(
         f"resident visual tasks: {'passed' if result.passed else 'failed'}\n"
         f"runtime: {result.runtime_id}\n"
+        f"operations: {', '.join(result.operation_ids)}\n"
+        f"evidence: {result.evidence_path}"
+    )
+    return 0 if result.passed else 1
+
+
+def _resident_repair_cancel(args: argparse.Namespace) -> int:
+    root = source_root()
+    if root is None:
+        print("entryplug resident-repair-cancel: run from a source checkout", file=sys.stderr)
+        return 2
+    from entryplug_evaluation.harbor.repair_cancel import run_repair_cancel
+
+    try:
+        result = asyncio.run(run_repair_cancel(root, seed=args.seed, image=args.image))
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"entryplug resident-repair-cancel: {error}", file=sys.stderr)
+        return 2
+    print(
+        f"resident repair cancellation: {'passed' if result.passed else 'failed'}\n"
         f"operations: {', '.join(result.operation_ids)}\n"
         f"evidence: {result.evidence_path}"
     )
@@ -565,6 +593,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _up(args)
     if args.command == "resident-demo":
         return _resident_demo(args)
+    if args.command == "resident-repair-cancel":
+        return _resident_repair_cancel(args)
     if args.command == "resident-handwritten":
         return _resident_handwritten(args)
     if args.command == "resident-compare":

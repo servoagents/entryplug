@@ -10,6 +10,7 @@ import queue
 import sys
 import threading
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -146,12 +147,15 @@ def _repair_binding(
     prefix: str,
     cancel: threading.Event,
     deadline_monotonic: float,
+    on_goal_accepted: Callable[[str, str], None] | None = None,
 ) -> dict[str, object]:
     """Validate the prepared alternate under the same motion owner and deadline."""
     started = time.monotonic()
     budget_end = min(deadline_monotonic, started + REPAIR_BUDGET_SECONDS)
     stationary = _wait_stationary(node, timeout=3.0)
-    if cancel.is_set() or time.monotonic() >= budget_end:
+    if cancel.is_set():
+        raise ReachCanceled(prefix)
+    if time.monotonic() >= budget_end:
         raise WorkerUnavailable("REPAIR_BUDGET_EXHAUSTED")
     paths.select_alternate(quiescence_confirmed=stationary["confirmed"] is True)
     first = _fresh_observation(node)
@@ -167,7 +171,9 @@ def _repair_binding(
         raise WorkerUnavailable("REPLACEMENT_SOURCE_INCOMPATIBLE")
     checks: list[dict[str, object]] = []
     for delta in REUSE_PROBES_RADIANS:
-        if cancel.is_set() or time.monotonic() >= budget_end:
+        if cancel.is_set():
+            raise ReachCanceled(prefix)
+        if time.monotonic() >= budget_end:
             raise WorkerUnavailable("REPAIR_BUDGET_EXHAUSTED")
         checks.append(
             _measure_probe(
@@ -177,6 +183,7 @@ def _repair_binding(
                 purpose=f"{prefix}:replacement-check-{len(checks) + 1}",
                 trace=trace,
                 cancel_requested=lambda: cancel.is_set() or time.monotonic() >= budget_end,
+                on_goal_accepted=on_goal_accepted,
             )
         )
     last = _fresh_observation(node)
@@ -192,7 +199,9 @@ def _repair_binding(
     )
     if validation["status"] != "reused":
         raise WorkerUnavailable("REPLACEMENT_VALIDATION_FAILED")
-    if cancel.is_set() or time.monotonic() >= budget_end:
+    if cancel.is_set():
+        raise ReachCanceled(prefix)
+    if time.monotonic() >= budget_end:
         raise WorkerUnavailable("REPAIR_BUDGET_EXHAUSTED")
     revision = paths.commit_binding_revision()
     return {
@@ -351,7 +360,28 @@ def _task(
                         "loss_reason": loss.reason_code,
                         "strategy": recovery_strategy,
                     }
+                    if fault_event["applied"]:
+                        _write_create_only(
+                            run_dir / f"{prefix}-repair-started.evaluator.json",
+                            {
+                                "operation_id": operation_id,
+                                "fault_phase": fault_event["phase"],
+                                "detected_monotonic": detected_at,
+                            },
+                        )
                     repair_started = time.monotonic()
+
+                    def on_repair_goal_accepted(purpose: str, goal_id: str) -> None:
+                        if purpose == f"{prefix}:replacement-check-1":
+                            _write_create_only(
+                                run_dir / f"{prefix}-repair-goal-accepted.evaluator.json",
+                                {
+                                    "operation_id": operation_id,
+                                    "goal_id": goal_id,
+                                    "accepted_monotonic": time.monotonic(),
+                                },
+                            )
+
                     try:
                         if recovery_strategy == "full_reacquisition":
                             recovered, binding = reacquire_after_loss(
@@ -374,6 +404,9 @@ def _task(
                                 prefix,
                                 cancel,
                                 deadline_monotonic,
+                                on_goal_accepted=(
+                                    on_repair_goal_accepted if fault_event["applied"] else None
+                                ),
                             )
                             recovered["strategy"] = "checked_reuse"
                         recovery.update(recovered)

@@ -408,6 +408,7 @@ def _measure_probe(
     purpose: str,
     trace: list[dict[str, object]],
     cancel_requested: Callable[[], bool] | None = None,
+    on_goal_accepted: Callable[[str, str], None] | None = None,
 ) -> dict[str, object]:
     _return_to_anchor(
         node,
@@ -424,6 +425,7 @@ def _measure_probe(
         purpose=purpose,
         trace=trace,
         cancel_requested=cancel_requested,
+        on_goal_accepted=on_goal_accepted,
     )
     if item["cancel_requested"] or (cancel_requested is not None and cancel_requested()):
         raise ReachCanceled(purpose)
