@@ -79,7 +79,7 @@ class Observer(Node):
         self.create_subscription(
             Image, "/camera/color/image_raw", self._image, qos_profile_sensor_data
         )
-        self.create_subscription(
+        self.joint_subscription = self.create_subscription(
             JointState, "/joint_states", self._joint_state, qos_profile_sensor_data
         )
         self.action = ActionClient(

@@ -52,6 +52,7 @@ from entryplug_harbor.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1
 from entryplug_harbor.resident import (
     MAX_RECORD_BYTES,
     NATIVE_RESULT_LOSS_FAULT,
+    QUIESCENCE_LOSS_FAULT,
     RESULT_LOSS_FAULT,
     SOURCE_ID,
     SOURCE_LINEAGE,
@@ -62,6 +63,10 @@ from entryplug_harbor.worker import ActiveDetectorPath, DetectorWorker, WorkerUn
 REUSE_PROBES_RADIANS = HARBOR_RESIDENT_RECOVERY_V1.replacement_probes_radians
 REPAIR_BUDGET_SECONDS = HARBOR_RESIDENT_RECOVERY_V1.repair_budget_seconds
 SOURCE_TOPIC = "/camera/color/image_raw"
+
+
+class QuiescenceUnconfirmed(RuntimeError):
+    """Fresh public joint feedback could not establish a physical hold."""
 
 
 def _send(record: dict[str, object]) -> None:
@@ -158,7 +163,10 @@ def _repair_binding(
     """Validate the prepared alternate under the same motion owner and deadline."""
     started = time.monotonic()
     budget_end = min(deadline_monotonic, started + REPAIR_BUDGET_SECONDS)
-    stationary = _wait_stationary(node, timeout=3.0)
+    try:
+        stationary = _wait_stationary(node, timeout=3.0)
+    except (TimeoutError, RuntimeError) as stop_error:
+        raise QuiescenceUnconfirmed("fresh public joint feedback is unavailable") from stop_error
     if cancel.is_set():
         raise ReachCanceled(prefix)
     if time.monotonic() >= budget_end:
@@ -375,6 +383,21 @@ def _task(
                                 "detected_monotonic": detected_at,
                             },
                         )
+                    if evaluation_fault == QUIESCENCE_LOSS_FAULT and fault_event["applied"]:
+                        if not node.destroy_subscription(node.joint_subscription):
+                            raise RuntimeError(
+                                "evaluator could not remove joint feedback"
+                            ) from None
+                        _write_create_only(
+                            run_dir / f"{prefix}-joint-feedback-lost.evaluator.json",
+                            {
+                                "operation_id": operation_id,
+                                "fault_phase": fault_event["phase"],
+                                "last_joint_sequence": node.joint_sequence,
+                                "loss_monotonic": time.monotonic(),
+                                "topic": "/joint_states",
+                            },
+                        )
                     repair_started = time.monotonic()
 
                     def on_repair_goal_accepted(purpose: str, goal_id: str) -> None:
@@ -464,6 +487,14 @@ def _task(
                                 "status": "failed",
                                 "reason_code": "VISUAL_CAPABILITY_UNAVAILABLE",
                             }
+                    except QuiescenceUnconfirmed:
+                        recovery["status"] = "unavailable"
+                        recovery["failure_reason"] = "QUIESCENCE_UNCONFIRMED"
+                        recovery["repair_ms"] = _round((time.monotonic() - repair_started) * 1000)
+                        trial = {
+                            "status": "failed",
+                            "reason_code": "STOP_UNCONFIRMED",
+                        }
                     except WorkerUnavailable as repair_error:
                         recovery["status"] = "unavailable"
                         recovery["failure_reason"] = repair_error.reason_code
@@ -479,7 +510,14 @@ def _task(
                         "TARGET_REACHED" if status == "passed" else "TARGET_NOT_REACHED",
                     )
                 )
-    stationary = _wait_stationary(node, timeout=3.0)
+    try:
+        stationary = _wait_stationary(node, timeout=3.0)
+    except (TimeoutError, RuntimeError) as stop_error:
+        stationary = {
+            "confirmed": False,
+            "reason_code": "PUBLIC_JOINT_FEEDBACK_UNCONFIRMED",
+            "error_type": type(stop_error).__name__,
+        }
     try:
         end = _fresh_observation(node)
     except WorkerUnavailable as final_loss:
@@ -519,7 +557,8 @@ def _task(
         "binding_ready": end is not None
         and validation is not None
         and validation["status"] == "reused"
-        and (recovery is None or recovery["status"] == "validated"),
+        and (recovery is None or recovery["status"] == "validated")
+        and stationary["confirmed"] is True,
         "recovery": recovery,
         "detector_worker": end["worker"] if end is not None else None,
         "visual_capability_available": end is not None,
@@ -535,12 +574,13 @@ def _task(
             sum(abs(float(item["requested_delta_radians"]["joint2"])) for item in trace)
         ),
         "quiescence_confirmed": stationary["confirmed"],
+        "quiescence_evidence": stationary,
         "trace_path": f"{prefix}-trace.jsonl",
         "reticle_path": f"{prefix}-reticle.observer.png",
     }
     if fault_event.get("result_drop_phase") == "replacement_validated_before_resume":
         result["evaluator_only_result_drop"] = True
-    if end is None:
+    if end is None or stationary["confirmed"] is not True:
         evaluator = {
             "status": "not_scored_without_detector",
             "independently_inside_tolerance": False,
@@ -816,6 +856,7 @@ def serve(run_dir: Path, run_id: str) -> None:
                     "kill-active-worker-stale-alternate",
                     RESULT_LOSS_FAULT,
                     NATIVE_RESULT_LOSS_FAULT,
+                    QUIESCENCE_LOSS_FAULT,
                 }:
                     raise ValueError("unknown private evaluator fault")
                 strategy_value = command.get("evaluation_recovery_strategy", "checked_reuse")
