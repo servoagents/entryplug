@@ -18,7 +18,7 @@
   </asset>
 
   <worldbody>
-    <light pos="0 0 1.5" dir="0 0 -1" directional="true"
+    <light name="fixture_lamp" pos="0 0 1.5" dir="0 0 -1" directional="true"
       castshadow="false"/>
     <geom name="floor" type="plane" pos="0 0 -2.5" size="0 0 0.01"
       contype="1" conaffinity="0" material="groundplane"/>

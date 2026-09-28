@@ -35,8 +35,11 @@ def test_harbor_identity_is_shared_and_rejects_unsafe_run_ids() -> None:
         harbor_container_name("../unowned")
 
 
-def test_harbor_run_drops_privilege_and_only_mounts_evidence(tmp_path: Path) -> None:
-    command = harbor_run_command(tmp_path, "entryplug:test", "run-123", "reach")
+@pytest.mark.parametrize("case", ("reach", "lamp-spike"))
+def test_harbor_run_drops_privilege_and_only_mounts_evidence(
+    tmp_path: Path, case: str
+) -> None:
+    command = harbor_run_command(tmp_path, "entryplug:test", "run-123", case)
     joined = " ".join(command)
 
     assert "--read-only" in command
@@ -46,7 +49,7 @@ def test_harbor_run_drops_privilege_and_only_mounts_evidence(tmp_path: Path) -> 
     assert "docker.sock" not in joined
     assert "src=" + str((tmp_path / "runs").resolve()) in joined
     assert "type=bind,src=" + str(Path.home()) not in joined
-    assert command[-1] == "reach"
+    assert command[-1] == case
 
 
 def test_harbor_mounts_prior_mirror_evidence_read_only(tmp_path: Path) -> None:
@@ -226,10 +229,10 @@ def test_harbor_rejects_seed_for_non_mirror_case_before_side_effects(
     assert not (tmp_path / "runs").exists()
 
 
-def test_harbor_exposes_reaching_and_rejects_unknown_cases_before_side_effects(
+def test_harbor_exposes_supported_cases_and_rejects_unknown_before_side_effects(
     tmp_path: Path,
 ) -> None:
-    assert supported_cases() == ("render-smoke", "reach", "mirrors")
+    assert supported_cases() == ("render-smoke", "reach", "mirrors", "lamp-spike")
 
     def runner(command: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
         raise AssertionError(f"unexpected runtime call: {command}")

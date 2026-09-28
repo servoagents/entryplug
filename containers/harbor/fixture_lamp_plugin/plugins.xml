@@ -1,0 +1,7 @@
+<library path="entryplug_fixture_lamp">
+  <class name="entryplug_fixture_lamp/FixtureLamp"
+    type="entryplug_fixture_lamp::FixtureLamp"
+    base_class_type="mujoco_ros2_control_plugins::MuJoCoROS2ControlPluginBase">
+    <description>Fixture-only bounded lamp update on MuJoCo's physics thread.</description>
+  </class>
+</library>

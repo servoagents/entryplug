@@ -68,7 +68,10 @@ ros2 run rmw_zenoh_cpp rmw_zenohd >"${run_dir}/zenoh.log" 2>&1 &
 owned_pids+=("$!")
 sleep 1
 
-if [[ "${case_name}" == mirrors ]]; then
+if [[ "${case_name}" == lamp-spike ]]; then
+  python3 /workspace/entryplug/containers/harbor/lamp_spike_launch.py \
+    >"${run_dir}/mujoco.log" 2>&1 &
+elif [[ "${case_name}" == mirrors ]]; then
   python3 /workspace/entryplug/containers/harbor/mirrors_launch.py \
     >"${run_dir}/mujoco.log" 2>&1 &
 else
@@ -126,6 +129,11 @@ fi
 
 set +e
 case "${case_name}" in
+  lamp-spike)
+    python3 /workspace/entryplug/containers/harbor/lamp_spike.py \
+      --output "${run_dir}/lamp-spike.json"
+    case_status=$?
+    ;;
   render-smoke)
     python3 /workspace/entryplug/containers/harbor/smoke.py \
       --output "${run_dir}/smoke.json"

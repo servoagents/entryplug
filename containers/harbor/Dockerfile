@@ -55,6 +55,15 @@ RUN existing_group="$(getent group "${ENTRYPLUG_GID}" | cut -d: -f1)" && \
     fi
 
 WORKDIR /workspace/entryplug
+COPY --chown=entryplug:entryplug containers/harbor/fixture_lamp_plugin \
+    /workspace/entryplug/containers/harbor/fixture_lamp_plugin
+RUN source /opt/ros/jazzy/setup.bash && \
+    colcon --log-base /tmp/entryplug-fixture-lamp-log build \
+      --base-paths /workspace/entryplug/containers/harbor/fixture_lamp_plugin \
+      --build-base /tmp/entryplug-fixture-lamp-build \
+      --install-base /opt/entryplug/fixture-lamp \
+      --packages-select entryplug_fixture_lamp \
+      --cmake-args -DCMAKE_BUILD_TYPE=Release
 COPY --chown=entryplug:entryplug . /workspace/entryplug
 RUN install -o entryplug -g entryplug -d /workspace/entryplug/runs && \
     chown entryplug:entryplug /workspace/entryplug && \

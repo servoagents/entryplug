@@ -13,10 +13,10 @@ from launch_ros.parameter_descriptions import ParameterFile, ParameterValue
 ROOT = Path("/workspace/entryplug/containers/harbor")
 
 
-def description() -> LaunchDescription:
+def description(*, plugins_file: str = "mirrors_plugins.yaml") -> LaunchDescription:
     robot_description = (ROOT / "mirrors_robot.urdf").read_text(encoding="utf-8")
     controllers = str(ROOT / "mirrors_controllers.yaml")
-    plugins = str(ROOT / "mirrors_plugins.yaml")
+    plugins = str(ROOT / plugins_file)
     parameters = [
         {"use_sim_time": True},
         ParameterFile(controllers),
