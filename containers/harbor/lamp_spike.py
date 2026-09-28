@@ -6,8 +6,8 @@ from __future__ import annotations
 import argparse
 import json
 import time
-from collections.abc import Callable
 from collections import deque
+from collections.abc import Callable
 from pathlib import Path
 
 import cv2
@@ -18,7 +18,7 @@ from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32, Float64MultiArray
 
-from reach import FixedRedCentroidDetector
+from entryplug_harbor.red_marker import FixedRedCentroidDetector
 
 IMAGE_TOPIC = "/camera/panel/image_raw"
 COMMAND_TOPIC = "/entryplug_fixture_lamp/command"
@@ -67,13 +67,13 @@ class LampSpike(Node):
     def applied_state(self, level: float, timeout_s: float = 12.0) -> tuple[float, int]:
         def matching() -> bool:
             return any(
-                len(state.data) == 3 and abs(state.data[0] - level) < 0.001
-                for state in self.states
+                len(state.data) == 3 and abs(state.data[0] - level) < 0.001 for state in self.states
             )
 
         self._spin_until(matching, timeout_s, f"applied lamp level {level}")
         matching_states = [
-            state for state in self.states
+            state
+            for state in self.states
             if len(state.data) == 3 and abs(state.data[0] - level) < 0.001
         ]
         selected = matching_states[-1]

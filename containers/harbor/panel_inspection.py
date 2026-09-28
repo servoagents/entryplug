@@ -16,7 +16,6 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from reach import FixedRedCentroidDetector
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32, Float64MultiArray
 
@@ -29,6 +28,7 @@ from entryplug.embodiment.inspection import (
     inspection_spec,
 )
 from entryplug.harness.session import Session
+from entryplug_harbor.red_marker import FixedRedCentroidDetector
 
 IMAGE_TOPIC = "/camera/panel/image_raw"
 COMMAND_TOPIC = "/entryplug_fixture_lamp/command"

@@ -22,6 +22,13 @@ def test_test_command_selects_optional_openenv_suite() -> None:
     assert args.pytest_args == ["-q"]
 
 
+def test_test_command_selects_optional_zenoh_suite() -> None:
+    args = _parse_args(["test", "--suite", "zenoh", "-q"])
+
+    assert args.test_suite == "zenoh"
+    assert args.pytest_args == ["-q"]
+
+
 def test_test_command_selects_optional_homeassistant_suite() -> None:
     args = _parse_args(["test", "--suite", "homeassistant", "-q"])
 

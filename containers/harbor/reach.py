@@ -14,7 +14,6 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 
-import numpy as np
 import rclpy
 from action_msgs.msg import GoalStatus
 from smoke import (
@@ -43,7 +42,8 @@ from entryplug.core.operation import (
 )
 from entryplug.harness.agent import AgentRunner, ScriptedExplorer, agent_execution_record
 from entryplug.harness.session import Session
-from entryplug_harbor.perception import DETECTOR_INTERFACE_VERSION, MarkerDetection, MarkerFrame
+from entryplug_harbor.perception import DETECTOR_INTERFACE_VERSION
+from entryplug_harbor.red_marker import RED_MARKER_DETECTOR_ID, FixedRedCentroidDetector
 from entryplug_harbor.visual_task import visual_reach_arguments
 from entryplug_harbor.worker import WorkerUnavailable
 
@@ -68,44 +68,6 @@ class ReachCanceled(RuntimeError):
 
 def _round(value: float) -> float:
     return round(value, 6)
-
-
-RED_MARKER_DETECTOR_ID = "fixed-red-centroid-v1"
-
-
-class FixedRedCentroidDetector:
-    interface_version = DETECTOR_INTERFACE_VERSION
-    detector_id = RED_MARKER_DETECTOR_ID
-
-    def prepare(self) -> None:
-        return None
-
-    def detect(self, frame: MarkerFrame) -> MarkerDetection:
-        if frame.encoding != "rgb8" or frame.step != frame.width * 3:
-            raise RuntimeError(
-                f"red marker detector requires packed rgb8, got {frame.encoding!r} "
-                f"with step {frame.step}"
-            )
-        rgb = np.frombuffer(frame.data, dtype=np.uint8).reshape((frame.height, frame.width, 3))
-        red = rgb[:, :, 0].astype(np.int16)
-        green = rgb[:, :, 1].astype(np.int16)
-        blue = rgb[:, :, 2].astype(np.int16)
-        mask = (red >= 100) & (red >= green + 45) & (red >= blue + 45)
-        rows, columns = np.nonzero(mask)
-        if columns.size < 20:
-            raise RuntimeError(f"red marker detector found only {columns.size} pixels")
-        return MarkerDetection(
-            x_px=_round(float(np.mean(columns))),
-            y_px=_round(float(np.mean(rows))),
-            area_px=int(columns.size),
-            left_px=int(np.min(columns)),
-            top_px=int(np.min(rows)),
-            right_px=int(np.max(columns)),
-            bottom_px=int(np.max(rows)),
-        )
-
-    def close(self) -> None:
-        return None
 
 
 _APPROVED_MARKER_DETECTORS = {
