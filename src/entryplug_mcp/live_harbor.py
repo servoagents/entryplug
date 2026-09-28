@@ -17,13 +17,13 @@ from typing import Any
 from mcp import Client
 from mcp.server.lowlevel import Server
 
-from entryplug.episode import EpisodeFactory
-from entryplug.harbor_episode import ACQUIRE_VISUAL_BINDING, harbor_mirrors_episode_factory
-from entryplug.pilot import summarize_mirrors_episode
-from entryplug.qualification import HARBOR_MIRRORS_V1
-from entryplug.runtime import DEFAULT_HARBOR_IMAGE, RUN_ID_PATTERN, RuntimeResult
-from entryplug.seeding import validate_experiment_seed
-from entryplug.session import Session
+from entryplug.harness.episode import EpisodeFactory
+from entryplug.harness.session import Session
+from entryplug_evaluation.harbor.pilot import summarize_mirrors_episode
+from entryplug_harbor.episode import ACQUIRE_VISUAL_BINDING, harbor_mirrors_episode_factory
+from entryplug_harbor.qualification import HARBOR_MIRRORS_V1
+from entryplug_harbor.runtime import DEFAULT_HARBOR_IMAGE, RUN_ID_PATTERN, RuntimeResult
+from entryplug_harbor.seeding import validate_experiment_seed
 from entryplug_mcp.loopback import start_loopback_server
 from entryplug_mcp.server import CATALOG_TOOL, INSPECT_TOOL, create_mcp_server
 
@@ -207,7 +207,7 @@ def run_mcp_harbor(
             "run_id": physical.run_id,
             "evidence_path": str(physical.evidence_path),
             "container_image": image,
-            "shared_launch_path": "entryplug.runtime.harbor_run_command",
+            "shared_launch_path": "entryplug_harbor.runtime.harbor_run_command",
             "shared_physical_algorithm": "containers/harbor/mirrors.py",
         },
         "transport": {

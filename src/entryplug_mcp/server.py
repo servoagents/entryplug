@@ -11,9 +11,9 @@ from mcp import types
 from mcp.server.context import ServerRequestContext
 from mcp.server.lowlevel import Server
 
-from entryplug.evidence import JsonValue
-from entryplug.operation import AdmissionError, OperationSnapshot, RuntimeView
-from entryplug.session import Session
+from entryplug.core.evidence import JsonValue
+from entryplug.core.operation import AdmissionError, OperationSnapshot, RuntimeView
+from entryplug.harness.session import Session
 
 CATALOG_TOOL = "entryplug_capabilities"
 INSPECT_TOOL = "entryplug_inspect"

@@ -30,7 +30,7 @@ from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image, JointState
 from trajectory_msgs.msg import JointTrajectoryPoint
 
-from entryplug.evidence import json_object
+from entryplug.core.evidence import json_object
 
 JOINTS = ("joint1", "joint2")
 COMPLETION_DELTA = (0.02, -0.02)

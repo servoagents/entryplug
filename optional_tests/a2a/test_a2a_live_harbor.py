@@ -4,14 +4,8 @@ import asyncio
 from collections.abc import Mapping
 from pathlib import Path
 
-from entryplug.episode import EpisodeStart
-from entryplug.evidence import JsonValue
-from entryplug.harbor_episode import (
-    ACQUIRE_VISUAL_BINDING,
-    ACQUIRE_VISUAL_BINDING_INPUT_SCHEMA,
-    ACQUIRE_VISUAL_BINDING_RESULT_SCHEMA,
-)
-from entryplug.operation import (
+from entryplug.core.evidence import JsonValue
+from entryplug.core.operation import (
     CapabilitySpec,
     Lifecycle,
     MotionState,
@@ -19,9 +13,15 @@ from entryplug.operation import (
     OperationHost,
     OperationResult,
 )
-from entryplug.qualification import HARBOR_MIRRORS_V1
-from entryplug.session import Session
+from entryplug.harness.episode import EpisodeStart
+from entryplug.harness.session import Session
 from entryplug_a2a.live_harbor import _serve_and_drive
+from entryplug_harbor.episode import (
+    ACQUIRE_VISUAL_BINDING,
+    ACQUIRE_VISUAL_BINDING_INPUT_SCHEMA,
+    ACQUIRE_VISUAL_BINDING_RESULT_SCHEMA,
+)
+from entryplug_harbor.qualification import HARBOR_MIRRORS_V1
 
 
 def test_real_http_client_discovers_and_deduplicates_harbor_capability(

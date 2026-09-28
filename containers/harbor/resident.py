@@ -39,7 +39,7 @@ from resident_evaluator import score_raw_completion
 from resident_reacquire import reacquire_after_loss
 from smoke import _current_positions, _wait_stationary, _write_create_only, _write_png_create_only
 
-from entryplug.association import (
+from entryplug.embodiment.association import (
     CachedVisualBinding,
     CandidateEvidence,
     load_visual_binding,
@@ -47,10 +47,10 @@ from entryplug.association import (
     select_candidate,
     validate_cached_binding,
 )
-from entryplug.detector_worker import ActiveDetectorPath, DetectorWorker, WorkerUnavailable
-from entryplug.harbor_resident import MAX_RECORD_BYTES, RESULT_LOSS_FAULT, SOURCE_ID, SOURCE_LINEAGE
-from entryplug.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1
-from entryplug.visual_task import visual_reach_arguments
+from entryplug_harbor.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1
+from entryplug_harbor.resident import MAX_RECORD_BYTES, RESULT_LOSS_FAULT, SOURCE_ID, SOURCE_LINEAGE
+from entryplug_harbor.visual_task import visual_reach_arguments
+from entryplug_harbor.worker import ActiveDetectorPath, DetectorWorker, WorkerUnavailable
 
 REUSE_PROBES_RADIANS = HARBOR_RESIDENT_RECOVERY_V1.replacement_probes_radians
 REPAIR_BUDGET_SECONDS = HARBOR_RESIDENT_RECOVERY_V1.repair_budget_seconds
@@ -221,7 +221,7 @@ def _task(
     recovery_strategy: str,
     deadline_monotonic: float,
 ) -> tuple[dict[str, object], CachedVisualBinding]:
-    from entryplug.association import CachedVisualBinding
+    from entryplug.embodiment.association import CachedVisualBinding
 
     assert isinstance(binding, CachedVisualBinding)
     started = time.monotonic()

@@ -30,15 +30,15 @@ from a2a.utils.errors import InvalidParamsError
 from google.protobuf.json_format import MessageToDict  # type: ignore[import-untyped]
 from starlette.applications import Starlette
 
-from entryplug.evidence import JsonValue
-from entryplug.operation import (
+from entryplug.core.evidence import JsonValue
+from entryplug.core.operation import (
     AdmissionError,
     Lifecycle,
     MotionState,
     OperationSnapshot,
     RuntimeView,
 )
-from entryplug.session import Session
+from entryplug.harness.session import Session
 
 MEDIA_TYPE = "application/json"
 ARTIFACT_NAME = "entryplug-operation"

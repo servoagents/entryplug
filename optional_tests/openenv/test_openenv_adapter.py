@@ -11,13 +11,8 @@ from pathlib import Path
 
 import uvicorn
 
-from entryplug.agent import Act, Inspect, Wait
-from entryplug.association import CandidateEvidence
-from entryplug.association_operation import candidate_record
-from entryplug.episode import EpisodeController, EpisodeStart
-from entryplug.evidence import JsonValue
-from entryplug.harbor_episode import ACQUIRE_VISUAL_BINDING
-from entryplug.operation import (
+from entryplug.core.evidence import JsonValue
+from entryplug.core.operation import (
     CapabilitySpec,
     Lifecycle,
     MotionState,
@@ -25,8 +20,13 @@ from entryplug.operation import (
     OperationHost,
     OperationResult,
 )
-from entryplug.qualification import HARBOR_MIRRORS_V1
-from entryplug.session import Session
+from entryplug.embodiment.association import CandidateEvidence
+from entryplug.embodiment.association_operation import candidate_record
+from entryplug.harness.agent import Act, Inspect, Wait
+from entryplug.harness.episode import EpisodeController, EpisodeStart
+from entryplug.harness.session import Session
+from entryplug_harbor.episode import ACQUIRE_VISUAL_BINDING
+from entryplug_harbor.qualification import HARBOR_MIRRORS_V1
 from entryplug_openenv import (
     ActDecision,
     EntryplugAction,

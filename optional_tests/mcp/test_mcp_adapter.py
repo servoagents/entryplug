@@ -14,14 +14,8 @@ import uvicorn
 from mcp import Client
 from mcp.server.lowlevel import Server
 
-from entryplug.episode import EpisodeStart
-from entryplug.evidence import JsonValue
-from entryplug.harbor_episode import (
-    ACQUIRE_VISUAL_BINDING,
-    ACQUIRE_VISUAL_BINDING_INPUT_SCHEMA,
-    ACQUIRE_VISUAL_BINDING_RESULT_SCHEMA,
-)
-from entryplug.operation import (
+from entryplug.core.evidence import JsonValue
+from entryplug.core.operation import (
     CapabilitySpec,
     Lifecycle,
     MotionState,
@@ -29,8 +23,14 @@ from entryplug.operation import (
     OperationHost,
     OperationResult,
 )
-from entryplug.qualification import HARBOR_MIRRORS_V1
-from entryplug.session import Session
+from entryplug.harness.episode import EpisodeStart
+from entryplug.harness.session import Session
+from entryplug_harbor.episode import (
+    ACQUIRE_VISUAL_BINDING,
+    ACQUIRE_VISUAL_BINDING_INPUT_SCHEMA,
+    ACQUIRE_VISUAL_BINDING_RESULT_SCHEMA,
+)
+from entryplug_harbor.qualification import HARBOR_MIRRORS_V1
 from entryplug_mcp import CANCEL_TOOL, CATALOG_TOOL, INSPECT_TOOL, create_mcp_server
 from entryplug_mcp.live_harbor import run_mcp_harbor
 

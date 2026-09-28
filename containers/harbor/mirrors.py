@@ -34,8 +34,9 @@ from reach import (
 )
 from sensor_msgs.msg import Image
 
-from entryplug.agent import AgentRunner, ScriptedExplorer, agent_execution_record
-from entryplug.association import (
+from entryplug.core.evidence import EvidenceQuery, SqliteEvidenceCache, json_object
+from entryplug.core.operation import Lifecycle
+from entryplug.embodiment.association import (
     VISUAL_BINDING_KIND,
     AssociationProfile,
     CachedVisualBinding,
@@ -46,17 +47,16 @@ from entryplug.association import (
     select_candidate,
     validate_cached_binding,
 )
-from entryplug.association_operation import (
+from entryplug.embodiment.association_operation import (
     CAPABILITY_NAME,
     association_host,
     candidate_records,
 )
-from entryplug.evaluation import MethodMeasurement, paired_method_comparison
-from entryplug.evidence import EvidenceQuery, SqliteEvidenceCache, json_object
-from entryplug.operation import Lifecycle
-from entryplug.qualification import HARBOR_MIRRORS_V1
-from entryplug.seeding import derive_experiment_seed, validate_experiment_seed
-from entryplug.session import Session
+from entryplug.harness.agent import AgentRunner, ScriptedExplorer, agent_execution_record
+from entryplug.harness.session import Session
+from entryplug_evaluation.harbor.comparison import MethodMeasurement, paired_method_comparison
+from entryplug_harbor.qualification import HARBOR_MIRRORS_V1
+from entryplug_harbor.seeding import derive_experiment_seed, validate_experiment_seed
 
 DEFAULT_SOLVER_SEED = 947
 DEFAULT_SOURCE_NAME_SEED = 7043
@@ -1196,7 +1196,7 @@ def qualify(
         )
         adaptive_baseline = {
             "schema_version": 1,
-            "shared_numerical_routine": "entryplug.association.select_candidate",
+            "shared_numerical_routine": "entryplug.embodiment.association.select_candidate",
             "same_candidate_evidence_and_limits": True,
             "input_digest": input_digest,
             "physical_acquisition": {

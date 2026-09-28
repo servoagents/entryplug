@@ -33,18 +33,18 @@ from a2a.types import (
 from a2a.utils import TransportProtocol
 from google.protobuf.json_format import MessageToDict  # type: ignore[import-untyped]
 
-from entryplug.episode import EpisodeFactory
-from entryplug.harbor_episode import ACQUIRE_VISUAL_BINDING, harbor_mirrors_episode_factory
-from entryplug.pilot import summarize_mirrors_episode
-from entryplug.qualification import HARBOR_MIRRORS_V1
-from entryplug.runtime import DEFAULT_HARBOR_IMAGE, RUN_ID_PATTERN, RuntimeResult
-from entryplug.seeding import validate_experiment_seed
+from entryplug.harness.episode import EpisodeFactory
 from entryplug_a2a.server import (
     ARTIFACT_NAME,
     CAPABILITY_EXTENSION_URI,
     MEDIA_TYPE,
     create_a2a_server,
 )
+from entryplug_evaluation.harbor.pilot import summarize_mirrors_episode
+from entryplug_harbor.episode import ACQUIRE_VISUAL_BINDING, harbor_mirrors_episode_factory
+from entryplug_harbor.qualification import HARBOR_MIRRORS_V1
+from entryplug_harbor.runtime import DEFAULT_HARBOR_IMAGE, RUN_ID_PATTERN, RuntimeResult
+from entryplug_harbor.seeding import validate_experiment_seed
 
 A2A_PROTOCOL_REVISION = "1.0"
 _TERMINAL_STATES = {
@@ -300,7 +300,7 @@ def run_a2a_harbor(
             "run_id": physical.run_id,
             "evidence_path": str(physical.evidence_path),
             "container_image": image,
-            "shared_launch_path": "entryplug.runtime.harbor_run_command",
+            "shared_launch_path": "entryplug_harbor.runtime.harbor_run_command",
             "shared_physical_algorithm": "containers/harbor/mirrors.py",
         },
         "transport": {

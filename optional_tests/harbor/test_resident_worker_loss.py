@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 import resident
 
-from entryplug.detector_worker import WorkerUnavailable
+from entryplug_harbor.worker import WorkerUnavailable
 
 
 @pytest.mark.parametrize("confirmed", [True, False])

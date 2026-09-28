@@ -21,8 +21,8 @@ from a2a.types import (
 from a2a.utils import TransportProtocol
 from google.protobuf.json_format import MessageToDict
 
-from entryplug.evidence import JsonValue
-from entryplug.operation import (
+from entryplug.core.evidence import JsonValue
+from entryplug.core.operation import (
     CapabilitySpec,
     Lifecycle,
     MotionState,
@@ -30,7 +30,7 @@ from entryplug.operation import (
     OperationHost,
     OperationResult,
 )
-from entryplug.session import Session
+from entryplug.harness.session import Session
 from entryplug_a2a import CAPABILITY_EXTENSION_URI, create_a2a_server
 
 

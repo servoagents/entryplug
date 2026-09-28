@@ -14,12 +14,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from entryplug.association import CandidateEvidence
-from entryplug.association_operation import CAPABILITY_NAME, association_host, candidate_records
-from entryplug.episode import EpisodeStart
-from entryplug.mirror_replay import load_mirror_replay_source
-from entryplug.qualification import HARBOR_MIRRORS_V1
-from entryplug.session import Session
+from entryplug.embodiment.association import CandidateEvidence
+from entryplug.embodiment.association_operation import (
+    CAPABILITY_NAME,
+    association_host,
+    candidate_records,
+)
+from entryplug.harness.episode import EpisodeStart
+from entryplug.harness.session import Session
+from entryplug_evaluation.harbor.mirror_replay import load_mirror_replay_source
+from entryplug_harbor.qualification import HARBOR_MIRRORS_V1
 from entryplug_openenv.client import EntryplugEnvClient
 from entryplug_openenv.environment import EntryplugEnvironment
 from entryplug_openenv.loopback import LoopbackServer, start_loopback_server

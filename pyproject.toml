@@ -57,4 +57,4 @@ select = ["E", "F", "I", "UP", "B"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-packages = ["entryplug"]
+packages = ["entryplug", "entryplug_harbor", "entryplug_evaluation"]

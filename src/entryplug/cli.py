@@ -13,8 +13,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from entryplug.doctor import DoctorReport, default_report_path, run_doctor, write_report
-from entryplug.pilot import run_mirrors_pilot
-from entryplug.runtime import DEFAULT_HARBOR_IMAGE, run_harbor, supported_cases
+from entryplug_evaluation.harbor.pilot import run_mirrors_pilot
+from entryplug_harbor.runtime import DEFAULT_HARBOR_IMAGE, run_harbor, supported_cases
 
 
 def source_root() -> Path | None:
@@ -319,7 +319,7 @@ def _resident_demo(args: argparse.Namespace) -> int:
     if root is None:
         print("entryplug resident-demo: run from a source checkout", file=sys.stderr)
         return 2
-    from entryplug.resident_demo import run_resident_demo
+    from entryplug_evaluation.harbor.demo import run_resident_demo
 
     try:
         result = asyncio.run(
@@ -348,7 +348,7 @@ def _resident_handwritten(args: argparse.Namespace) -> int:
     if root is None:
         print("entryplug resident-handwritten: run from a source checkout", file=sys.stderr)
         return 2
-    from entryplug.resident_handwritten import run_handwritten_recovery
+    from entryplug_evaluation.harbor.handwritten import run_handwritten_recovery
 
     try:
         result = asyncio.run(
@@ -375,7 +375,7 @@ def _resident_compare(args: argparse.Namespace) -> int:
     if root is None:
         print("entryplug resident-compare: run from a source checkout", file=sys.stderr)
         return 2
-    from entryplug.recovery_compare import record_recovery_comparison
+    from entryplug_evaluation.harbor.recovery_comparison import record_recovery_comparison
 
     try:
         result = record_recovery_comparison(root, args.manifest)
@@ -394,7 +394,7 @@ def _recovery_pilot(args: argparse.Namespace) -> int:
     if root is None:
         print("entryplug resident-pilot: run from a source checkout", file=sys.stderr)
         return 2
-    from entryplug.recovery_pilot import run_recovery_development
+    from entryplug_evaluation.harbor.recovery_pilot import run_recovery_development
 
     try:
         result = asyncio.run(run_recovery_development(root, image=args.image))

@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 import reach
 
-from entryplug.detector_worker import WorkerUnavailable
+from entryplug_harbor.worker import WorkerUnavailable
 
 
 def _frames(monkeypatch: pytest.MonkeyPatch, *, stale: set[int], count: int) -> object:

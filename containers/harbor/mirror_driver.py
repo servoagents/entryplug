@@ -13,7 +13,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float64MultiArray
 
-from entryplug.seeding import derive_experiment_seed
+from entryplug_harbor.seeding import derive_experiment_seed
 
 DEFAULT_FIXTURE_SEED = 3119
 

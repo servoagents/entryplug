@@ -9,9 +9,9 @@ from types import SimpleNamespace
 import pytest
 import resident_reacquire
 
-from entryplug.association import load_visual_binding, make_visual_binding_record
-from entryplug.detector_worker import WorkerUnavailable
-from entryplug.harbor_resident import SOURCE_ID, SOURCE_LINEAGE
+from entryplug.embodiment.association import load_visual_binding, make_visual_binding_record
+from entryplug_harbor.resident import SOURCE_ID, SOURCE_LINEAGE
+from entryplug_harbor.worker import WorkerUnavailable
 
 
 class _Paths:

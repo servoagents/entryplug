@@ -32,11 +32,8 @@ from smoke import (
     _write_png_create_only,
 )
 
-from entryplug.agent import AgentRunner, ScriptedExplorer, agent_execution_record
-from entryplug.detection import DETECTOR_INTERFACE_VERSION, MarkerDetection, MarkerFrame
-from entryplug.detector_worker import WorkerUnavailable
-from entryplug.evidence import JsonValue
-from entryplug.operation import (
+from entryplug.core.evidence import JsonValue
+from entryplug.core.operation import (
     CapabilitySpec,
     Lifecycle,
     MotionState,
@@ -44,8 +41,11 @@ from entryplug.operation import (
     OperationHost,
     OperationResult,
 )
-from entryplug.session import Session
-from entryplug.visual_task import visual_reach_arguments
+from entryplug.harness.agent import AgentRunner, ScriptedExplorer, agent_execution_record
+from entryplug.harness.session import Session
+from entryplug_harbor.perception import DETECTOR_INTERFACE_VERSION, MarkerDetection, MarkerFrame
+from entryplug_harbor.visual_task import visual_reach_arguments
+from entryplug_harbor.worker import WorkerUnavailable
 
 CONTROL_JOINT = "joint2"
 SUPPLIED_GAIN_PX_PER_RADIAN = 125.0

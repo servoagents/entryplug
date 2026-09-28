@@ -20,16 +20,16 @@ from reach import (
 )
 from smoke import _wait_stationary
 
-from entryplug.association import (
+from entryplug.embodiment.association import (
     CachedVisualBinding,
     CandidateEvidence,
     load_visual_binding,
     make_visual_binding_record,
     select_candidate,
 )
-from entryplug.detector_worker import ActiveDetectorPath, WorkerUnavailable
-from entryplug.harbor_resident import SOURCE_ID, SOURCE_LINEAGE
-from entryplug.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1
+from entryplug_harbor.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1
+from entryplug_harbor.resident import SOURCE_ID, SOURCE_LINEAGE
+from entryplug_harbor.worker import ActiveDetectorPath, WorkerUnavailable
 
 
 def _check_budget(cancel: threading.Event, end: float) -> None:

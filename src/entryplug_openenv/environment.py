@@ -12,9 +12,9 @@ from typing import Any, TypeVar, cast
 
 from openenv.core.env_server.interfaces import Environment  # type: ignore[import-untyped]
 
-from entryplug.agent import Act, Cancel, Decision, Inspect, Stop, Wait
-from entryplug.episode import EpisodeController, EpisodeFactory, EpisodeState
-from entryplug.operation import OperationSnapshot
+from entryplug.core.operation import OperationSnapshot
+from entryplug.harness.agent import Act, Cancel, Decision, Inspect, Stop, Wait
+from entryplug.harness.episode import EpisodeController, EpisodeFactory, EpisodeState
 from entryplug_openenv.models import (
     ActDecision,
     CancelDecision,
