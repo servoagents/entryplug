@@ -4,7 +4,8 @@ FROM ${BASE_IMAGE}
 
 USER root
 RUN python3 -m pip install --no-cache-dir --break-system-packages \
-    paho-mqtt==2.1.0
+    paho-mqtt==2.1.0 eclipse-zenoh==1.10.1
 USER entryplug
 
-RUN python3 -c "import paho.mqtt.client; import entryplug_harbor.mqtt_light"
+RUN python3 -c "import paho.mqtt.client; import zenoh; import entryplug_harbor.mqtt_light"
+RUN python3 -m pytest -q -p no:cacheprovider optional_tests/zenoh optional_tests/mqtt
