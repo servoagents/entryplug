@@ -15,7 +15,7 @@ def test_core_import_does_not_import_optional_adapter_sdks() -> None:
             "-c",
             "import sys; import entryplug; import entryplug.api; "
             "assert not {'a2a', 'mcp', 'openenv', 'aiohttp', "
-            "'entryplug_homeassistant', 'zenoh', 'entryplug_zenoh'} & sys.modules.keys()",
+            "'entryplug_homeassistant', 'zenoh', 'entryplug_zenoh', 'paho'} & sys.modules.keys()",
         ],
         check=False,
         text=True,

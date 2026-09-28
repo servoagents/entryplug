@@ -151,3 +151,10 @@ def test_test_command_selects_optional_a2a_suite() -> None:
     args = _parse_args(["test", "--suite=a2a", "-q"])
     assert args.pytest_args == ["-q"]
     assert args.test_suite == "a2a"
+
+
+def test_test_command_selects_optional_mqtt_suite() -> None:
+    args = _parse_args(["test", "--suite", "mqtt", "-q"])
+
+    assert args.test_suite == "mqtt"
+    assert args.pytest_args == ["-q"]

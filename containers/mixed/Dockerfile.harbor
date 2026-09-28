@@ -1,0 +1,10 @@
+# Fixture-only network-capable variant. The ordinary Harbor image stays offline.
+ARG BASE_IMAGE=entryplug-harbor:jazzy
+FROM ${BASE_IMAGE}
+
+USER root
+RUN python3 -m pip install --no-cache-dir --break-system-packages \
+    paho-mqtt==2.1.0
+USER entryplug
+
+RUN python3 -c "import paho.mqtt.client; import entryplug_harbor.mqtt_light"
