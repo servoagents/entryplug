@@ -287,3 +287,86 @@ def test_buffered_pre_report_frame_cannot_verify_lighting_change() -> None:
         await session.close()
 
     asyncio.run(scenario())
+
+
+def test_primary_worker_loss_uses_one_alternate_and_rechecks_fresh_frames() -> None:
+    class PrimaryWorker(WorkerFixture):
+        async def detect(self, frame: CameraFrame) -> MarkerMeasurement:
+            if frame.sequence >= 3:
+                raise RuntimeError("primary process lost")
+            return await super().detect(frame)
+
+    class AlternateWorker(WorkerFixture):
+        worker_id = "worker-b"
+
+    async def scenario() -> None:
+        camera = CameraFixture([1, 2, 3, 4, 5, 6])
+        light = LightFixture()
+        primary = PrimaryWorker([0.1, 0.1])
+        alternate = AlternateWorker([0.8, 0.8, 0.9])
+        host = OperationHost(
+            (inspection_spec(camera, primary, alternate_worker=alternate, light=light),),
+            runtime_id="inspection",
+        )
+        session = Session(host, owns_runtime=True)
+        try:
+            operation = await session.act(
+                "inspect_target", {"target_id": "bench-marker"}, request_id="stable"
+            )
+            result = await session.wait(operation, 0.5)
+            assert result.lifecycle == Lifecycle.SUCCEEDED
+            assert result.effect_state == EffectState.REPORTED
+            assert result.result["worker_id"] == "worker-b"
+            assert result.result["binding_revision"] == 2
+            assert result.result["worker_replacements"] == 1
+            assert result.result["sample_ids"] == ("sample-5", "sample-6")
+            assert alternate.calls == 3  # warmup plus two new verification frames
+            assert light.writes == [0.25]
+            repeated = await session.act(
+                "inspect_target", {"target_id": "bench-marker"}, request_id="stable"
+            )
+            assert repeated.operation_id == operation.operation_id
+            assert camera.captures == 6
+        finally:
+            await session.close()
+
+    asyncio.run(scenario())
+
+
+def test_stale_alternate_warmup_cannot_restore_inspection() -> None:
+    class PrimaryWorker(WorkerFixture):
+        async def detect(self, frame: CameraFrame) -> MarkerMeasurement:
+            raise RuntimeError("primary process lost")
+
+    class AlternateWorker(WorkerFixture):
+        worker_id = "worker-b"
+
+    async def scenario() -> None:
+        camera = CameraFixture([1, 2])
+        primary = PrimaryWorker([])
+        alternate = AlternateWorker([0.9], stale_reply=True)
+        host = OperationHost(
+            (inspection_spec(camera, primary, alternate_worker=alternate),),
+            runtime_id="inspection",
+        )
+        session = Session(host, owns_runtime=True)
+        try:
+            operation = await session.act("inspect_target", {"target_id": "bench-marker"})
+            result = await session.wait(operation, 0.5)
+            assert result.lifecycle == Lifecycle.FAILED
+            assert result.reason_code == "WORKER_ALTERNATE_UNAVAILABLE"
+            assert result.result["worker_replacements"] == 1
+            assert camera.captures == 2
+        finally:
+            await session.close()
+
+    asyncio.run(scenario())
+
+
+def test_alternate_program_must_match_approved_primary() -> None:
+    class OtherWorker(WorkerFixture):
+        worker_id = "worker-b"
+        program_id = "other-program"
+
+    with pytest.raises(ValueError, match="approved program"):
+        inspection_spec(CameraFixture([]), WorkerFixture([]), alternate_worker=OtherWorker([]))

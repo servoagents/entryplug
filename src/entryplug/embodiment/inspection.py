@@ -108,6 +108,13 @@ class _ObservationFault(Exception):
         super().__init__(reason_code)
 
 
+class _WorkerFault(_ObservationFault):
+    def __init__(self, reason_code: str, frame: CameraFrame, error_type: str | None = None) -> None:
+        super().__init__(reason_code)
+        self.frame = frame
+        self.error_type = error_type
+
+
 def _check_frame(
     frame: CameraFrame,
     previous: CameraFrame | None,
@@ -197,8 +204,15 @@ async def _observe_pair(
     for _ in range(2):
         frame = await camera.capture()
         _check_frame(frame, previous, config, not_before_monotonic)
-        measurement = await worker.detect(frame)
-        detected = _check_measurement(measurement, frame, worker)
+        try:
+            measurement = await worker.detect(frame)
+            detected = _check_measurement(measurement, frame, worker)
+        except _ObservationFault as error:
+            raise _WorkerFault(error.reason_code, frame) from error
+        except Exception as error:
+            raise _WorkerFault(
+                "OBSERVATION_PROVIDER_FAILED", frame, type(error).__name__
+            ) from error
         usable &= detected and measurement.quality >= config.minimum_quality
         samples.append(frame.sample_id)
         previous = frame
@@ -211,12 +225,20 @@ def inspection_spec(
     camera: CameraSource,
     worker: DetectorWorker,
     *,
+    alternate_worker: DetectorWorker | None = None,
     light: BrightnessControl | None = None,
     config: InspectionConfig = _DEFAULT_INSPECTION_CONFIG,
 ) -> CapabilitySpec:
     """Bind approved resources to one task, without a provider registry."""
     if not worker.worker_id or not worker.program_id:
         raise ValueError("worker identity and program must be nonempty")
+    if alternate_worker is not None and (
+        alternate_worker is worker
+        or not alternate_worker.worker_id
+        or alternate_worker.worker_id == worker.worker_id
+        or alternate_worker.program_id != worker.program_id
+    ):
+        raise ValueError("alternate worker must be distinct and use the approved program")
     if light is not None and not light.entity_id:
         raise ValueError("light entity ID must be nonempty")
 
@@ -233,6 +255,9 @@ def inspection_spec(
         last_level: float | None = None
         writes = 0
         previous: CameraFrame | None = None
+        active_worker = worker
+        binding_revision = 1
+        replacements = 0
         not_before_monotonic: float | None = None
         context.report("observe_initial", MotionState.IDLE)
 
@@ -280,9 +305,52 @@ def inspection_spec(
                 not_before_monotonic = time.monotonic()
                 context.report("verify_visual", MotionState.IDLE)
             try:
-                previous, measurement, usable, samples = await _observe_pair(
-                    camera, worker, config, previous, not_before_monotonic
-                )
+                while True:
+                    try:
+                        previous, measurement, usable, samples = await _observe_pair(
+                            camera, active_worker, config, previous, not_before_monotonic
+                        )
+                        break
+                    except _WorkerFault as error:
+                        if alternate_worker is None or replacements:
+                            details: dict[str, JsonValue] = {
+                                "lighting_writes": writes,
+                                "worker_replacements": replacements,
+                            }
+                            if error.error_type is not None:
+                                details["error_type"] = error.error_type
+                            return OperationResult(
+                                Lifecycle.FAILED,
+                                MotionState.IDLE,
+                                result=details,
+                                reason_code=error.reason_code,
+                                effect_state=effect,
+                            )
+                        # The failed or late result cannot validate the task.
+                        # Warm the approved alternate on a new current frame, then
+                        # require two more progressing frames through that worker.
+                        replacements = 1
+                        active_worker = alternate_worker
+                        context.report("replace_worker", MotionState.IDLE)
+                        warm_frame = await camera.capture()
+                        _check_frame(warm_frame, error.frame, config, not_before_monotonic)
+                        try:
+                            warm_result = await active_worker.detect(warm_frame)
+                            _check_measurement(warm_result, warm_frame, active_worker)
+                        except Exception as warm_error:
+                            return OperationResult(
+                                Lifecycle.FAILED,
+                                MotionState.IDLE,
+                                result={
+                                    "lighting_writes": writes,
+                                    "worker_replacements": replacements,
+                                    "error_type": type(warm_error).__name__,
+                                },
+                                reason_code="WORKER_ALTERNATE_UNAVAILABLE",
+                                effect_state=effect,
+                            )
+                        previous = warm_frame
+                        binding_revision += 1
             except _ObservationFault as error:
                 return OperationResult(
                     Lifecycle.FAILED,
@@ -321,9 +389,10 @@ def inspection_spec(
                         "last_sequence": previous.sequence,
                         "centroid_px": [measurement.centroid_x, measurement.centroid_y],
                         "quality": measurement.quality,
-                        "worker_id": worker.worker_id,
-                        "program_id": worker.program_id,
-                        "binding_revision": 1,
+                        "worker_id": active_worker.worker_id,
+                        "program_id": active_worker.program_id,
+                        "binding_revision": binding_revision,
+                        "worker_replacements": replacements,
                         "lighting_writes": writes,
                         "last_reported_level": last_level,
                     },
