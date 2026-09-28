@@ -45,7 +45,7 @@ def main() -> int:
             )
             try:
                 args.ready.open("x").close()
-                stop.wait(60.0)
+                stop.wait()
             finally:
                 worker.close()
     except Exception as error:
