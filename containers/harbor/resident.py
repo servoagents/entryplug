@@ -49,7 +49,13 @@ from entryplug.embodiment.association import (
     validate_cached_binding,
 )
 from entryplug_harbor.recovery_qualification import HARBOR_RESIDENT_RECOVERY_V1
-from entryplug_harbor.resident import MAX_RECORD_BYTES, RESULT_LOSS_FAULT, SOURCE_ID, SOURCE_LINEAGE
+from entryplug_harbor.resident import (
+    MAX_RECORD_BYTES,
+    NATIVE_RESULT_LOSS_FAULT,
+    RESULT_LOSS_FAULT,
+    SOURCE_ID,
+    SOURCE_LINEAGE,
+)
 from entryplug_harbor.visual_task import visual_reach_arguments
 from entryplug_harbor.worker import ActiveDetectorPath, DetectorWorker, WorkerUnavailable
 
@@ -381,6 +387,22 @@ def _task(
                                     "accepted_monotonic": time.monotonic(),
                                 },
                             )
+                            if evaluation_fault == NATIVE_RESULT_LOSS_FAULT:
+                                _write_create_only(
+                                    run_dir / f"{prefix}-native-result-unobserved.evaluator.json",
+                                    {
+                                        "operation_id": operation_id,
+                                        "goal_id": goal_id,
+                                        "fault_applied": True,
+                                        "fault_phase": fault_event["phase"],
+                                        "primary_instance": fault_event["primary_instance"],
+                                        "client_exit_monotonic": time.monotonic(),
+                                        "mechanism": "client_exit_after_goal_acceptance",
+                                    },
+                                )
+                                raise RuntimeError(
+                                    "evaluator exited native result client after goal admission"
+                                )
 
                     try:
                         if recovery_strategy == "full_reacquisition":
@@ -793,6 +815,7 @@ def serve(run_dir: Path, run_id: str) -> None:
                     "kill-both-workers",
                     "kill-active-worker-stale-alternate",
                     RESULT_LOSS_FAULT,
+                    NATIVE_RESULT_LOSS_FAULT,
                 }:
                     raise ValueError("unknown private evaluator fault")
                 strategy_value = command.get("evaluation_recovery_strategy", "checked_reuse")

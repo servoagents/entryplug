@@ -44,6 +44,7 @@ MAX_RECORD_BYTES = 16_384
 SOURCE_ID = "camera-color-v1"
 SOURCE_LINEAGE = "camera-color-capture-v1"
 RESULT_LOSS_FAULT = "kill-active-worker-drop-repair-result"
+NATIVE_RESULT_LOSS_FAULT = "kill-active-worker-drop-native-result"
 
 
 class ResidentReplyLost(RuntimeError):
@@ -270,6 +271,7 @@ def harbor_resident_episode_factory(
         "kill-both-workers",
         "kill-active-worker-stale-alternate",
         RESULT_LOSS_FAULT,
+        NATIVE_RESULT_LOSS_FAULT,
     }:
         raise ValueError("unsupported resident evaluation fault")
     if evaluation_recovery_strategy not in {"checked_reuse", "full_reacquisition"} or (

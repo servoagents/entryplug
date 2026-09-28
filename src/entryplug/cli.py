@@ -105,6 +105,7 @@ def _parser() -> argparse.ArgumentParser:
             "kill-both-workers",
             "kill-active-worker-stale-alternate",
             "kill-active-worker-drop-repair-result",
+            "kill-active-worker-drop-native-result",
         ),
         default="none",
         help="private evaluator fault applied to the second goal",
