@@ -213,8 +213,35 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
             forwarded = forwarded[2:]
         elif forwarded[:1] and forwarded[0].startswith("--suite="):
             suite = forwarded.pop(0).split("=", 1)[1]
-        if suite not in {"core", "a2a", "mcp", "openenv", "homeassistant", "zenoh", "mqtt", "all"}:
+        if suite not in {
+            "core",
+            "a2a",
+            "mcp",
+            "openenv",
+            "homeassistant",
+            "zenoh",
+            "mqtt",
+            "scenarios",
+            "all",
+        }:
             raise SystemExit(f"entryplug test: unknown suite {suite!r}")
+        if suite == "scenarios":
+            scenarios = argparse.ArgumentParser(prog="entryplug test --suite scenarios")
+            scenarios.add_argument(
+                "--scenario",
+                choices=("zenoh", "mqtt", "ros2-vision", "ros2-recovery", "hybrid"),
+                required=True,
+            )
+            scenarios.add_argument("--build", action="store_true")
+            scenarios.add_argument("--fault", choices=("none", "no-native-worker"), default="none")
+            selected = scenarios.parse_args(forwarded)
+            return argparse.Namespace(
+                command="test",
+                test_suite=suite,
+                scenario=selected.scenario,
+                build=selected.build,
+                fault=selected.fault,
+            )
         return argparse.Namespace(command="test", pytest_args=forwarded, test_suite=suite)
 
     parser = _parser()
@@ -279,6 +306,19 @@ def _test(args: argparse.Namespace) -> int:
         print("entryplug test: run this command from a source checkout", file=sys.stderr)
         return 2
     suite = getattr(args, "test_suite", "core")
+    if suite == "scenarios":
+        if args.scenario != "hybrid":
+            print(
+                f"entryplug test: {args.scenario} live scenario is not packaged yet",
+                file=sys.stderr,
+            )
+            return 2
+        command = [sys.executable, str(root / "containers/scenarios/run_hybrid.py")]
+        if args.build:
+            command.append("--build")
+        if args.fault != "none":
+            command.extend(("--fault", args.fault))
+        return subprocess.run(command, cwd=root, check=False).returncode
     targets: list[str] = []
     if suite in {"a2a", "mcp", "openenv", "homeassistant", "zenoh", "mqtt"}:
         targets.append(str(root / "optional_tests" / suite))

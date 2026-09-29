@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -50,8 +51,9 @@ def _command(args: list[str], label: str, *, environment: dict[str, str] | None 
 class OwnedStack:
     """One project ID, HA volume and private secret directory; no global cleanup."""
 
-    def __init__(self, project: str, run_id: str) -> None:
+    def __init__(self, project: str, run_id: str, *, pull_images: bool) -> None:
         self.project = project
+        self.pull_images = pull_images
         self.private = Path(tempfile.mkdtemp(prefix="entryplug-scenario-"))
         self.environment = dict(os.environ)
         self.environment.update(
@@ -65,8 +67,11 @@ class OwnedStack:
         files = ["-f", str(COMPOSE)]
         if hybrid:
             files += ["-f", str(HYBRID)]
+        options = [*arguments]
+        if options[:1] == ["up"] and not self.pull_images:
+            options.extend(("--pull", "never"))
         return _command(
-            ["docker", "compose", *files, *arguments],
+            ["docker", "compose", *files, *options],
             label,
             environment=self.environment,
         )
@@ -105,16 +110,83 @@ class OwnedStack:
         shutil.rmtree(self.private)
 
 
-def _build_images() -> None:
+def _source_digest() -> str:
+    tracked = subprocess.run(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+    ).stdout
+    digest = hashlib.sha256()
+    for relative in sorted(set(tracked.split(b"\0")) - {b""}):
+        path = ROOT / os.fsdecode(relative)
+        digest.update(len(relative).to_bytes(4, "big"))
+        digest.update(relative)
+        if path.is_symlink():
+            content = os.fsencode(os.readlink(path))
+        elif path.is_file():
+            content = path.read_bytes()
+        else:
+            content = b"<missing>"
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
+
+
+def _prepare_images(*, build: bool) -> dict[str, object]:
+    source_sha256 = _source_digest()
+    images: dict[str, str] = {}
     for dockerfile, tag in (
         ("containers/harbor/Dockerfile", "entryplug-harbor:jazzy"),
         ("containers/mixed/Dockerfile.harbor", "entryplug-harbor-mixed:jazzy"),
         ("containers/scenarios/Dockerfile.worker", "entryplug-scenario-worker:dev"),
     ):
-        _command(
-            ["docker", "build", "--file", dockerfile, "--tag", tag, "."],
-            f"building source-current {tag}",
-        )
+        if build:
+            _command(
+                [
+                    "docker",
+                    "build",
+                    "--file",
+                    dockerfile,
+                    "--tag",
+                    tag,
+                    "--label",
+                    f"org.entryplug.source-sha256={source_sha256}",
+                    ".",
+                ],
+                f"building source-current {tag}",
+            )
+        try:
+            image_id = _command(
+                ["docker", "image", "inspect", "--format", "{{.Id}}", tag],
+                f"checking image identity for {tag}",
+            ).strip()
+            recorded_source = _command(
+                [
+                    "docker",
+                    "image",
+                    "inspect",
+                    "--format",
+                    '{{index .Config.Labels "org.entryplug.source-sha256"}}',
+                    tag,
+                ],
+                f"checking source identity for {tag}",
+            ).strip()
+        except ScenarioFailure as error:
+            raise ScenarioFailure(f"{tag} is missing; rerun with --build") from error
+        if recorded_source != source_sha256:
+            raise ScenarioFailure(f"{tag} is stale; rerun with --build")
+        images[tag] = image_id
+    return {"source_sha256": source_sha256, "image_ids": images}
+
+
+def _check_secret(run_dir: Path, token_file: Path) -> None:
+    secret = token_file.read_bytes().strip()
+    if not secret:
+        raise ScenarioFailure("fixture token is empty")
+    for artifact in run_dir.iterdir():
+        if artifact.is_file() and secret in artifact.read_bytes():
+            raise ScenarioFailure("fixture token leaked into task evidence")
 
 
 def _check_result(run_dir: Path, token_file: Path) -> dict[str, object]:
@@ -128,12 +200,7 @@ def _check_result(run_dir: Path, token_file: Path) -> dict[str, object]:
     first = operations[0].get("result")
     if not isinstance(first, dict) or bridge.get("applied_count") != first.get("lighting_writes"):
         raise ScenarioFailure("MQTT bridge did not confirm every task lighting write")
-    secret = token_file.read_bytes().strip()
-    if not secret:
-        raise ScenarioFailure("fixture token is empty")
-    for artifact in run_dir.iterdir():
-        if artifact.is_file() and secret in artifact.read_bytes():
-            raise ScenarioFailure("fixture token leaked into task evidence")
+    _check_secret(run_dir, token_file)
     return {
         "status": "passed",
         "operation_ids": [operation["operation_id"] for operation in operations],
@@ -143,16 +210,39 @@ def _check_result(run_dir: Path, token_file: Path) -> dict[str, object]:
     }
 
 
+def _check_unavailable_result(run_dir: Path, token_file: Path) -> dict[str, object]:
+    report = json.loads((run_dir / "hybrid.json").read_text(encoding="utf-8"))
+    bridge = json.loads((run_dir / "bridge.json").read_text(encoding="utf-8"))
+    operations = report.get("operations")
+    if report.get("status") != "failed" or not isinstance(operations, list) or len(operations) != 1:
+        raise ScenarioFailure("missing-worker task did not return one failed operation")
+    operation = operations[0]
+    result = operation.get("result")
+    if (
+        operation.get("lifecycle") != "failed"
+        or operation.get("reason_code") != "OBSERVATION_PROVIDER_FAILED"
+        or not isinstance(result, dict)
+        or result.get("lighting_writes") != 0
+        or bridge.get("status") != "stopped"
+        or bridge.get("applied_count") != 0
+    ):
+        raise ScenarioFailure("missing-worker task made a write or returned the wrong refusal")
+    _check_secret(run_dir, token_file)
+    return {
+        "status": "passed",
+        "task_lifecycle": "failed",
+        "task_reason": operation["reason_code"],
+        "operation_ids": [operation["operation_id"]],
+        "lighting_writes": [0],
+        "bridge_applied_count": 0,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--build",
-        action="store_true",
-        help="required for this first slice so local images match the source tree",
-    )
+    parser.add_argument("--build", action="store_true", help="build source-current images")
+    parser.add_argument("--fault", choices=("none", "no-native-worker"), default="none")
     args = parser.parse_args()
-    if not args.build:
-        parser.error("slice A requires --build; cached layers make unchanged reruns cheap")
     RUNS.mkdir(exist_ok=True)
     run_id = "hybrid-" + uuid.uuid4().hex[:12]
     run_dir = RUNS / run_id
@@ -160,13 +250,14 @@ def main() -> int:
     outcome: dict[str, object] = {
         "status": "failed",
         "run_id": run_id,
+        "fault": args.fault,
         "fresh_volume_bootstraps": bootstraps,
     }
     stack: OwnedStack | None = None
     try:
-        _build_images()
+        outcome.update(_prepare_images(build=args.build))
         for project in (f"ep-{run_id}-proof", f"ep-{run_id}"):
-            stack = OwnedStack(project, run_id)
+            stack = OwnedStack(project, run_id, pull_images=args.build)
             try:
                 bootstraps.append(
                     {
@@ -176,29 +267,41 @@ def main() -> int:
                 )
                 if project.endswith("-proof"):
                     continue
+                services = ["native-router", "workbench"]
+                if args.fault == "none":
+                    services.insert(1, "native-worker")
                 stack.compose(
                     "up",
                     "-d",
                     "--no-build",
-                    "native-router",
-                    "native-worker",
-                    "workbench",
+                    *services,
                     hybrid=True,
                     label="starting native compute and ROS workbench",
                 )
-                stack.compose(
-                    "exec",
-                    "-T",
-                    "workbench",
-                    "/usr/local/bin/entryplug-container",
-                    "bash",
-                    "/workspace/entryplug/containers/mixed/hybrid_inspection.sh",
-                    f"/workspace/entryplug/runs/{run_id}",
-                    run_id,
-                    hybrid=True,
-                    label="running first and warm inspect_target operations",
-                )
-                outcome.update(_check_result(run_dir, stack.private / "ha-token"))
+                command_failed = False
+                try:
+                    stack.compose(
+                        "exec",
+                        "-T",
+                        "workbench",
+                        "/usr/local/bin/entryplug-container",
+                        "bash",
+                        "/workspace/entryplug/containers/mixed/hybrid_inspection.sh",
+                        f"/workspace/entryplug/runs/{run_id}",
+                        run_id,
+                        hybrid=True,
+                        label="running inspect_target task",
+                    )
+                except ScenarioFailure:
+                    if args.fault != "no-native-worker":
+                        raise
+                    command_failed = True
+                if args.fault == "no-native-worker":
+                    if not command_failed:
+                        raise ScenarioFailure("task unexpectedly succeeded without native worker")
+                    outcome.update(_check_unavailable_result(run_dir, stack.private / "ha-token"))
+                else:
+                    outcome.update(_check_result(run_dir, stack.private / "ha-token"))
             finally:
                 stack.close()
                 stack = None
