@@ -98,7 +98,7 @@ class PanelFixture(Node):
 
     entity_id = "fixture.panel_lamp"
 
-    def __init__(self, output_dir: Path) -> None:
+    def __init__(self, output_dir: Path, *, direct_lamp: bool = True) -> None:
         super().__init__("entryplug_panel_inspection")
         self.output_dir = output_dir
         self.sequence = 0
@@ -107,7 +107,7 @@ class PanelFixture(Node):
         self.minimum_sim_stamp = -1.0
         self.frame_artifacts: list[str] = []
         self.applied_states: list[dict[str, float | int]] = []
-        self.command = self.create_publisher(Float32, COMMAND_TOPIC, 1)
+        self.command = self.create_publisher(Float32, COMMAND_TOPIC, 1) if direct_lamp else None
         self.create_subscription(Image, IMAGE_TOPIC, self._on_image, qos_profile_sensor_data)
         self.create_subscription(Float64MultiArray, STATE_TOPIC, self._on_state, 10)
 
@@ -168,6 +168,8 @@ class PanelFixture(Node):
         return await asyncio.to_thread(self._capture)
 
     def _set_brightness(self, level: float) -> LightReport:
+        if self.command is None:
+            raise RuntimeError("direct ROS light control is not bound to this camera")
         self._spin_until(lambda: self.latest_state is not None, "initial lamp state", 8.0)
         self._spin_until(lambda: self.command.get_subscription_count() > 0, "lamp subscriber", 8.0)
         assert self.latest_state is not None

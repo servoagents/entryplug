@@ -1,0 +1,36 @@
+name: ${ENTRYPLUG_COMPOSE_PROJECT:?set a unique owned project}
+
+services:
+  broker:
+    image: eclipse-mosquitto@sha256:199ea8ef2e35ec2b1b37e59cfd1dbae538ed4dfa4a2251a121a52215a6248a21
+    user: "1883:1883"
+    entrypoint: [mosquitto]
+    command: [-c, /mosquitto/config/mosquitto.conf]
+    volumes:
+      - ../mixed/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    networks: [scenario]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant@sha256:d8922685169707fd91e8b9729902d975f06157d005e422874d201e0261dda196
+    platform: linux/amd64
+    volumes:
+      - ha_config:/config
+      - ./ha_bootstrap.py:/opt/entryplug/ha_bootstrap.py:ro
+      - ${ENTRYPLUG_FIXTURE_PRIVATE:?set a private fixture directory}:/fixture-private
+    networks: [scenario]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 512
+    stop_grace_period: 60s
+    restart: "no"
+    depends_on: [broker]
+
+networks:
+  scenario:
+    internal: true
+
+volumes:
+  ha_config:

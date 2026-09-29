@@ -1,0 +1,14 @@
+# syntax=docker/dockerfile:1.7
+FROM python@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f
+
+WORKDIR /opt/entryplug
+COPY pyproject.toml README.md ./
+COPY deps/compatibility.json deps/compatibility.json
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install 'setuptools>=68' eclipse-zenoh==1.10.1 numpy==2.4.6
+COPY src src
+RUN python -m pip install --no-deps --no-build-isolation .
+COPY containers/mixed/native_detector_worker.py containers/scenarios/native_router.py ./
+
+USER 10001:10001
+ENV PYTHONUNBUFFERED=1

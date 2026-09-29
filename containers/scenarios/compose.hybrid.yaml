@@ -1,0 +1,67 @@
+services:
+  native-router:
+    image: entryplug-scenario-worker:dev
+    command: [python, /opt/entryplug/native_router.py]
+    networks: [scenario]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import socket; socket.create_connection(('127.0.0.1', 7448), 2).close()"
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  native-worker:
+    image: entryplug-scenario-worker:dev
+    command:
+      - python
+      - /opt/entryplug/native_detector_worker.py
+      - --run-id
+      - ${ENTRYPLUG_SCENARIO_RUN_ID:?set an owned scenario run ID}
+      - --worker-id
+      - worker-a
+      - --port
+      - "7448"
+      - --router-host
+      - native-router
+    depends_on:
+      native-router:
+        condition: service_healthy
+    networks: [scenario]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: "no"
+
+  workbench:
+    image: entryplug-harbor-mixed:jazzy
+    command: [sleep, infinity]
+    depends_on:
+      native-router:
+        condition: service_healthy
+      homeassistant:
+        condition: service_started
+      broker:
+        condition: service_started
+    networks: [scenario]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 512
+    shm_size: 512m
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m
+      - /home/entryplug/.ros:rw,nosuid,nodev,size=32m
+      - /home/entryplug/.cache:rw,nosuid,nodev,size=64m
+    volumes:
+      - ${ENTRYPLUG_RUNS_DIR:?set the project runs path}:/workspace/entryplug/runs
+      - ${ENTRYPLUG_FIXTURE_PRIVATE:?set a private fixture directory}/ha-token:/run/secrets/ha-token:ro
+    environment:
+      PYTHONPATH: /workspace/entryplug/src:/workspace/entryplug/containers/harbor
+    restart: "no"
