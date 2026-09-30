@@ -1,0 +1,22 @@
+schema_version = 1
+name = "Watch the entrance"
+mode = "watch"
+instructions_file = "watch-camera.md"
+
+[agent]
+driver = "rules"
+decision_mode = "rules"
+
+[body]
+selector = "demo.access-camera"
+required_capabilities = ["person.events"]
+
+[trigger]
+kind = "event"
+source = "demo.access-camera"
+event = "person.entered"
+max_pending = 4
+
+[access]
+allow = ["person.events", "camera.snapshot", "alerts.emit"]
+approve = []

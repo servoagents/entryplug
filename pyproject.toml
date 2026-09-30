@@ -25,6 +25,9 @@ Repository = "https://github.com/fj-blanco/entryplug"
 entryplug = "entryplug.cli:main"
 
 [project.optional-dependencies]
+service = ["starlette==1.7.0", "uvicorn==0.54.0", "sse-starlette==3.4.11", "pydantic==2.13.5", "httpx==0.28.1"]
+ui = ["entryplug[service]"]
+openai = ["openai==3.22.1", "authlib==1.8.0", "httpx==0.28.1"]
 homeassistant = ["aiohttp==3.14.3"]
 zenoh = ["eclipse-zenoh==1.10.1", "numpy==2.4.6"]
 mqtt = ["paho-mqtt==2.1.0"]
@@ -36,7 +39,7 @@ a2a = [
   "starlette==1.7.0",
   "uvicorn==0.54.0",
 ]
-mcp = ["mcp==2.2.0"]
+mcp = ["mcp==2.2.0", "httpx2==2.13.1"]
 openenv = ["openenv==0.5.0"]
 
 [tool.setuptools.packages.find]
@@ -61,3 +64,6 @@ select = ["E", "F", "I", "UP", "B"]
 python_version = "3.12"
 strict = true
 packages = ["entryplug", "entryplug_harbor", "entryplug_evaluation"]
+
+[tool.setuptools.package-data]
+entryplug_ui = ["static/*", "static/assets/*"]

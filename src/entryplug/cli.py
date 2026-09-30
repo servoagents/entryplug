@@ -196,6 +196,9 @@ def _parser() -> argparse.ArgumentParser:
     live_mcp.add_argument("--runtime", choices=("container",), required=True)
     live_mcp.add_argument("--seed", type=int, required=True)
     live_mcp.add_argument("--image", default=DEFAULT_HARBOR_IMAGE)
+    from entryplug_app.cli import register
+
+    register(commands)
     return parser
 
 
@@ -634,6 +637,10 @@ def _mcp_harbor(args: argparse.Namespace) -> int:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
+    if getattr(args, "application_command", False):
+        from entryplug_app.cli import run
+
+        return run(args)
     if args.command == "doctor":
         return _doctor(args)
     if args.command == "test":

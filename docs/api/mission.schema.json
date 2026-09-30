@@ -1,0 +1,221 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "instructions": {
+      "type": "string"
+    },
+    "schema_version": {
+      "enum": [
+        1
+      ],
+      "type": "integer"
+    },
+    "mode": {
+      "enum": [
+        "once",
+        "watch"
+      ],
+      "type": "string"
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "driver": {
+          "enum": [
+            "rules",
+            "native",
+            "scripted"
+          ],
+          "type": "string"
+        },
+        "decision_mode": {
+          "enum": [
+            "rules",
+            "assisted"
+          ],
+          "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        }
+      },
+      "required": []
+    },
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "selector": {
+          "type": "string"
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128
+        }
+      },
+      "required": []
+    },
+    "trigger": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "manual",
+            "event",
+            "interval"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string"
+        },
+        "interval_s": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 86400
+        },
+        "coalesce_window_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 60000
+        },
+        "max_pending": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        }
+      },
+      "required": []
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_age_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "include_snapshot": {
+          "type": "boolean"
+        },
+        "recent_snapshots": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        }
+      },
+      "required": []
+    },
+    "access": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allow": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128
+        },
+        "approve": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 128
+        }
+      },
+      "required": []
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_concurrent_turns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1
+        },
+        "max_model_calls_per_turn": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "max_tool_calls_per_turn": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "turn_timeout_s": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 300
+        },
+        "max_turns_per_hour": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      },
+      "required": []
+    },
+    "alerts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sink": {
+          "enum": [
+            "inbox"
+          ],
+          "type": "string"
+        },
+        "deduplicate_by": {
+          "enum": [
+            "occurrence"
+          ],
+          "type": "string"
+        }
+      },
+      "required": []
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "on_source_loss": {
+          "enum": [
+            "block"
+          ],
+          "type": "string"
+        },
+        "resume_after_revalidation": {
+          "type": "boolean"
+        },
+        "missed_events": {
+          "enum": [
+            "report_gap"
+          ],
+          "type": "string"
+        }
+      },
+      "required": []
+    }
+  },
+  "required": [
+    "name",
+    "instructions"
+  ]
+}

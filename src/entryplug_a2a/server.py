@@ -77,6 +77,7 @@ def _operation_payload(snapshot: OperationSnapshot) -> dict[str, object]:
         "capability": snapshot.capability,
         "lifecycle": snapshot.lifecycle.value,
         "motion_state": snapshot.motion_state.value,
+        "effect_state": snapshot.effect_state.value,
         "phase": snapshot.phase,
         "cancel_requested": snapshot.cancel_requested,
         "reason_code": snapshot.reason_code,
@@ -214,10 +215,16 @@ class EntryplugAgentExecutor(AgentExecutor):
         )
         await updater.reject()
 
-    @staticmethod
-    async def _publish_terminal(updater: TaskUpdater, operation: OperationSnapshot) -> None:
+    async def _publish_terminal(self, updater: TaskUpdater, operation: OperationSnapshot) -> None:
+        payload = _operation_payload(operation)
+        # Resident projections can supply durable evidence and native-operation links.
+        # Ordinary Session exports retain their existing payload and result format.
+        inspection = await self._session.inspect(operation, "result")
+        for key in ("native_operation_id", "evidence_ids"):
+            if key in inspection:
+                payload[key] = _plain(inspection[key])
         await updater.add_artifact(
-            [new_data_part(_operation_payload(operation), media_type=MEDIA_TYPE)],
+            [new_data_part(payload, media_type=MEDIA_TYPE)],
             name=ARTIFACT_NAME,
             extensions=[CAPABILITY_EXTENSION_URI],
         )

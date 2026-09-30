@@ -1,0 +1,2039 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Entryplug mission service",
+    "version": "1"
+  },
+  "paths": {
+    "/v1/approvals/{approval_id}/decision": {
+      "post": {
+        "operationId": "approval_decision",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "approval_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/missions": {
+      "post": {
+        "operationId": "mission_create",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MissionDefinition"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_missions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
+    "/v1/missions/{mission_id}": {
+      "patch": {
+        "operationId": "mission_update",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mission_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      },
+      "get": {
+        "operationId": "get_missions_mission_id",
+        "parameters": [
+          {
+            "name": "mission_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current public state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissionRecord"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/missions/{mission_id}/runs": {
+      "post": {
+        "operationId": "mission_start",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mission_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/pause": {
+      "post": {
+        "operationId": "run_pause",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/resume": {
+      "post": {
+        "operationId": "run_resume",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/stop": {
+      "post": {
+        "operationId": "run_stop",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/runs/{run_id}/inputs": {
+      "post": {
+        "operationId": "run_input",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/operations": {
+      "post": {
+        "operationId": "operation_create",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/operations/{operation_id}/cancel": {
+      "post": {
+        "operationId": "operation_cancel",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/attachments": {
+      "post": {
+        "operationId": "attachment_create",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/attachments/{attachment_id}": {
+      "delete": {
+        "operationId": "attachment_revoke",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/alerts/{alert_id}/ack": {
+      "post": {
+        "operationId": "alert_ack",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "alert_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; inspect the returned ID"
+          },
+          "400": {
+            "description": "Typed validation error"
+          },
+          "409": {
+            "description": "State or idempotency conflict"
+          }
+        }
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "operationId": "get_health",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
+    "/v1/snapshot": {
+      "get": {
+        "operationId": "get_snapshot",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Snapshot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bodies": {
+      "get": {
+        "operationId": "get_bodies",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "get_capabilities",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
+    "/v1/topology": {
+      "get": {
+        "operationId": "get_topology",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
+    "/v1/agents": {
+      "get": {
+        "operationId": "get_agents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
+    "/v1/connections": {
+      "get": {
+        "operationId": "get_connections",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/runs/{run_id}": {
+      "get": {
+        "operationId": "get_runs_run_id",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current public state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissionRun"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/operations/{operation_id}": {
+      "get": {
+        "operationId": "get_operations_operation_id",
+        "parameters": [
+          {
+            "name": "operation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current public state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationRecord"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/alerts": {
+      "get": {
+        "operationId": "get_alerts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
+    "/v1/evidence/{evidence_id}": {
+      "get": {
+        "operationId": "get_evidence_evidence_id",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
+    "/v1/evidence/{evidence_id}/content": {
+      "get": {
+        "operationId": "get_evidence_evidence_id_content",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
+    "/v1/events": {
+      "get": {
+        "operationId": "get_events",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Durable entryplug events and ephemeral activity; bounded replay",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "replay_expired: refresh snapshot before reconnecting"
+          }
+        }
+      }
+    },
+    "/v1/profiles": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Current authenticated state"
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/profiles/{profile_id}/models": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Current authenticated state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/session": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Current authenticated state"
+          }
+        }
+      }
+    },
+    "/v1/openapi.json": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Current authenticated state"
+          }
+        }
+      }
+    },
+    "/v1/missions/validate": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/connections/{connection_id}": {
+      "delete": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connection_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/auth/chatgpt/start": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/session/bootstrap": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/session/exchange": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/demo/step": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "LocalBearer": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "LocalBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "MissionRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "mission_id": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "definition": {
+            "type": "object",
+            "additionalProperties": {}
+          },
+          "instructions_hash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "definition",
+          "id",
+          "instructions_hash",
+          "mission_id",
+          "revision"
+        ]
+      },
+      "MissionRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "mission_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "body_id": {
+            "type": "string"
+          },
+          "session_runtime_id": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/MissionLifecycle"
+          },
+          "activity": {
+            "$ref": "#/components/schemas/Activity"
+          },
+          "health": {
+            "$ref": "#/components/schemas/Health"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "active_turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_observation": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": {}
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_result": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pending": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "model_calls": {
+            "type": "integer"
+          },
+          "tool_calls": {
+            "type": "integer"
+          },
+          "turn_count": {
+            "type": "integer"
+          },
+          "dropped_events": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active_turn_id",
+          "activity",
+          "body_id",
+          "dropped_events",
+          "health",
+          "id",
+          "last_observation",
+          "last_result",
+          "lifecycle",
+          "mission_id",
+          "model_calls",
+          "name",
+          "pending",
+          "reason_code",
+          "revision",
+          "run_id",
+          "session_runtime_id",
+          "tool_calls",
+          "turn_count"
+        ]
+      },
+      "OperationRecord": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "attachment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "body_id": {
+            "type": "string"
+          },
+          "capability": {
+            "type": "string"
+          },
+          "session_runtime_id": {
+            "type": "string"
+          },
+          "native_operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request_id": {
+            "type": "string"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/Lifecycle"
+          },
+          "effect_state": {
+            "$ref": "#/components/schemas/EffectState"
+          },
+          "physical_effects": {
+            "type": "boolean"
+          },
+          "evidence_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "attachment_id",
+          "body_id",
+          "capability",
+          "effect_state",
+          "evidence_ids",
+          "id",
+          "lifecycle",
+          "native_operation_id",
+          "physical_effects",
+          "request_id",
+          "run_id",
+          "session_runtime_id",
+          "turn_id"
+        ]
+      },
+      "ServiceEvent": {
+        "type": "object",
+        "properties": {
+          "schema_version": {
+            "type": "integer"
+          },
+          "workspace_id": {
+            "type": "string"
+          },
+          "service_instance_id": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "at": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "at",
+          "data",
+          "operation_id",
+          "run_id",
+          "schema_version",
+          "seq",
+          "service_instance_id",
+          "turn_id",
+          "type",
+          "workspace_id"
+        ]
+      },
+      "Snapshot": {
+        "type": "object",
+        "properties": {
+          "api_version": {
+            "type": "string"
+          },
+          "build_id": {
+            "type": "string"
+          },
+          "workspace_id": {
+            "type": "string"
+          },
+          "service_instance_id": {
+            "type": "string"
+          },
+          "cursor": {
+            "type": "integer"
+          },
+          "missions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "mission_id": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer"
+                },
+                "definition": {
+                  "type": "object",
+                  "additionalProperties": {}
+                },
+                "instructions_hash": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "definition",
+                "id",
+                "instructions_hash",
+                "mission_id",
+                "revision"
+              ]
+            }
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "run_id": {
+                  "type": "string"
+                },
+                "mission_id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "revision": {
+                  "type": "integer"
+                },
+                "body_id": {
+                  "type": "string"
+                },
+                "session_runtime_id": {
+                  "type": "string"
+                },
+                "lifecycle": {
+                  "$ref": "#/components/schemas/MissionLifecycle"
+                },
+                "activity": {
+                  "$ref": "#/components/schemas/Activity"
+                },
+                "health": {
+                  "$ref": "#/components/schemas/Health"
+                },
+                "reason_code": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "active_turn_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "last_observation": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": {}
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "last_result": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "pending": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                },
+                "model_calls": {
+                  "type": "integer"
+                },
+                "tool_calls": {
+                  "type": "integer"
+                },
+                "turn_count": {
+                  "type": "integer"
+                },
+                "dropped_events": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "active_turn_id",
+                "activity",
+                "body_id",
+                "dropped_events",
+                "health",
+                "id",
+                "last_observation",
+                "last_result",
+                "lifecycle",
+                "mission_id",
+                "model_calls",
+                "name",
+                "pending",
+                "reason_code",
+                "revision",
+                "run_id",
+                "session_runtime_id",
+                "tool_calls",
+                "turn_count"
+              ]
+            }
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "attachment_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "run_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "turn_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "body_id": {
+                  "type": "string"
+                },
+                "capability": {
+                  "type": "string"
+                },
+                "session_runtime_id": {
+                  "type": "string"
+                },
+                "native_operation_id": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "request_id": {
+                  "type": "string"
+                },
+                "lifecycle": {
+                  "$ref": "#/components/schemas/Lifecycle"
+                },
+                "effect_state": {
+                  "$ref": "#/components/schemas/EffectState"
+                },
+                "physical_effects": {
+                  "type": "boolean"
+                },
+                "evidence_ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "attachment_id",
+                "body_id",
+                "capability",
+                "effect_state",
+                "evidence_ids",
+                "id",
+                "lifecycle",
+                "native_operation_id",
+                "physical_effects",
+                "request_id",
+                "run_id",
+                "session_runtime_id",
+                "turn_id"
+              ]
+            }
+          },
+          "turns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "alerts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "bodies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "connections": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "approvals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "topology": {
+            "type": "object",
+            "properties": {
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              },
+              "edges": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "required": [
+              "edges",
+              "nodes"
+            ]
+          }
+        },
+        "required": [
+          "alerts",
+          "api_version",
+          "approvals",
+          "attachments",
+          "bodies",
+          "build_id",
+          "connections",
+          "cursor",
+          "missions",
+          "operations",
+          "runs",
+          "service_instance_id",
+          "topology",
+          "turns",
+          "workspace_id"
+        ]
+      },
+      "Lifecycle": {
+        "type": "string",
+        "enum": [
+          "accepted",
+          "running",
+          "canceling",
+          "succeeded",
+          "failed",
+          "canceled",
+          "rejected",
+          "indeterminate"
+        ]
+      },
+      "EffectState": {
+        "type": "string",
+        "enum": [
+          "none",
+          "requested",
+          "reported",
+          "observed",
+          "unknown"
+        ]
+      },
+      "MissionDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "schema_version": {
+            "enum": [
+              1
+            ],
+            "type": "integer"
+          },
+          "mode": {
+            "enum": [
+              "once",
+              "watch"
+            ],
+            "type": "string"
+          },
+          "agent": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "driver": {
+                "enum": [
+                  "rules",
+                  "native",
+                  "scripted"
+                ],
+                "type": "string"
+              },
+              "decision_mode": {
+                "enum": [
+                  "rules",
+                  "assisted"
+                ],
+                "type": "string"
+              },
+              "profile": {
+                "type": "string"
+              }
+            },
+            "required": []
+          },
+          "body": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "selector": {
+                "type": "string"
+              },
+              "required_capabilities": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 128
+              }
+            },
+            "required": []
+          },
+          "trigger": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "manual",
+                  "event",
+                  "interval"
+                ],
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "event": {
+                "type": "string"
+              },
+              "interval_s": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 86400
+              },
+              "coalesce_window_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 60000
+              },
+              "max_pending": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 64
+              }
+            },
+            "required": []
+          },
+          "observation": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "max_age_ms": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 60000
+              },
+              "include_snapshot": {
+                "type": "boolean"
+              },
+              "recent_snapshots": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4
+              }
+            },
+            "required": []
+          },
+          "access": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "allow": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 128
+              },
+              "approve": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 128
+              }
+            },
+            "required": []
+          },
+          "limits": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "max_concurrent_turns": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1
+              },
+              "max_model_calls_per_turn": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              "max_tool_calls_per_turn": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 32
+              },
+              "turn_timeout_s": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 300
+              },
+              "max_turns_per_hour": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3600
+              }
+            },
+            "required": []
+          },
+          "alerts": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "sink": {
+                "enum": [
+                  "inbox"
+                ],
+                "type": "string"
+              },
+              "deduplicate_by": {
+                "enum": [
+                  "occurrence"
+                ],
+                "type": "string"
+              }
+            },
+            "required": []
+          },
+          "recovery": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "on_source_loss": {
+                "enum": [
+                  "block"
+                ],
+                "type": "string"
+              },
+              "resume_after_revalidation": {
+                "type": "boolean"
+              },
+              "missed_events": {
+                "enum": [
+                  "report_gap"
+                ],
+                "type": "string"
+              }
+            },
+            "required": []
+          }
+        },
+        "required": [
+          "name",
+          "instructions"
+        ]
+      },
+      "MissionLifecycle": {
+        "type": "string",
+        "enum": [
+          "created",
+          "starting",
+          "active",
+          "pausing",
+          "paused",
+          "stopping",
+          "stopped",
+          "completed",
+          "failed"
+        ]
+      },
+      "Activity": {
+        "type": "string",
+        "enum": [
+          "acquiring",
+          "waiting_event",
+          "reasoning",
+          "executing",
+          "waiting_approval",
+          "recovering",
+          "idle"
+        ]
+      },
+      "Health": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "degraded",
+          "blocked"
+        ]
+      }
+    }
+  }
+}

@@ -205,6 +205,23 @@
       "qualification": "qualified",
       "source_commit": "8ce0d6d7203628be38b5904edbde9c73e1ed419a",
       "wheel_sha256": "45345cbb675aed5aafffff465c919b9ee679a124e89a58f124eb7c1386bf56ac"
+    },
+    "mission_service": {
+      "python": "3.12.14",
+      "qualification": "fixture_tested",
+      "starlette": "1.7.0",
+      "uvicorn": "0.54.0",
+      "sse_starlette": "3.4.11",
+      "pydantic": "2.13.5",
+      "httpx": "0.28.1",
+      "httpx2": "2.13.1",
+      "openai": "3.22.1",
+      "authlib": "1.8.0",
+      "node_build_only": "22.23.3",
+      "lock": "deps/mission-service.lock",
+      "live_chatgpt_validation": "not_run",
+      "live_homeassistant_validation": "not_run",
+      "openenv_combination": "separate_environment: openenv 0.5.0 requires fastmcp with mcp <2; preserve mcp 2.2.0 for resident exports"
     }
   }
 }
