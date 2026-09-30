@@ -25,3 +25,41 @@ Reasoning stays outside the real time loop. The body executes locally. Entryplug
 **Work in progress.**
 
 The first mission is small. Acquire one physical capability in simulation, prove it, lose part of the body and embody again.
+
+
+## Use a mission
+
+Entryplug now has an optional resident mission service and a local browser
+console. One service owns a workspace; CLI, GUI, and API clients share its runs,
+operations, and persistent inbox. The account-free entrance demo uses labelled
+**SIMULATED** person events and makes no model calls while waiting.
+
+```bash
+entryplug ui
+entryplug mission create examples/watch-camera.toml --json
+entryplug mission start <mission-id> --json
+entryplug demo sequence
+entryplug mission status <run-id> --json
+```
+
+Install a built wheel with `[ui]`. The browser is an observer: closing it leaves
+the mission running. See [installation, mission controls, and systemd](docs/mission-service.md).
+
+## Connect an agent
+
+The console grants an external agent an explicit body/capability scope and a
+separate credential. Existing MCP and A2A exports borrow the resident Session;
+transport reconnects do not reacquire or close the body. Optional native
+inference supports OpenAI API profiles and the official ChatGPT sign-in flow.
+Live account/hardware qualification remains opt-in.
+
+See [connections and providers](docs/mission-service.md#connect-a-body-or-external-agent).
+
+## Integrate by API
+
+Use `entryplug_server.client.EntryplugClient` for asynchronous HTTP/SSE access,
+or the [OpenAPI contract](docs/api/openapi.json). Commands are idempotent;
+revisions, operation outcomes, physical uncertainty, and evidence retain their
+own identities. [Python example and event semantics](docs/mission-service.md#integrate-by-api).
+
+[Implementation and measured validation](docs/implementation/mission-delivery.md).

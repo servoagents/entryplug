@@ -1,0 +1,84 @@
+{
+  "platform": "Linux-6.8.0-138-generic-x86_64-with-glibc2.35",
+  "python": "3.12.14",
+  "cpu": "12th Gen Intel(R) Core(TM) i5-12500T",
+  "logical_cpus": 12,
+  "rss_import_stages_kib": {
+    "core": 24196,
+    "entryplug_server.app": 30896,
+    "openai": 61248,
+    "authlib.integrations.httpx_client": 71428,
+    "mcp": 89036,
+    "a2a.client": 96540,
+    "entryplug_homeassistant.light": 96732
+  },
+  "owner_open_ms": 12.981357000171556,
+  "idle": {
+    "seconds": 60.0607242390015,
+    "cpu_seconds": 0.0008047040000001005,
+    "model_calls": 0
+  },
+  "source_steps": 600,
+  "samples": [
+    {
+      "second": 0,
+      "rss_kib": 97968,
+      "store_bytes": 185216
+    },
+    {
+      "second": 60,
+      "rss_kib": 98724,
+      "store_bytes": 3114536
+    },
+    {
+      "second": 120,
+      "rss_kib": 99444,
+      "store_bytes": 4644440
+    },
+    {
+      "second": 180,
+      "rss_kib": 100068,
+      "store_bytes": 5172824
+    },
+    {
+      "second": 240,
+      "rss_kib": 100688,
+      "store_bytes": 5693016
+    },
+    {
+      "second": 300,
+      "rss_kib": 101272,
+      "store_bytes": 5693016
+    },
+    {
+      "second": 360,
+      "rss_kib": 101352,
+      "store_bytes": 6217304
+    },
+    {
+      "second": 420,
+      "rss_kib": 101440,
+      "store_bytes": 6725208
+    },
+    {
+      "second": 480,
+      "rss_kib": 101488,
+      "store_bytes": 7224920
+    },
+    {
+      "second": 540,
+      "rss_kib": 101548,
+      "store_bytes": 7671384
+    }
+  ],
+  "alerts": 200,
+  "model_calls": 0,
+  "peak_rss_kib": 119424,
+  "stored_records": {
+    "runs": 1,
+    "turns": 200,
+    "operations": 0,
+    "alerts": 200
+  },
+  "store_bytes_after_close": 4292608
+}

@@ -1,0 +1,9 @@
+{
+  "startup_to_authenticated_http_ms": 233.3895610008767,
+  "idle_seconds": 60.05960731599953,
+  "sse_observers": 1,
+  "cpu_seconds": 0.55,
+  "percent_of_one_cpu": 0.915756903148255,
+  "rss_kib": 38200,
+  "model_calls": 0
+}

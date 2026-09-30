@@ -1,0 +1,22 @@
+/tmp/entryplug-baseline-types/src/entryplug_harbor/mqtt_light.py:18: error: Library stubs not installed for "paho.mqtt"  [import-untyped]
+/tmp/entryplug-baseline-types/src/entryplug_harbor/mqtt_light.py:19: error: Library stubs not installed for "paho.mqtt.enums"  [import-untyped]
+/tmp/entryplug-baseline-types/src/entryplug_harbor/mqtt_light.py:19: note: Hint: "python3 -m pip install types-paho-mqtt"
+/tmp/entryplug-baseline-types/src/entryplug_harbor/mqtt_light.py:19: note: (or run "mypy --install-types" to install all missing stub packages)
+/tmp/entryplug-baseline-types/src/entryplug_harbor/mqtt_light.py:19: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports
+/tmp/entryplug-baseline-types/src/entryplug_openenv/models.py:7: error: Cannot find implementation or library stub for module named "openenv.core.env_server.types"  [import-not-found]
+/tmp/entryplug-baseline-types/src/entryplug_openenv/models.py:7: note: Error code "import-not-found" not covered by "type: ignore" comment
+/tmp/entryplug-baseline-types/src/entryplug_openenv/models.py:7: error: Unused "type: ignore" comment  [unused-ignore]
+/tmp/entryplug-baseline-types/src/entryplug_openenv/client.py:7: error: Cannot find implementation or library stub for module named "openenv.core.client_types"  [import-not-found]
+/tmp/entryplug-baseline-types/src/entryplug_openenv/client.py:7: note: Error code "import-not-found" not covered by "type: ignore" comment
+/tmp/entryplug-baseline-types/src/entryplug_openenv/client.py:8: error: Cannot find implementation or library stub for module named "openenv.core.env_client"  [import-not-found]
+/tmp/entryplug-baseline-types/src/entryplug_openenv/client.py:8: note: Error code "import-not-found" not covered by "type: ignore" comment
+/tmp/entryplug-baseline-types/src/entryplug_openenv/client.py:7: error: Unused "type: ignore" comment  [unused-ignore]
+/tmp/entryplug-baseline-types/src/entryplug_openenv/client.py:8: error: Unused "type: ignore" comment  [unused-ignore]
+/tmp/entryplug-baseline-types/src/entryplug_openenv/environment.py:13: error: Cannot find implementation or library stub for module named "openenv.core.env_server.interfaces"  [import-not-found]
+/tmp/entryplug-baseline-types/src/entryplug_openenv/environment.py:13: note: Error code "import-not-found" not covered by "type: ignore" comment
+/tmp/entryplug-baseline-types/src/entryplug_openenv/environment.py:13: error: Unused "type: ignore" comment  [unused-ignore]
+/tmp/entryplug-baseline-types/src/entryplug_openenv/server.py:8: error: Cannot find implementation or library stub for module named "openenv.core.env_server"  [import-not-found]
+/tmp/entryplug-baseline-types/src/entryplug_openenv/server.py:8: note: Error code "import-not-found" not covered by "type: ignore" comment
+/tmp/entryplug-baseline-types/src/entryplug_openenv/server.py:8: error: Unused "type: ignore" comment  [unused-ignore]
+/tmp/entryplug-baseline-types/src/entryplug_harbor/red_marker.py:9: error: Cannot find implementation or library stub for module named "numpy"  [import-not-found]
+Found 13 errors in 6 files (checked 45 source files)

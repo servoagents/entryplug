@@ -1,0 +1,1086 @@
+{
+  "schema_version": 1,
+  "fixture": "labelled-entrance-v1",
+  "finite": true,
+  "results": [
+    {
+      "policy": "rules",
+      "inference": "none",
+      "run_id": "run_dc075dd992da41c4b55c7a927e1a30cc",
+      "mission_id": "mission_76544aff54704d328e763468fd521a48",
+      "revision": 1,
+      "turns": [
+        {
+          "completed_at": "2026-09-30T12:46:44.394Z",
+          "created_at": "2026-09-30T12:46:44.391Z",
+          "id": "turn_fc3bbd344dd14ece9107795d0aa17a65",
+          "instructions_hash": "d3bf6c4312d405bec6962cee3856c54e0432621fa886482d6dce1da8d160cdec",
+          "model_calls": 0,
+          "observation": {
+            "age_ms": 0.009347999366582371,
+            "at": "2026-09-30T12:46:44.386Z",
+            "available": true,
+            "cursor": 2,
+            "entry_index": 1,
+            "epoch": "4de93b97a6bc4ae8afa1fd332897db56",
+            "evidence_id": "ev_3bcc1af9c969a9b5957dbd5353363e3dbfb33b7444df4ee5b96ee9ccd8281fc8",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "b119253c4570243979540acf2b2c60f0766dde90b96c4ae833bf5a6996a28ad6",
+            "present": [
+              "a"
+            ],
+            "sequence": 2,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "reason_code": null,
+          "result": "Entry alert recorded with the source's temporal evidence.",
+          "revision": 1,
+          "run_id": "run_dc075dd992da41c4b55c7a927e1a30cc",
+          "status": "completed",
+          "tool_calls": 1,
+          "usage": []
+        },
+        {
+          "completed_at": "2026-09-30T12:46:44.406Z",
+          "created_at": "2026-09-30T12:46:44.403Z",
+          "id": "turn_9b6b8a58d29340a99142cf68bef2b89e",
+          "instructions_hash": "d3bf6c4312d405bec6962cee3856c54e0432621fa886482d6dce1da8d160cdec",
+          "model_calls": 0,
+          "observation": {
+            "age_ms": 0.009133000276051462,
+            "at": "2026-09-30T12:46:44.399Z",
+            "available": true,
+            "cursor": 4,
+            "entry_index": 1,
+            "epoch": "4de93b97a6bc4ae8afa1fd332897db56",
+            "evidence_id": "ev_b8872341337c838ad848812a7a26ebe8c18f949c3c2779015f4b68b031c10b36",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "b",
+            "occurrence": "7e8283a2b3f999516d0a53cf4107810e98774e7112728d30eefe9eac0da0077e",
+            "present": [
+              "a",
+              "b"
+            ],
+            "sequence": 4,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "reason_code": null,
+          "result": "Entry alert recorded with the source's temporal evidence.",
+          "revision": 1,
+          "run_id": "run_dc075dd992da41c4b55c7a927e1a30cc",
+          "status": "completed",
+          "tool_calls": 1,
+          "usage": []
+        },
+        {
+          "completed_at": "2026-09-30T12:46:44.418Z",
+          "created_at": "2026-09-30T12:46:44.415Z",
+          "id": "turn_c588505f6128460c9f50a738579b9871",
+          "instructions_hash": "d3bf6c4312d405bec6962cee3856c54e0432621fa886482d6dce1da8d160cdec",
+          "model_calls": 0,
+          "observation": {
+            "age_ms": 0.01635999979043845,
+            "at": "2026-09-30T12:46:44.411Z",
+            "available": true,
+            "cursor": 6,
+            "entry_index": 2,
+            "epoch": "4de93b97a6bc4ae8afa1fd332897db56",
+            "evidence_id": "ev_861a0b8c795763cc489d8f6c1140fbd9921b2ee15102311916607df873b10d1b",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "863531239ede0346ba24c7890229fff84b128e5d59c7822361ca3f593948f0b3",
+            "present": [
+              "a",
+              "b"
+            ],
+            "sequence": 6,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "reason_code": null,
+          "result": "Entry alert recorded with the source's temporal evidence.",
+          "revision": 1,
+          "run_id": "run_dc075dd992da41c4b55c7a927e1a30cc",
+          "status": "completed",
+          "tool_calls": 1,
+          "usage": []
+        },
+        {
+          "completed_at": "2026-09-30T12:46:44.434Z",
+          "created_at": "2026-09-30T12:46:44.431Z",
+          "id": "turn_f8f296bd57354945afd17fb963483af2",
+          "instructions_hash": "d3bf6c4312d405bec6962cee3856c54e0432621fa886482d6dce1da8d160cdec",
+          "model_calls": 0,
+          "observation": {
+            "age_ms": 0.0073690007411642,
+            "at": "2026-09-30T12:46:44.427Z",
+            "available": true,
+            "cursor": 10,
+            "entry_index": 1,
+            "epoch": "e0919e2676f24a2fa619a59609c4dc07",
+            "evidence_id": "ev_3763487ea337a909b234df2760d80457200c7bf2e5feb3dd9e87b8eeac209e67",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "4229da86fe9118250d97dd2e1fa3e891f2a2ee78edea6f52fab597e464bed74c",
+            "present": [
+              "a"
+            ],
+            "sequence": 10,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "reason_code": null,
+          "result": "Entry alert recorded with the source's temporal evidence.",
+          "revision": 1,
+          "run_id": "run_dc075dd992da41c4b55c7a927e1a30cc",
+          "status": "completed",
+          "tool_calls": 1,
+          "usage": []
+        }
+      ],
+      "operations": [],
+      "evidence": [
+        {
+          "at": "2026-09-30T12:46:44.384Z",
+          "content": {
+            "age_ms": 0.0073760002123890445,
+            "at": "2026-09-30T12:46:44.384Z",
+            "available": true,
+            "cursor": 1,
+            "entry_index": null,
+            "epoch": "4de93b97a6bc4ae8afa1fd332897db56",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "0e91bbdd15a1643a29c127f51d7fd4dbdceb76fc634aeadc156767f6345e8bb3",
+            "present": [],
+            "sequence": 1,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.present",
+            "zone": "entrance"
+          },
+          "id": "ev_ec5dc24512e5b473682ece2a236317c93d6f4ce141eb4fa75524d2a6b151674d",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.386Z",
+          "content": {
+            "age_ms": 0.009347999366582371,
+            "at": "2026-09-30T12:46:44.386Z",
+            "available": true,
+            "cursor": 2,
+            "entry_index": 1,
+            "epoch": "4de93b97a6bc4ae8afa1fd332897db56",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "b119253c4570243979540acf2b2c60f0766dde90b96c4ae833bf5a6996a28ad6",
+            "present": [
+              "a"
+            ],
+            "sequence": 2,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "id": "ev_3bcc1af9c969a9b5957dbd5353363e3dbfb33b7444df4ee5b96ee9ccd8281fc8",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.396Z",
+          "content": {
+            "age_ms": 0.013818998922943138,
+            "at": "2026-09-30T12:46:44.396Z",
+            "available": true,
+            "cursor": 3,
+            "entry_index": null,
+            "epoch": "4de93b97a6bc4ae8afa1fd332897db56",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "0e91bbdd15a1643a29c127f51d7fd4dbdceb76fc634aeadc156767f6345e8bb3",
+            "present": [
+              "a"
+            ],
+            "sequence": 3,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.present",
+            "zone": "entrance"
+          },
+          "id": "ev_d14fe3f00858a795bcc987b7ad488a63a68819e440536e611c1ac3d8e899d93e",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.399Z",
+          "content": {
+            "age_ms": 0.009133000276051462,
+            "at": "2026-09-30T12:46:44.399Z",
+            "available": true,
+            "cursor": 4,
+            "entry_index": 1,
+            "epoch": "4de93b97a6bc4ae8afa1fd332897db56",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "b",
+            "occurrence": "7e8283a2b3f999516d0a53cf4107810e98774e7112728d30eefe9eac0da0077e",
+            "present": [
+              "a",
+              "b"
+            ],
+            "sequence": 4,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "id": "ev_b8872341337c838ad848812a7a26ebe8c18f949c3c2779015f4b68b031c10b36",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.407Z",
+          "content": {
+            "age_ms": 0.02643300103954971,
+            "at": "2026-09-30T12:46:44.407Z",
+            "available": true,
+            "cursor": 5,
+            "entry_index": null,
+            "epoch": "4de93b97a6bc4ae8afa1fd332897db56",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "aee7d33075ac305cb8e5e4ed75d9911bcdc3f004cbeffc0dd57fc9649ddae1d5",
+            "present": [
+              "b"
+            ],
+            "sequence": 5,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.exited",
+            "zone": "entrance"
+          },
+          "id": "ev_4b35b3f6e2c9ca66be36575809c60883e91899ad48bae6fcc3e0e196b3a92d12",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.411Z",
+          "content": {
+            "age_ms": 0.01635999979043845,
+            "at": "2026-09-30T12:46:44.411Z",
+            "available": true,
+            "cursor": 6,
+            "entry_index": 2,
+            "epoch": "4de93b97a6bc4ae8afa1fd332897db56",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "863531239ede0346ba24c7890229fff84b128e5d59c7822361ca3f593948f0b3",
+            "present": [
+              "a",
+              "b"
+            ],
+            "sequence": 6,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "id": "ev_861a0b8c795763cc489d8f6c1140fbd9921b2ee15102311916607df873b10d1b",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.419Z",
+          "content": {
+            "age_ms": 0.005140998837305233,
+            "at": "2026-09-30T12:46:44.419Z",
+            "available": false,
+            "cursor": 7,
+            "entry_index": null,
+            "epoch": "4de93b97a6bc4ae8afa1fd332897db56",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "0e91bbdd15a1643a29c127f51d7fd4dbdceb76fc634aeadc156767f6345e8bb3",
+            "present": [
+              "a",
+              "b"
+            ],
+            "sequence": 7,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "source.lost",
+            "zone": "entrance"
+          },
+          "id": "ev_63c35e651b1d4bc121ab3fbc7ebf2fadb80a0e25d01ae43b03da254847a94f56",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.422Z",
+          "content": {
+            "age_ms": 0.016166999557754025,
+            "at": "2026-09-30T12:46:44.422Z",
+            "available": true,
+            "cursor": 8,
+            "entry_index": null,
+            "epoch": "b81a3ea6952448bfa476e41a58832cbb",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "c59021fd5f64c0a66acee5f52227221b6e0084cbc3067c0fbc3140d2efb0070e",
+            "present": [],
+            "sequence": 8,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "source.revalidated",
+            "zone": "entrance"
+          },
+          "id": "ev_6bc6b632cce0b7a1104d3f7899b9a2ddd7528992bfe5dc05cd5f01a181284111",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.425Z",
+          "content": {
+            "age_ms": 0.029048998840153217,
+            "at": "2026-09-30T12:46:44.425Z",
+            "available": true,
+            "cursor": 9,
+            "entry_index": null,
+            "epoch": "e0919e2676f24a2fa619a59609c4dc07",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "ed848da0050f40d7f220f09bb2cbb7647ac5287b1ea2fd1b309b47822a793379",
+            "present": [],
+            "sequence": 9,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "source.revalidated",
+            "zone": "entrance"
+          },
+          "id": "ev_2687d3ad0c362293468a420658279ef826794d3bc41e3326633483b0f1911cd0",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.427Z",
+          "content": {
+            "age_ms": 0.0073690007411642,
+            "at": "2026-09-30T12:46:44.427Z",
+            "available": true,
+            "cursor": 10,
+            "entry_index": 1,
+            "epoch": "e0919e2676f24a2fa619a59609c4dc07",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "4229da86fe9118250d97dd2e1fa3e891f2a2ee78edea6f52fab597e464bed74c",
+            "present": [
+              "a"
+            ],
+            "sequence": 10,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "id": "ev_3763487ea337a909b234df2760d80457200c7bf2e5feb3dd9e87b8eeac209e67",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:44:44.436352+00:00",
+          "content": {
+            "age_ms": 120000.01366300057,
+            "at": "2026-09-30T12:44:44.436352+00:00",
+            "available": true,
+            "cursor": 11,
+            "entry_index": 1,
+            "epoch": "e0919e2676f24a2fa619a59609c4dc07",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "stale",
+            "occurrence": "a7a5a2970c9e76192b7a121c5b77cb0f8b4cbfa2104d4328087a62e525e46316",
+            "present": [
+              "a"
+            ],
+            "sequence": 11,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "id": "ev_5a867591900b0054f2f01136096d42f38c3d3b999ceba89c04c738d188e043cc",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.438Z",
+          "content": {
+            "age_ms": 0.014687000657431781,
+            "at": "2026-09-30T12:46:44.438Z",
+            "available": true,
+            "cursor": 12,
+            "entry_index": null,
+            "epoch": "0937f695a5e94cc9922e6735ad646613",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "33c4242cb1c1341475099a830f2263c624790f571af39561fe4a99796b06b0d7",
+            "present": [],
+            "sequence": 12,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "source.revalidated",
+            "zone": "entrance"
+          },
+          "id": "ev_a42190df691eadb528569b2375a97ca96959e2cbf8d7e54692d2fd8b897699df",
+          "origin": "demo.access-camera",
+          "simulated": true
+        }
+      ],
+      "alerts": 4,
+      "expected_alerts": 4,
+      "model_calls": 0,
+      "idle_model_calls": 0,
+      "evidence_ids": [
+        "ev_3bcc1af9c969a9b5957dbd5353363e3dbfb33b7444df4ee5b96ee9ccd8281fc8",
+        "ev_b8872341337c838ad848812a7a26ebe8c18f949c3c2779015f4b68b031c10b36",
+        "ev_861a0b8c795763cc489d8f6c1140fbd9921b2ee15102311916607df873b10d1b",
+        "ev_3763487ea337a909b234df2760d80457200c7bf2e5feb3dd9e87b8eeac209e67"
+      ],
+      "timeline": [
+        {
+          "action": "idle",
+          "event": "person.present",
+          "health": "ok",
+          "turns": 0
+        },
+        {
+          "action": "enter_a",
+          "event": "person.entered",
+          "health": "ok",
+          "turns": 1
+        },
+        {
+          "action": "presence_a",
+          "event": "person.present",
+          "health": "ok",
+          "turns": 1
+        },
+        {
+          "action": "enter_b",
+          "event": "person.entered",
+          "health": "ok",
+          "turns": 2
+        },
+        {
+          "action": "exit_a",
+          "event": "person.exited",
+          "health": "ok",
+          "turns": 2
+        },
+        {
+          "action": "enter_a",
+          "event": "person.entered",
+          "health": "ok",
+          "turns": 3
+        },
+        {
+          "action": "lost",
+          "event": "source.lost",
+          "health": "blocked",
+          "turns": 3
+        },
+        {
+          "action": "recover",
+          "event": "source.revalidated",
+          "health": "ok",
+          "turns": 3
+        },
+        {
+          "action": "restart",
+          "event": "source.revalidated",
+          "health": "ok",
+          "turns": 3
+        },
+        {
+          "action": "enter_a",
+          "event": "person.entered",
+          "health": "ok",
+          "turns": 4
+        },
+        {
+          "action": "stale",
+          "event": "person.entered",
+          "health": "blocked",
+          "turns": 4
+        },
+        {
+          "action": "recover",
+          "event": "source.revalidated",
+          "health": "ok",
+          "turns": 4
+        }
+      ]
+    },
+    {
+      "policy": "scripted",
+      "inference": "SIMULATED",
+      "run_id": "run_b9fc276c42d74babb0a3e7900ef79563",
+      "mission_id": "mission_d331b0a0bb924535976bb41307575b63",
+      "revision": 1,
+      "turns": [
+        {
+          "completed_at": "2026-09-30T12:46:44.474Z",
+          "created_at": "2026-09-30T12:46:44.471Z",
+          "id": "turn_19800b16776a42399a641a73c9f0edb3",
+          "instructions_hash": "d3bf6c4312d405bec6962cee3856c54e0432621fa886482d6dce1da8d160cdec",
+          "model_calls": 1,
+          "observation": {
+            "age_ms": 0.006889000360388309,
+            "at": "2026-09-30T12:46:44.467Z",
+            "available": true,
+            "cursor": 2,
+            "entry_index": 1,
+            "epoch": "e842114899c94b69b8896dd1fbbd0514",
+            "evidence_id": "ev_2e0d3de318659367e3939befac2454aedb1e785fc1c2d3720e4656f693a1f8d1",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "0da8f670c5ebe8891322f3c89ea3cb4333486e031cc989a8a9158e4c56993428",
+            "present": [
+              "a"
+            ],
+            "sequence": 2,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "reason_code": null,
+          "result": "SIMULATED scripted turn completed.",
+          "revision": 1,
+          "run_id": "run_b9fc276c42d74babb0a3e7900ef79563",
+          "status": "completed",
+          "tool_calls": 1,
+          "usage": [
+            {
+              "kind": "scripted",
+              "tokens": 0
+            }
+          ]
+        },
+        {
+          "completed_at": "2026-09-30T12:46:44.486Z",
+          "created_at": "2026-09-30T12:46:44.483Z",
+          "id": "turn_f6105119e6c14858807593fbf7f86d63",
+          "instructions_hash": "d3bf6c4312d405bec6962cee3856c54e0432621fa886482d6dce1da8d160cdec",
+          "model_calls": 1,
+          "observation": {
+            "age_ms": 0.010458999895490706,
+            "at": "2026-09-30T12:46:44.479Z",
+            "available": true,
+            "cursor": 4,
+            "entry_index": 1,
+            "epoch": "e842114899c94b69b8896dd1fbbd0514",
+            "evidence_id": "ev_8691556babcf6f1d72ffe9414d2b152bb955fb1b402ad660b775d3f2a9317b1a",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "b",
+            "occurrence": "4e029ec26b3788b509cb21558f319c0cbded24806e4c8dfbd5a4229b2c373955",
+            "present": [
+              "a",
+              "b"
+            ],
+            "sequence": 4,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "reason_code": null,
+          "result": "SIMULATED scripted turn completed.",
+          "revision": 1,
+          "run_id": "run_b9fc276c42d74babb0a3e7900ef79563",
+          "status": "completed",
+          "tool_calls": 1,
+          "usage": [
+            {
+              "kind": "scripted",
+              "tokens": 0
+            }
+          ]
+        },
+        {
+          "completed_at": "2026-09-30T12:46:44.498Z",
+          "created_at": "2026-09-30T12:46:44.494Z",
+          "id": "turn_edf57046208c4135b4048aaf3645249a",
+          "instructions_hash": "d3bf6c4312d405bec6962cee3856c54e0432621fa886482d6dce1da8d160cdec",
+          "model_calls": 1,
+          "observation": {
+            "age_ms": 0.01759200131346006,
+            "at": "2026-09-30T12:46:44.490Z",
+            "available": true,
+            "cursor": 6,
+            "entry_index": 2,
+            "epoch": "e842114899c94b69b8896dd1fbbd0514",
+            "evidence_id": "ev_0ab14ef167799ce5a2d3d219745a9eb5b88f0c2d23987c2e179c56f98e8bda6a",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "493ad3d826d19ff6e5742c610dc240126261bbe5d771d6c5f2237725e6240e8f",
+            "present": [
+              "a",
+              "b"
+            ],
+            "sequence": 6,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "reason_code": null,
+          "result": "SIMULATED scripted turn completed.",
+          "revision": 1,
+          "run_id": "run_b9fc276c42d74babb0a3e7900ef79563",
+          "status": "completed",
+          "tool_calls": 1,
+          "usage": [
+            {
+              "kind": "scripted",
+              "tokens": 0
+            }
+          ]
+        },
+        {
+          "completed_at": "2026-09-30T12:46:44.516Z",
+          "created_at": "2026-09-30T12:46:44.513Z",
+          "id": "turn_67113995213d41c5910a29ba8757670c",
+          "instructions_hash": "d3bf6c4312d405bec6962cee3856c54e0432621fa886482d6dce1da8d160cdec",
+          "model_calls": 1,
+          "observation": {
+            "age_ms": 0.01477699879615102,
+            "at": "2026-09-30T12:46:44.508Z",
+            "available": true,
+            "cursor": 10,
+            "entry_index": 1,
+            "epoch": "8459ebcd0bf748fb9154a52e459eb7cd",
+            "evidence_id": "ev_d1fd495ce2dc133e1f710feb80a921b0284e57c9e5a1cdae710cab15aab6ae04",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "a69ee4f0ddae286232424c0978b06c3f50dad28fb8d91ed018db20b9d9c0f8cf",
+            "present": [
+              "a"
+            ],
+            "sequence": 10,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "reason_code": null,
+          "result": "SIMULATED scripted turn completed.",
+          "revision": 1,
+          "run_id": "run_b9fc276c42d74babb0a3e7900ef79563",
+          "status": "completed",
+          "tool_calls": 1,
+          "usage": [
+            {
+              "kind": "scripted",
+              "tokens": 0
+            }
+          ]
+        }
+      ],
+      "operations": [],
+      "evidence": [
+        {
+          "at": "2026-09-30T12:46:44.464Z",
+          "content": {
+            "age_ms": 0.006381000275723636,
+            "at": "2026-09-30T12:46:44.464Z",
+            "available": true,
+            "cursor": 1,
+            "entry_index": null,
+            "epoch": "e842114899c94b69b8896dd1fbbd0514",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "e74eb13de274613e6c53d3294662e7ec69386a669df2bbfb87f73220a6991f41",
+            "present": [],
+            "sequence": 1,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.present",
+            "zone": "entrance"
+          },
+          "id": "ev_5a3d6b89206c200a1aeeb3c2485cd65bcd24a7dcf1d228687122965fd508a478",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.467Z",
+          "content": {
+            "age_ms": 0.006889000360388309,
+            "at": "2026-09-30T12:46:44.467Z",
+            "available": true,
+            "cursor": 2,
+            "entry_index": 1,
+            "epoch": "e842114899c94b69b8896dd1fbbd0514",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "0da8f670c5ebe8891322f3c89ea3cb4333486e031cc989a8a9158e4c56993428",
+            "present": [
+              "a"
+            ],
+            "sequence": 2,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "id": "ev_2e0d3de318659367e3939befac2454aedb1e785fc1c2d3720e4656f693a1f8d1",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.476Z",
+          "content": {
+            "age_ms": 0.006270000085351057,
+            "at": "2026-09-30T12:46:44.476Z",
+            "available": true,
+            "cursor": 3,
+            "entry_index": null,
+            "epoch": "e842114899c94b69b8896dd1fbbd0514",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "e74eb13de274613e6c53d3294662e7ec69386a669df2bbfb87f73220a6991f41",
+            "present": [
+              "a"
+            ],
+            "sequence": 3,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.present",
+            "zone": "entrance"
+          },
+          "id": "ev_69d5c81934479331afefa3891512f767931416ac08ecc18afa834bb52b5d07d9",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.479Z",
+          "content": {
+            "age_ms": 0.010458999895490706,
+            "at": "2026-09-30T12:46:44.479Z",
+            "available": true,
+            "cursor": 4,
+            "entry_index": 1,
+            "epoch": "e842114899c94b69b8896dd1fbbd0514",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "b",
+            "occurrence": "4e029ec26b3788b509cb21558f319c0cbded24806e4c8dfbd5a4229b2c373955",
+            "present": [
+              "a",
+              "b"
+            ],
+            "sequence": 4,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "id": "ev_8691556babcf6f1d72ffe9414d2b152bb955fb1b402ad660b775d3f2a9317b1a",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.487Z",
+          "content": {
+            "age_ms": 0.006987000233493745,
+            "at": "2026-09-30T12:46:44.487Z",
+            "available": true,
+            "cursor": 5,
+            "entry_index": null,
+            "epoch": "e842114899c94b69b8896dd1fbbd0514",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "0dbf23378003e9ee02b6ccf0d4e360ba62c1fcfa248d2c44d6d5221d77719c0c",
+            "present": [
+              "b"
+            ],
+            "sequence": 5,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.exited",
+            "zone": "entrance"
+          },
+          "id": "ev_9efeaa4195cc21752bc3f8dfd54e04eb512bffba388e5b5bf55dcc2ad221a2a5",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.490Z",
+          "content": {
+            "age_ms": 0.01759200131346006,
+            "at": "2026-09-30T12:46:44.490Z",
+            "available": true,
+            "cursor": 6,
+            "entry_index": 2,
+            "epoch": "e842114899c94b69b8896dd1fbbd0514",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "493ad3d826d19ff6e5742c610dc240126261bbe5d771d6c5f2237725e6240e8f",
+            "present": [
+              "a",
+              "b"
+            ],
+            "sequence": 6,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "id": "ev_0ab14ef167799ce5a2d3d219745a9eb5b88f0c2d23987c2e179c56f98e8bda6a",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.499Z",
+          "content": {
+            "age_ms": 0.005611998858512379,
+            "at": "2026-09-30T12:46:44.499Z",
+            "available": false,
+            "cursor": 7,
+            "entry_index": null,
+            "epoch": "e842114899c94b69b8896dd1fbbd0514",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "e74eb13de274613e6c53d3294662e7ec69386a669df2bbfb87f73220a6991f41",
+            "present": [
+              "a",
+              "b"
+            ],
+            "sequence": 7,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "source.lost",
+            "zone": "entrance"
+          },
+          "id": "ev_5ee7373e07afc22fc70c64dabf29bab5b27ddab557aaef0e3ca5e1e100f757c6",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.502Z",
+          "content": {
+            "age_ms": 0.017491000107838772,
+            "at": "2026-09-30T12:46:44.502Z",
+            "available": true,
+            "cursor": 8,
+            "entry_index": null,
+            "epoch": "e583db84e5c543989a4bad6b8cfddca3",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "6d80d01bdd17b9102351acc6bb244d66d15c00396665767ba93098e812432bdd",
+            "present": [],
+            "sequence": 8,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "source.revalidated",
+            "zone": "entrance"
+          },
+          "id": "ev_671b96d3b407ef127c82b9d08be24b94e906dd7c79ee519e08e278d3d3070d91",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.505Z",
+          "content": {
+            "age_ms": 0.014969000403652899,
+            "at": "2026-09-30T12:46:44.505Z",
+            "available": true,
+            "cursor": 9,
+            "entry_index": null,
+            "epoch": "8459ebcd0bf748fb9154a52e459eb7cd",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "452d25f626d745ce4ad371271adbb049841ec4aaf4b308e49cbaf73da101b5b7",
+            "present": [],
+            "sequence": 9,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "source.revalidated",
+            "zone": "entrance"
+          },
+          "id": "ev_7a3e5dd1390fb741658773b00ffeccb1b44edd52ed5844deb183c1e558c71893",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.508Z",
+          "content": {
+            "age_ms": 0.01477699879615102,
+            "at": "2026-09-30T12:46:44.508Z",
+            "available": true,
+            "cursor": 10,
+            "entry_index": 1,
+            "epoch": "8459ebcd0bf748fb9154a52e459eb7cd",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "a",
+            "occurrence": "a69ee4f0ddae286232424c0978b06c3f50dad28fb8d91ed018db20b9d9c0f8cf",
+            "present": [
+              "a"
+            ],
+            "sequence": 10,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "id": "ev_d1fd495ce2dc133e1f710feb80a921b0284e57c9e5a1cdae710cab15aab6ae04",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:44:44.517383+00:00",
+          "content": {
+            "age_ms": 120000.0120700006,
+            "at": "2026-09-30T12:44:44.517383+00:00",
+            "available": true,
+            "cursor": 11,
+            "entry_index": 1,
+            "epoch": "8459ebcd0bf748fb9154a52e459eb7cd",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": "stale",
+            "occurrence": "90e134d3149e02738fa5dc65bce1465e4121444e57100f3df9c9697eef56415a",
+            "present": [
+              "a"
+            ],
+            "sequence": 11,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "person.entered",
+            "zone": "entrance"
+          },
+          "id": "ev_265f4cff04956d261b91ca1eb7300aa50d48cabc8bc518db0bc024e29820edc7",
+          "origin": "demo.access-camera",
+          "simulated": true
+        },
+        {
+          "at": "2026-09-30T12:46:44.520Z",
+          "content": {
+            "age_ms": 0.016595999113633297,
+            "at": "2026-09-30T12:46:44.520Z",
+            "available": true,
+            "cursor": 12,
+            "entry_index": null,
+            "epoch": "d951bb9c804b43fca151c61938c91a1f",
+            "label": "SIMULATED \u2014 labelled sequence, not a real detector",
+            "object_id": null,
+            "occurrence": "fff7ffebd6d9dce43de524fc9471751632175fa2cfe789c5fe4855bc3d01a5b0",
+            "present": [],
+            "sequence": 12,
+            "simulated": true,
+            "source": "demo.access-camera",
+            "type": "source.revalidated",
+            "zone": "entrance"
+          },
+          "id": "ev_151e124e8837c1d5f483d853bfe127e78102966111b6cf55800c5a84255287e8",
+          "origin": "demo.access-camera",
+          "simulated": true
+        }
+      ],
+      "alerts": 4,
+      "expected_alerts": 4,
+      "model_calls": 4,
+      "idle_model_calls": 0,
+      "evidence_ids": [
+        "ev_2e0d3de318659367e3939befac2454aedb1e785fc1c2d3720e4656f693a1f8d1",
+        "ev_8691556babcf6f1d72ffe9414d2b152bb955fb1b402ad660b775d3f2a9317b1a",
+        "ev_0ab14ef167799ce5a2d3d219745a9eb5b88f0c2d23987c2e179c56f98e8bda6a",
+        "ev_d1fd495ce2dc133e1f710feb80a921b0284e57c9e5a1cdae710cab15aab6ae04"
+      ],
+      "timeline": [
+        {
+          "action": "idle",
+          "event": "person.present",
+          "health": "ok",
+          "turns": 0
+        },
+        {
+          "action": "enter_a",
+          "event": "person.entered",
+          "health": "ok",
+          "turns": 1
+        },
+        {
+          "action": "presence_a",
+          "event": "person.present",
+          "health": "ok",
+          "turns": 1
+        },
+        {
+          "action": "enter_b",
+          "event": "person.entered",
+          "health": "ok",
+          "turns": 2
+        },
+        {
+          "action": "exit_a",
+          "event": "person.exited",
+          "health": "ok",
+          "turns": 2
+        },
+        {
+          "action": "enter_a",
+          "event": "person.entered",
+          "health": "ok",
+          "turns": 3
+        },
+        {
+          "action": "lost",
+          "event": "source.lost",
+          "health": "blocked",
+          "turns": 3
+        },
+        {
+          "action": "recover",
+          "event": "source.revalidated",
+          "health": "ok",
+          "turns": 3
+        },
+        {
+          "action": "restart",
+          "event": "source.revalidated",
+          "health": "ok",
+          "turns": 3
+        },
+        {
+          "action": "enter_a",
+          "event": "person.entered",
+          "health": "ok",
+          "turns": 4
+        },
+        {
+          "action": "stale",
+          "event": "person.entered",
+          "health": "blocked",
+          "turns": 4
+        },
+        {
+          "action": "recover",
+          "event": "source.revalidated",
+          "health": "ok",
+          "turns": 4
+        }
+      ]
+    }
+  ],
+  "conclusion": "Same four occurrences; no model advantage is claimed."
+}
