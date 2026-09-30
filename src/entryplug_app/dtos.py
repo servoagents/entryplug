@@ -94,6 +94,7 @@ class Snapshot(TypedDict):
     attachments: list[dict[str, Any]]
     approvals: list[dict[str, Any]]
     topology: Topology
+    simulations: list[dict[str, Any]]
 
 
 def response_schemas() -> dict[str, Any]:

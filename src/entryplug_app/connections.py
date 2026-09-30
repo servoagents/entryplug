@@ -23,7 +23,15 @@ class Connections:
                 self.service.spawn(self.connect(connection))
 
     async def create(self, payload: dict[str, Any]) -> dict[str, Any]:
-        if set(payload) - {"kind", "name", "url", "entity_id", "token_env", "tools"}:
+        if set(payload) - {
+            "kind",
+            "name",
+            "url",
+            "entity_id",
+            "token_env",
+            "tools",
+            "source_protocol",
+        }:
             raise AppError(
                 "validation_error",
                 "Connection accepts configuration and an environment reference only",
@@ -33,6 +41,11 @@ class Connections:
                 "adapter_unavailable",
                 "Choose the existing Home Assistant adapter or a read-only MCP binding",
             )
+        source_protocol = payload.get("source_protocol")
+        if source_protocol is not None and (
+            source_protocol not in {"ros2", "zenoh", "mqtt"} or payload["kind"] != "mcp"
+        ):
+            raise AppError("validation_error", "Native middleware labels require an MCP bridge")
         env = payload.get(
             "token_env",
             {
@@ -46,6 +59,7 @@ class Connections:
         connection = {
             "id": new_id("connection"),
             "kind": payload["kind"],
+            "source_protocol": source_protocol,
             "name": text(payload.get("name"), "connection name", 160),
             "url": text(payload.get("url"), "Home Assistant URL", 2048),
             "entity_id": payload.get("entity_id"),
@@ -112,6 +126,8 @@ class Connections:
                 if current["status"] == "disconnected":
                     await port.close()
                     return
+                port.protocol = connection["kind"]
+                port.source_protocol = connection.get("source_protocol")
                 self.service.ports[port.body_id] = port
                 connection.update(
                     status="connected", provenance="observed", last_seen=utc_now(), reason_code=None

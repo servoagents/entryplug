@@ -14,7 +14,7 @@ describe("local API boundary", () => {
         JSON.stringify({
           csrf: "csrf-session",
           api_version: "1",
-          build_id: "mission-v1",
+          build_id: "mission-workbench-v2",
         }),
       );
     });

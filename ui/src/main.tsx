@@ -12,6 +12,11 @@ import { render } from "solid-js/web";
 import { api, authenticate, label, pretty, time, watchEvents } from "./api";
 import type { Definition, RecordData, Snapshot } from "./api";
 import "./style.css";
+import "./workbench.css";
+import ProtocolIcon from "./ProtocolIcon";
+import SimulationView from "./SimulationView";
+import ProviderSetup from "./ProviderSetup";
+import AddBody from "./AddBody";
 
 const Graph = lazy(() => import("./Graph"));
 const terminal = new Set(["stopped", "completed", "failed"]);
@@ -21,7 +26,7 @@ const initialDefinition = (): Definition => ({
     "Watch the entrance. Alert only on validated person entry; preserve temporal evidence. Missing observations never prove absence.",
   mode: "watch",
   schema_version: 1,
-  agent: { driver: "rules", decision_mode: "rules", profile: "" },
+  agent: { driver: "simulated", decision_mode: "assisted", profile: "" },
   body: {
     selector: "demo.access-camera",
     required_capabilities: ["person.events"],
@@ -48,6 +53,9 @@ function App() {
   const [liveText, setLiveText] = createSignal<Record<string, string>>({});
   const [editedInstructions, setEditedInstructions] = createSignal<string>();
   const [selected, setSelected] = createSignal("");
+  const [selectedSimulation, setSelectedSimulation] =
+    createSignal("demo.access-camera");
+  const [bodyReturn, setBodyReturn] = createSignal("body");
   const [error, setError] = createSignal("");
   const [connected, setConnected] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
@@ -61,18 +69,6 @@ function App() {
     createSignal<Definition>(initialDefinition());
   const [validated, setValidated] = createSignal<RecordData>();
   const [input, setInput] = createSignal("");
-  const [connection, setConnection] = createSignal({
-    name: "Home Assistant light",
-    url: "ws://127.0.0.1:8123/api/websocket",
-    entity_id: "light.entrance",
-    token_env: "ENTRYPLUG_HA_TOKEN",
-  });
-  const [profileName, setProfileName] = createSignal("personal-chatgpt");
-  const [model, setModel] = createSignal("");
-  const [remoteKind, setRemoteKind] = createSignal("mcp");
-  const [mcpUrl, setMcpUrl] = createSignal("http://127.0.0.1:8000/mcp");
-  const [mcpTool, setMcpTool] = createSignal("");
-  const [models, setModels] = createSignal<RecordData[]>([]);
   const [externalBody, setExternalBody] = createSignal("demo.access-camera");
   const [externalCaps, setExternalCaps] = createSignal<string[]>([
     "camera.snapshot",
@@ -103,7 +99,7 @@ function App() {
 
   async function refresh() {
     const next = await api<Snapshot>("snapshot");
-    if (next.build_id !== "mission-v1")
+    if (next.build_id !== "mission-workbench-v2")
       throw new Error(
         "Service updated. Reload the console before using controls.",
       );
@@ -206,10 +202,108 @@ function App() {
       go("mission");
     });
   }
+  function addBody(destination = "body") {
+    setBodyReturn(destination);
+    go("add-body");
+  }
+  function chooseBody(body: RecordData) {
+    patch({
+      body: {
+        selector: body.id,
+        required_capabilities: [body.capabilities[0].name],
+      },
+      trigger: {
+        ...definition().trigger,
+        source: body.id,
+        kind: body.simulated ? "event" : "manual",
+        event:
+          body.body_type === "camera" ? "person.entered" : "simulation.changed",
+      },
+      access: {
+        allow: [
+          ...body.capabilities.map((c: RecordData) => c.name),
+          "alerts.emit",
+        ],
+        approve: [],
+      },
+    });
+  }
+  async function bodyAdded(id?: string) {
+    await refresh();
+    if (id) {
+      setSelectedSimulation(id);
+      if (bodyReturn() === "embark") {
+        chooseBody(snapshot()!.bodies.find((b) => b.id === id)!);
+        go("embark");
+      } else go("simulations");
+    }
+  }
+  function simulationControl(
+    id: string,
+    action: string,
+    fields: RecordData = {},
+  ) {
+    void act(() =>
+      api(`simulations/${id}/control`, "POST", { action, ...fields }),
+    );
+  }
+  async function runDemo(id: string) {
+    await act(async () => {
+      const body = snapshot()!.bodies.find((b) => b.id === id)!;
+      const demo: Definition = {
+        ...initialDefinition(),
+        name: `${body.name.replace(" · SIMULATED", "")} demo`,
+        instructions:
+          body.body_type === "camera"
+            ? "Observe labelled entries and save camera evidence with an alert."
+            : body.body_type === "rover"
+              ? "Patrol dock, aisle and station. Stop at an obstacle and report it."
+              : "Read occupancy, turn the simulated light on when occupied, and turn it off when empty.",
+        body: {
+          selector: id,
+          required_capabilities: [body.capabilities[0].name],
+        },
+        trigger: {
+          ...initialDefinition().trigger,
+          source: id,
+          event:
+            body.body_type === "camera"
+              ? "person.entered"
+              : "simulation.changed",
+        },
+        access: {
+          allow: [
+            ...body.capabilities.map((c: RecordData) => c.name),
+            "alerts.emit",
+          ],
+          approve: [],
+        },
+      };
+      const created = await api("missions", "POST", demo);
+      const run = await api(`missions/${created.id}/runs`, "POST", {});
+      setSelected(run.id);
+      go("mission");
+      await api(`simulations/${id}/control`, "POST", { action: "reset" });
+      await api(`simulations/${id}/control`, "POST", { action: "play" });
+    });
+  }
   async function showEvidence(id: string) {
     await act(async () => inspect(await api(`evidence/${id}`)));
   }
-  onMount(reconnect);
+  onMount(async () => {
+    await reconnect();
+    const saved = sessionStorage.getItem("entryplug-mission-draft");
+    if (saved && snapshot()) {
+      sessionStorage.removeItem("entryplug-mission-draft");
+      try {
+        setDefinition(JSON.parse(saved));
+        setStep(0);
+        go("embark");
+      } catch {
+        /* Ignore an expired draft. */
+      }
+    }
+  });
   onCleanup(() => {
     disposed = true;
     disconnect?.();
@@ -278,9 +372,15 @@ function App() {
           >
             <span>⊞</span> Connections
           </button>
+          <button
+            classList={{ chosen: page() === "simulations" }}
+            onClick={() => go("simulations")}
+          >
+            <span>▷</span> Simulations <small>FREE</small>
+          </button>
         </nav>
         <div class="sidebar-footer">
-          <span class="eyebrow">ONE OWNER. MANY INTERFACES.</span>
+          <span class="eyebrow">RUNNING LOCALLY</span>
           <p>The service keeps working when this console closes.</p>
           <span class="mono faint">LOCAL SERVICE · API V1</span>
         </div>
@@ -308,7 +408,7 @@ function App() {
           <Show when={!snapshot()}>
             <section class="empty">
               <span class="large-mark">◇</span>
-              <h1>Your body, your mission.</h1>
+              <h1>Connect to Entryplug</h1>
               <p>
                 Open this console with <code>entryplug ui</code> to establish a
                 private local session.
@@ -321,11 +421,31 @@ function App() {
               <div class="page-heading">
                 <div>
                   <span class="eyebrow">OPERATIONS / OVERVIEW</span>
-                  <h1>A place to keep watch.</h1>
-                  <p>Give an agent a body. Keep the mission in view.</p>
+                  <h1>Workspace</h1>
+                  <p>
+                    Run missions, inspect activity, and try the simulations.
+                  </p>
                 </div>
                 <button class="primary" onClick={embark}>
-                  ◇ Embark <span>↗</span>
+                  ＋ New mission <span>↗</span>
+                </button>
+              </div>
+              <div class="simulation-intro">
+                <div>
+                  <span class="sim-badge">TRY IT LOCALLY</span>
+                  <h2>Camera, rover, or smart room?</h2>
+                  <p>
+                    Play a scenario and watch a simulated agent use the body's
+                    tools. No account or model calls.
+                  </p>
+                </div>
+                <div class="intro-icons">
+                  <ProtocolIcon kind="camera" large />
+                  <ProtocolIcon kind="rover" large />
+                  <ProtocolIcon kind="room" large />
+                </div>
+                <button class="primary" onClick={() => go("simulations")}>
+                  Explore simulations →
                 </button>
               </div>
               <div class="metrics">
@@ -358,7 +478,7 @@ function App() {
               </div>
               <div class="section-heading">
                 <h2>
-                  In the field <span class="muted">/ missions</span>
+                  Recent activity <span class="muted">/ missions</span>
                 </h2>
                 <button class="text-button" onClick={() => go("mission")}>
                   All missions ↗
@@ -371,7 +491,7 @@ function App() {
                     <div class="instrument-mark">
                       ◇<span>＋</span>◇
                     </div>
-                    <h2>The workspace is ready.</h2>
+                    <h2>No missions yet</h2>
                     <p>
                       Start with a local rule and the simulated entrance camera.
                       <br />
@@ -400,18 +520,17 @@ function App() {
               <div class="overview-bottom">
                 <section class="panel">
                   <div class="section-heading">
-                    <h2>Available embodiment</h2>
-                    <button
-                      class="text-button"
-                      onClick={() => go("connections")}
-                    >
-                      Connect body ↗
+                    <h2>Bodies</h2>
+                    <button class="text-button" onClick={() => addBody()}>
+                      ＋ Add body
                     </button>
                   </div>
                   <For each={snapshot()!.bodies}>
                     {(body) => (
                       <button class="body-row" onClick={() => go("body")}>
-                        <span class="body-symbol">◇</span>
+                        <ProtocolIcon
+                          kind={body.body_type || body.protocol || "device"}
+                        />
                         <span>
                           <strong>{body.name}</strong>
                           <small>
@@ -430,16 +549,12 @@ function App() {
                 </section>
                 <section class="panel">
                   <div class="section-heading">
-                    <h2>Latest signals</h2>
+                    <h2>Recent alerts</h2>
                     <span class="eyebrow">PERSISTENT INBOX</span>
                   </div>
                   <Show
                     when={alerts().length}
-                    fallback={
-                      <p class="quiet">
-                        No pending alerts. Waiting is a valid state.
-                      </p>
-                    }
+                    fallback={<p class="quiet">No unread alerts.</p>}
                   >
                     <For each={alerts().slice(-3).reverse()}>
                       {(alert) => (
@@ -457,12 +572,107 @@ function App() {
               </div>
             </Show>
 
+            <Show when={page() === "simulations"}>
+              <div class="page-heading">
+                <div>
+                  <span class="eyebrow">LOCAL / NO ACCOUNT</span>
+                  <h1>Simulations</h1>
+                  <p>
+                    Explore a body, play its events, and watch an agent respond.
+                  </p>
+                </div>
+                <button onClick={() => addBody("simulations")}>
+                  ＋ Add simulated body
+                </button>
+              </div>
+              <div class="simulation-cards">
+                <For each={snapshot()!.simulations}>
+                  {(sim) => (
+                    <button
+                      classList={{ selected: selectedSimulation() === sim.id }}
+                      onClick={() => setSelectedSimulation(sim.id)}
+                    >
+                      <ProtocolIcon kind={sim.kind} large />
+                      <span class="sim-badge">SIMULATION</span>
+                      <h2>{sim.name.replace(" · SIMULATED", "")}</h2>
+                      <p>
+                        {sim.kind === "camera"
+                          ? "A recorded street scene, entry events, and camera failures."
+                          : sim.kind === "rover"
+                            ? "A warehouse route, battery state, and obstacles."
+                            : "Occupancy, a controllable light, and device readback."}
+                      </p>
+                      <span class="simulation-card-status">
+                        {sim.playing ? "● Playing" : "○ Ready to explore"}
+                      </span>
+                    </button>
+                  )}
+                </For>
+              </div>
+              <Show
+                when={snapshot()!.simulations.find(
+                  (sim) => sim.id === selectedSimulation(),
+                )}
+              >
+                {(sim) => (
+                  <div class="simulation-detail">
+                    <SimulationView
+                      simulation={sim()}
+                      control={simulationControl}
+                      busy={busy()}
+                    />
+                    <aside class="panel simulation-guide">
+                      <ProtocolIcon kind="agent" large />
+                      <h2>Simulated agent</h2>
+                      <p>
+                        A deterministic demo agent observes the body, calls its
+                        tools, and saves evidence. Its activity is visible in
+                        the mission.
+                      </p>
+                      <ol>
+                        <li>Read the latest observation</li>
+                        <li>Choose the scripted response</li>
+                        <li>Run a tool and inspect its result</li>
+                        <li>Save an alert with evidence</li>
+                      </ol>
+                      <button
+                        class="primary"
+                        disabled={busy()}
+                        onClick={() => runDemo(sim().id)}
+                      >
+                        Run with simulated agent →
+                      </button>
+                      <p class="notice">
+                        No LLM, no account, no physical hardware. Your own
+                        instructions are saved, but this demo follows a fixed
+                        policy.
+                      </p>
+                    </aside>
+                  </div>
+                )}
+              </Show>
+            </Show>
+            <Show when={page() === "add-body"}>
+              <div class="page-heading">
+                <div>
+                  <span class="eyebrow">BODY SETUP</span>
+                  <h1>Add a body</h1>
+                  <p>Select its connection type, then name and configure it.</p>
+                </div>
+                <button onClick={() => go(bodyReturn())}>Back</button>
+              </div>
+              <AddBody
+                added={bodyAdded}
+                connections={snapshot()!.connections}
+                refresh={refresh}
+              />
+            </Show>
             <Show when={page() === "embark"}>
               <div class="page-heading">
                 <div>
                   <span class="eyebrow">NEW MISSION</span>
-                  <h1>Embark.</h1>
-                  <p>A clear purpose. An explicit body. A bounded scope.</p>
+                  <h1>New mission</h1>
+                  <p>Choose an agent, a body, and what it is allowed to do.</p>
                 </div>
                 <button onClick={() => go("overview")}>Cancel</button>
               </div>
@@ -491,8 +701,30 @@ function App() {
               <section class="wizard panel">
                 <Show when={step() === 0}>
                   <span class="eyebrow">01 / WHO ACTS</span>
-                  <h2>Choose the decision maker.</h2>
+                  <h2>Choose how the mission runs</h2>
                   <div class="choice-grid">
+                    <button
+                      classList={{
+                        selected: definition().agent?.driver === "simulated",
+                      }}
+                      onClick={() =>
+                        patch({
+                          agent: {
+                            driver: "simulated",
+                            decision_mode: "assisted",
+                            profile: "",
+                          },
+                        })
+                      }
+                    >
+                      <ProtocolIcon kind="agent" large />
+                      <h3>Simulated agent</h3>
+                      <p>
+                        Observe, use tools, and report through a scripted demo.
+                        Works with simulated bodies only.
+                      </p>
+                      <small>SIMULATION · NO LLM OR ACCOUNT</small>
+                    </button>
                     <button
                       classList={{
                         selected: definition().agent?.driver === "rules",
@@ -510,24 +742,23 @@ function App() {
                       <span>⌁</span>
                       <h3>Local rule</h3>
                       <p>
-                        Respond to a validated entry event. Deterministic,
-                        local, no model calls.
+                        A real event → alert rule, without an LLM. With a
+                        simulated camera, its input is simulated.
                       </p>
-                      <small>READY · NO ACCOUNT</small>
+                      <small>AUTOMATION · NO LLM</small>
                     </button>
                     <button
                       classList={{
                         selected: definition().agent?.driver === "native",
                       }}
-                      disabled={!profiles().some((p) => p.status === "ready")}
                       onClick={() =>
                         patch({
                           agent: {
                             driver: "native",
                             decision_mode: "assisted",
-                            profile: profiles().find(
-                              (p) => p.status === "ready",
-                            )?.id,
+                            profile:
+                              profiles().find((p) => p.status === "ready")
+                                ?.id || "",
                           },
                         })
                       }
@@ -535,13 +766,13 @@ function App() {
                       <span>◇</span>
                       <h3>Entryplug agent</h3>
                       <p>
-                        Bounded reasoning with a configured OpenAI or ChatGPT
-                        profile.
+                        Use a real model through ChatGPT sign-in or an OpenAI
+                        API key. Set it up here.
                       </p>
                       <small>
                         {profiles().some((p) => p.status === "ready")
                           ? "PROFILE CONNECTED"
-                          : "CONNECT A PROFILE FIRST"}
+                          : "SIGN IN OR SET UP A PROFILE"}
                       </small>
                     </button>
                     <button onClick={() => go("connections")}>
@@ -554,7 +785,33 @@ function App() {
                       <small>MANAGE CONNECTIONS ↗</small>
                     </button>
                   </div>
+                  <Show when={definition().agent?.driver === "simulated"}>
+                    <p class="notice">
+                      Simulation only. The agent follows a fixed demonstration
+                      policy and makes no model calls.
+                    </p>
+                  </Show>
                   <Show when={definition().agent?.driver === "native"}>
+                    <ProviderSetup
+                      profiles={profiles()}
+                      changed={refresh}
+                      beforeLogin={() =>
+                        sessionStorage.setItem(
+                          "entryplug-mission-draft",
+                          JSON.stringify(definition()),
+                        )
+                      }
+                      selected={(id) =>
+                        patch({
+                          agent: {
+                            driver: "native",
+                            decision_mode: "assisted",
+                            profile: id,
+                          },
+                        })
+                      }
+                    />
+
                     <label>
                       Inference profile
                       <select
@@ -589,36 +846,18 @@ function App() {
                 </Show>
                 <Show when={step() === 1}>
                   <span class="eyebrow">02 / EMBODIMENT</span>
-                  <h2>Choose what it can access.</h2>
+                  <h2>Select a body</h2>
                   <label>
                     Body
                     <select
                       value={definition().body?.selector}
-                      onChange={(e) => {
-                        const body = snapshot()!.bodies.find(
-                          (b) => b.id === e.currentTarget.value,
-                        )!;
-                        patch({
-                          body: {
-                            selector: body.id,
-                            required_capabilities: [body.capabilities[0].name],
-                          },
-                          trigger: {
-                            ...definition().trigger,
-                            source: body.id,
-                            kind: body.simulated ? "event" : "manual",
-                          },
-                          access: {
-                            allow: [
-                              ...body.capabilities.map(
-                                (c: RecordData) => c.name,
-                              ),
-                              "alerts.emit",
-                            ],
-                            approve: [],
-                          },
-                        });
-                      }}
+                      onChange={(e) =>
+                        chooseBody(
+                          snapshot()!.bodies.find(
+                            (b) => b.id === e.currentTarget.value,
+                          )!,
+                        )
+                      }
                     >
                       <For each={snapshot()!.bodies}>
                         {(body) => (
@@ -629,10 +868,33 @@ function App() {
                       </For>
                     </select>
                   </label>
+                  <button class="text-button" onClick={() => addBody("embark")}>
+                    ＋ Add a body
+                  </button>
                   <p class="notice">
-                    The demo uses labelled transitions. It is SIMULATED and does
-                    not detect people from a real camera.
+                    {snapshot()!.bodies.find(
+                      (b) => b.id === definition().body?.selector,
+                    )?.simulated
+                      ? "SIMULATED BODY. All observations and actions belong to a local demo. No physical device is controlled."
+                      : "CONNECTED BODY. Operations use this body's actual adapter and the permissions selected below."}
                   </p>
+                  <Show
+                    when={
+                      definition().agent?.driver === "rules" &&
+                      !snapshot()!
+                        .bodies.find(
+                          (b) => b.id === definition().body?.selector,
+                        )
+                        ?.capabilities.some(
+                          (c: RecordData) => c.name === "person.events",
+                        )
+                    }
+                  >
+                    <p class="error">
+                      The local entry rule needs a camera with person.events.
+                      Choose the simulated agent for the rover or room.
+                    </p>
+                  </Show>
                   <fieldset>
                     <legend>Allowed capabilities</legend>
                     <For
@@ -671,7 +933,7 @@ function App() {
                 </Show>
                 <Show when={step() === 2}>
                   <span class="eyebrow">03 / PURPOSE</span>
-                  <h2>Make the mission explicit.</h2>
+                  <h2>Mission instructions</h2>
                   <label>
                     Mission name
                     <input
@@ -783,7 +1045,7 @@ function App() {
                 </Show>
                 <Show when={step() === 3 && validated()}>
                   <span class="eyebrow">04 / REVIEW</span>
-                  <h2>Ready to keep watch.</h2>
+                  <h2>Review the mission</h2>
                   <dl class="review">
                     <dt>Purpose</dt>
                     <dd>{definition().name}</dd>
@@ -822,7 +1084,27 @@ function App() {
                     ← Back
                   </button>
                   <Show when={step() < 2}>
-                    <button class="primary" onClick={() => setStep(step() + 1)}>
+                    <button
+                      class="primary"
+                      disabled={
+                        (definition().agent?.driver === "native" &&
+                          !profiles().some(
+                            (p) =>
+                              p.id === definition().agent?.profile &&
+                              p.status === "ready",
+                          )) ||
+                        (step() === 1 &&
+                          definition().agent?.driver === "rules" &&
+                          !snapshot()!
+                            .bodies.find(
+                              (b) => b.id === definition().body?.selector,
+                            )
+                            ?.capabilities.some(
+                              (c: RecordData) => c.name === "person.events",
+                            ))
+                      }
+                      onClick={() => setStep(step() + 1)}
+                    >
                       Continue →
                     </button>
                   </Show>
@@ -848,7 +1130,7 @@ function App() {
               <div class="page-heading">
                 <div>
                   <span class="eyebrow">MISSION OPERATIONS</span>
-                  <h1>{current()?.name ?? "Your missions."}</h1>
+                  <h1>{current()?.name ?? "Missions"}</h1>
                   <p>
                     {current()
                       ? `${current()!.id} · revision ${current()!.revision}`
@@ -856,7 +1138,7 @@ function App() {
                   </p>
                 </div>
                 <button class="primary" onClick={embark}>
-                  ◇ Embark
+                  ＋ New mission
                 </button>
               </div>
               <Show when={snapshot()!.runs.length}>
@@ -1015,6 +1297,40 @@ function App() {
                         </section>
                       )}
                     </For>
+                    <div class="execution-context">
+                      <span
+                        class={
+                          mission()?.definition.agent.driver === "simulated"
+                            ? "sim-badge"
+                            : "tag"
+                        }
+                      >
+                        {mission()?.definition.agent.driver === "simulated"
+                          ? "SIMULATED AGENT · NO LLM"
+                          : mission()?.definition.agent.driver === "rules"
+                            ? "LOCAL RULE · NO LLM"
+                            : "LIVE MODEL"}
+                      </span>
+                      <span>
+                        {snapshot()!.bodies.find((b) => b.id === run().body_id)
+                          ?.simulated
+                          ? "Simulated body"
+                          : "Connected body"}
+                      </span>
+                    </div>
+                    <Show
+                      when={snapshot()!.simulations.find(
+                        (sim) => sim.id === run().body_id,
+                      )}
+                    >
+                      {(sim) => (
+                        <SimulationView
+                          simulation={sim()}
+                          control={simulationControl}
+                          busy={busy()}
+                        />
+                      )}
+                    </Show>
                     <div class="mission-columns">
                       <section class="panel">
                         <div class="section-heading">
@@ -1046,7 +1362,7 @@ function App() {
                             run().reason_code === "stale_observation"
                               ? "Coverage unavailable. The last observation does not establish the current scene."
                               : run().last_observation
-                                ? `${label(run().last_observation!.type)} · ${run().last_observation!.present?.length ?? "?"} present`
+                                ? `${label(run().last_observation!.type)}${run().last_observation!.present ? ` · ${run().last_observation!.present!.length} present` : ""}`
                                 : "No observation yet. Waiting for the source."}
                           </p>
                           <small>
@@ -1054,41 +1370,6 @@ function App() {
                             {time(run().last_observation?.at)}
                           </small>
                         </div>
-                        <Show when={run().body_id === "demo.access-camera"}>
-                          <details>
-                            <summary>Simulated source controls</summary>
-                            <p>
-                              Advance the labelled fixture. These controls do
-                              not operate a real camera.
-                            </p>
-                            <div class="demo-buttons">
-                              <For
-                                each={[
-                                  ["enter_a", "Person A enters"],
-                                  ["presence_a", "Continued presence"],
-                                  ["enter_b", "Person B enters"],
-                                  ["exit_a", "Person A leaves"],
-                                  ["lost", "Lose source"],
-                                  ["recover", "Recover source"],
-                                ]}
-                              >
-                                {([action, name]) => (
-                                  <button
-                                    class="small"
-                                    disabled={busy()}
-                                    onClick={() =>
-                                      act(() =>
-                                        api("demo/step", "POST", { action }),
-                                      )
-                                    }
-                                  >
-                                    {name}
-                                  </button>
-                                )}
-                              </For>
-                            </div>
-                          </details>
-                        </Show>
                       </section>
                       <section class="panel activity-panel">
                         <div class="section-heading">
@@ -1347,15 +1628,16 @@ function App() {
               <div class="page-heading">
                 <div>
                   <span class="eyebrow">DISTRIBUTED BODY</span>
-                  <h1>Connections, with context.</h1>
+                  <h1>Bodies & topology</h1>
+                  <button class="primary" onClick={() => addBody()}>
+                    ＋ Add body
+                  </button>
                   <p>
                     Observed and configured relationships retain their origin.
                     Nothing here implies physical wiring.
                   </p>
                 </div>
-                <button onClick={() => go("connections")}>
-                  Connect body ↗
-                </button>
+                <button onClick={() => addBody()}>Connect body ↗</button>
               </div>
               <section class="panel">
                 <Suspense fallback={<p>Loading topology…</p>}>
@@ -1429,7 +1711,7 @@ function App() {
               <div class="page-heading">
                 <div>
                   <span class="eyebrow">PERSISTENT INBOX</span>
-                  <h1>What happened.</h1>
+                  <h1>Alerts</h1>
                   <p>Alerts outlive tabs, observers, and service restarts.</p>
                 </div>
                 <span class="tag">{alerts().length} UNREAD</span>
@@ -1489,243 +1771,50 @@ function App() {
               <div class="page-heading">
                 <div>
                   <span class="eyebrow">CONNECTIONS & AGENTS</span>
-                  <h1>Make access explicit.</h1>
+                  <h1>Connections</h1>
                   <p>
-                    Inference profiles and body permissions are separate
-                    decisions.
+                    Connect a model account, add a body, or give an external
+                    agent access.
                   </p>
                 </div>
               </div>
               <div class="connections-grid">
                 <section class="panel">
-                  <span class="eyebrow">INFERENCE</span>
-                  <h2>Bring your model.</h2>
-                  <For each={profiles()}>
-                    {(profile) => (
-                      <div class="profile-row">
-                        <div>
-                          <strong>{profile.id}</strong>
-                          <small>
-                            {profile.provider} ·{" "}
-                            {profile.model || "Choose a model"} ·{" "}
-                            {label(profile.status)}
-                          </small>
-                        </div>
-                        <button
-                          class="small"
-                          onClick={() =>
-                            act(() =>
-                              api("auth/logout", "POST", {
-                                profile: profile.id,
-                              }),
-                            )
-                          }
-                        >
-                          Disconnect
-                        </button>
-                      </div>
-                    )}
-                  </For>
-                  <label>
-                    Profile name
-                    <input
-                      value={profileName()}
-                      onInput={(e) => setProfileName(e.currentTarget.value)}
-                    />
-                  </label>
-                  <button
-                    class="chatgpt"
-                    disabled={busy()}
-                    onClick={() =>
-                      act(async () => {
-                        const login = await api("auth/chatgpt/start", "POST", {
-                          profile: profileName(),
-                        });
-                        location.assign(login.authorization_url);
-                      })
-                    }
-                  >
-                    Continue with ChatGPT
-                  </button>
-                  <p class="muted">
-                    Uses your eligible plan. Availability and quotas depend on
-                    your account. No physical access is granted.
-                  </p>
-                  <div class="form-row">
-                    <label>
-                      Model
-                      <input
-                        list="model-options"
-                        value={model()}
-                        onInput={(e) => setModel(e.currentTarget.value)}
-                        placeholder="Choose an available model"
-                      />
-                      <datalist id="model-options">
-                        <For each={models()}>
-                          {(m) => <option value={m.id}>{m.name}</option>}
-                        </For>
-                      </datalist>
-                    </label>
-                    <button
-                      class="small"
-                      onClick={() =>
-                        act(async () =>
-                          setModels(
-                            await api<RecordData[]>(
-                              `profiles/${profileName()}/models`,
-                            ),
-                          ),
-                        )
-                      }
-                    >
-                      Load models
-                    </button>
-                  </div>
-                  <div class="actions">
-                    <button
-                      disabled={!model()}
-                      onClick={() =>
-                        act(() =>
-                          api("profiles", "POST", {
-                            id: profileName(),
-                            provider: "chatgpt",
-                            model: model(),
-                          }),
-                        )
-                      }
-                    >
-                      Use with ChatGPT
-                    </button>
-                    <button
-                      disabled={!model()}
-                      onClick={() =>
-                        act(() =>
-                          api("profiles", "POST", {
-                            id: profileName(),
-                            provider: "openai",
-                            model: model(),
-                            api_key_env: "OPENAI_API_KEY",
-                          }),
-                        )
-                      }
-                    >
-                      Use API key
-                    </button>
-                  </div>
-                  <p class="fine-print">
-                    API-key profiles read OPENAI_API_KEY from the service
-                    environment. Selected observations and context leave this
-                    machine for remote inference. Secrets remain in the backend.
-                  </p>
+                  <ProviderSetup profiles={profiles()} changed={refresh} />
                 </section>
                 <section class="panel">
-                  <span class="eyebrow">EMBODIMENT</span>
-                  <h2>Connect an existing body.</h2>
+                  <span class="eyebrow">BODIES</span>
+                  <h2>Body connections</h2>
                   <p>
-                    Home Assistant light state. Read-only, with device-reported
-                    evidence.
+                    Add a simulation, connect Home Assistant, or import
+                    capabilities through MCP or A2A.
                   </p>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      act(() =>
-                        api("connections", "POST", {
-                          kind: "homeassistant",
-                          ...connection(),
-                        }),
-                      );
-                    }}
-                  >
+                  <div class="protocol-strip">
                     <For
                       each={[
-                        ["name", "Connection name"],
-                        ["url", "WebSocket URL"],
-                        ["entity_id", "Allowed light entity"],
-                        ["token_env", "Token environment variable"],
+                        "homeassistant",
+                        "ros2",
+                        "zenoh",
+                        "mqtt",
+                        "mcp",
+                        "a2a",
                       ]}
                     >
-                      {([key, name]) => (
-                        <label>
-                          {name}
-                          <input
-                            value={(connection() as RecordData)[key]}
-                            onInput={(e) =>
-                              setConnection((old) => ({
-                                ...old,
-                                [key]: e.currentTarget.value,
-                              }))
-                            }
-                          />
-                        </label>
-                      )}
+                      {(kind) => <ProtocolIcon kind={kind} />}
                     </For>
-                    <button disabled={busy()}>Connect & verify ↗</button>
-                  </form>
-                  <details>
-                    <summary>Import read-only remote tools</summary>
-                    <label>
-                      Protocol
-                      <select
-                        value={remoteKind()}
-                        onChange={(e) => setRemoteKind(e.currentTarget.value)}
-                      >
-                        <option value="mcp">MCP tools</option>
-                        <option value="a2a">
-                          A2A · one-hop Entryplug capabilities
-                        </option>
-                      </select>
-                    </label>
-                    <p>
-                      Only explicitly selected tools marked read-only are
-                      imported. The observed schema is pinned until reconnect.
-                      Tool content cannot expand mission access.
-                    </p>
-                    <label>
-                      Endpoint or Agent Card URL
-                      <input
-                        value={mcpUrl()}
-                        onInput={(e) => setMcpUrl(e.currentTarget.value)}
-                      />
-                    </label>
-                    <label>
-                      Tool names (comma separated)
-                      <input
-                        value={mcpTool()}
-                        onInput={(e) => setMcpTool(e.currentTarget.value)}
-                      />
-                    </label>
-                    <p class="fine-print">
-                      If needed, set{" "}
-                      {remoteKind() === "mcp"
-                        ? "ENTRYPLUG_MCP_TOKEN"
-                        : "ENTRYPLUG_A2A_TOKEN"}{" "}
-                      in the service environment.
-                    </p>
-                    <button
-                      disabled={busy() || !mcpTool().trim()}
-                      onClick={() =>
-                        act(() =>
-                          api("connections", "POST", {
-                            kind: remoteKind(),
-                            name: "Remote tools",
-                            url: mcpUrl(),
-                            tools: mcpTool()
-                              .split(",")
-                              .map((s) => s.trim()),
-                            token_env:
-                              remoteKind() === "mcp"
-                                ? "ENTRYPLUG_MCP_TOKEN"
-                                : "ENTRYPLUG_A2A_TOKEN",
-                          }),
-                        )
-                      }
-                    >
-                      Connect remote tools
-                    </button>
-                  </details>
+                  </div>
+                  <button
+                    class="primary"
+                    onClick={() => addBody("connections")}
+                  >
+                    ＋ Add body
+                  </button>
                   <For each={snapshot()!.connections}>
                     {(item) => (
                       <div class="profile-row">
+                        <ProtocolIcon
+                          kind={item.source_protocol || item.kind}
+                        />
                         <div>
                           <strong>{item.name}</strong>
                           <small>
@@ -1749,7 +1838,7 @@ function App() {
                 </section>
                 <section class="panel external-panel">
                   <span class="eyebrow">EXTERNAL CONTROL</span>
-                  <h2>Attach an external agent.</h2>
+                  <h2>External agents</h2>
                   <p>
                     Entryplug grants body access. Your agent owns its login and
                     reasoning loop.

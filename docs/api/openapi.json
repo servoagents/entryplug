@@ -593,6 +593,54 @@
         }
       }
     },
+    "/v1/providers": {
+      "get": {
+        "operationId": "get_providers",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
+    "/v1/simulations": {
+      "get": {
+        "operationId": "get_simulations",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
     "/v1/snapshot": {
       "get": {
         "operationId": "get_snapshot",
@@ -1086,6 +1134,42 @@
           {
             "name": "Idempotency-Key",
             "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/simulations/{simulation_id}/control": {
+      "post": {
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Accepted; inspect current state"
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "simulation_id",
+            "in": "path",
             "required": true,
             "schema": {
               "type": "string"
@@ -1736,6 +1820,13 @@
               "edges",
               "nodes"
             ]
+          },
+          "simulations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
           }
         },
         "required": [
@@ -1751,6 +1842,7 @@
           "operations",
           "runs",
           "service_instance_id",
+          "simulations",
           "topology",
           "turns",
           "workspace_id"
@@ -1810,7 +1902,8 @@
                 "enum": [
                   "rules",
                   "native",
-                  "scripted"
+                  "scripted",
+                  "simulated"
                 ],
                 "type": "string"
               },

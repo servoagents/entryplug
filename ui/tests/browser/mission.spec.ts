@@ -25,9 +25,10 @@ test("embark, observe, close browser, control by CLI, and retain alerts", async 
   ).toBeVisible();
   expect(page.url()).not.toContain("bootstrap");
   await page
-    .getByRole("button", { name: "◇ Embark", exact: false })
+    .getByRole("button", { name: /New mission/ })
     .first()
     .click();
+  await page.getByRole("button", { name: /Local rule/ }).click();
   await page.getByRole("button", { name: "Continue →", exact: true }).click();
   await page.getByRole("button", { name: "Continue →", exact: true }).click();
   const name = `Browser watch ${Date.now()}`;
@@ -35,9 +36,8 @@ test("embark, observe, close browser, control by CLI, and retain alerts", async 
   await page.getByRole("button", { name: "Validate & review" }).click();
   await page.getByRole("button", { name: "Launch mission" }).click();
   await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
-  await page.getByText("Simulated source controls", { exact: true }).click();
   await page
-    .getByRole("button", { name: "Person A enters", exact: true })
+    .getByRole("button", { name: "Person enters", exact: true })
     .click();
   await expect(
     page.getByText("Person entered the entrance zone", { exact: true }),
@@ -57,9 +57,12 @@ test("embark, observe, close browser, control by CLI, and retain alerts", async 
       ),
     )
     .toBe(true);
+  await page.locator(".graph").scrollIntoViewIfNeeded();
   await page.locator(".graph").click({ position: { x: 100, y: 80 } });
   await expect(
-    page.getByText("Access camera · SIMULATED", { exact: true }),
+    page
+      .locator(".mission-columns p.muted")
+      .filter({ hasText: /^Access camera · SIMULATED$/ }),
   ).toBeVisible();
   await page.evaluate(() => scrollTo(0, 0));
   await page.screenshot({

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import importlib.util
 import json
 import os
 import re
@@ -180,6 +181,13 @@ class ProviderProfiles:
         return cast(dict[str, Any], metadata)
 
     async def start(self, identifier: str) -> dict[str, Any]:
+        if any(importlib.util.find_spec(name) is None for name in ("openai", "authlib")):
+            raise AppError(
+                "extra_required",
+                "ChatGPT sign-in needs the OpenAI extra. "
+                "Install the wheel with [ui,openai], then restart Entryplug.",
+                503,
+            )
         oauth_client = importlib.import_module(
             "authlib.integrations.httpx_client"
         ).AsyncOAuth2Client

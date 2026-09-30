@@ -29,7 +29,8 @@
           "enum": [
             "rules",
             "native",
-            "scripted"
+            "scripted",
+            "simulated"
           ],
           "type": "string"
         },

@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Literal, get_args, get_origin, get_type_hints
 
 API_VERSION = "1"
-BUILD_ID = "mission-v1"
+BUILD_ID = "mission-workbench-v2"
 MAX_TEXT_BYTES = 65_536
 MAX_REQUEST_BYTES = 131_072
 NUMERIC_LIMITS: dict[str, tuple[float, float]] = {
@@ -92,7 +92,7 @@ def text(value: Any, name: str = "text", limit: int = MAX_TEXT_BYTES) -> str:
 
 @dataclass(frozen=True)
 class AgentConfig:
-    driver: Literal["rules", "native", "scripted"] = "rules"
+    driver: Literal["rules", "native", "scripted", "simulated"] = "rules"
     decision_mode: Literal["rules", "assisted"] = "rules"
     profile: str = ""
 
@@ -222,7 +222,7 @@ def validate_definition(value: Any) -> MissionDefinition:
                 "validation_error", "The entry rule requires a validated person.entered event"
             )
     elif definition.agent.decision_mode != "assisted":
-        raise AppError("validation_error", "Native and scripted drivers require assisted mode")
+        raise AppError("validation_error", "Agent drivers require assisted mode")
     if definition.agent.driver == "native" and not definition.agent.profile:
         raise AppError("validation_error", "Native inference requires an explicit profile")
     if "alerts.emit" in definition.access.approve:

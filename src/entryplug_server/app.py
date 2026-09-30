@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import importlib.util
 import json
 import re
 import secrets
@@ -163,6 +164,46 @@ def create_app(
             )
         if path == "session/bootstrap" and request.method == "POST":
             return JSONResponse({"bootstrap": security.bootstrap()})
+        if path == "providers" and request.method == "GET":
+            installed = all(
+                importlib.util.find_spec(name) is not None for name in ("openai", "authlib")
+            )
+            return JSONResponse(
+                {
+                    "openai_installed": installed,
+                    "install_command": (
+                        "python -m pip install './dist/entryplug-0.0.1-py3-none-any.whl[ui,openai]'"
+                    ),
+                    "restart_required": not installed,
+                }
+            )
+        if path == "simulations" and request.method == "GET":
+            return JSONResponse(service.simulations.snapshot())
+        if path == "simulations" and request.method == "POST":
+            payload = await read_json(request)
+            return JSONResponse(
+                await administrative(
+                    request,
+                    "simulation.created",
+                    payload,
+                    lambda: service.simulations.create(payload),
+                )
+            )
+        if (
+            path.startswith("simulations/")
+            and path.endswith("/control")
+            and request.method == "POST"
+        ):
+            identifier = path.split("/")[1]
+            payload = await read_json(request)
+            return JSONResponse(
+                await administrative(
+                    request,
+                    "simulation.control",
+                    {**payload, "id": identifier},
+                    lambda: service.simulations.control(identifier, payload),
+                )
+            )
         if path == "profiles" and request.method == "GET":
             return JSONResponse(providers.public())
         if path == "profiles" and request.method == "POST":
@@ -375,6 +416,9 @@ def create_app(
         path = str(static.joinpath("index.html"))
         return FileResponse(path, headers={"Cache-Control": "no-store"})
 
+    async def recording(request: Request) -> Response:
+        return FileResponse(str(static.joinpath("assets/city-walk.webm")), media_type="video/webm")
+
     async def oauth_callback(request: Request) -> Response:
         try:
             await providers.callback(dict(request.query_params))
@@ -390,6 +434,7 @@ def create_app(
         lifespan=lifespan,
         routes=[
             Route("/auth/callback", oauth_callback),
+            Route("/assets/city-walk.webm", recording),
             Mount("/mcp", gateways["mcp"]),
             Mount("/a2a", gateways["a2a"]),
             Route("/v1/{path:path}", api, methods=["GET", "POST", "PATCH", "DELETE"]),

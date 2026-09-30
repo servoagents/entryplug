@@ -37,7 +37,9 @@ SEQUENCE = (
 
 
 class DemoCamera:
-    def __init__(self) -> None:
+    def __init__(
+        self, identifier: str = "demo.access-camera", name: str = "Access camera · SIMULATED"
+    ) -> None:
         self.epoch = uuid.uuid4().hex
         self.present: set[str] = set()
         self.entries: dict[str, int] = {}
@@ -47,10 +49,10 @@ class DemoCamera:
         self.stale = False
         self.last_observation: dict[str, Any] | None = None
         specs = []
-        for name in ("camera.snapshot", "person.events"):
+        for capability_name in ("camera.snapshot", "person.events"):
             specs.append(
                 CapabilitySpec(
-                    name=name,
+                    name=capability_name,
                     version="1",
                     description="SIMULATED labelled camera fixture",
                     motion_producing=False,
@@ -67,10 +69,12 @@ class DemoCamera:
             )
         self.host = OperationHost(specs)
         self.port = EmbodimentPort(
-            "demo.access-camera",
-            "Access camera · SIMULATED",
+            identifier,
+            name,
             Session(self.host, owns_runtime=True),
             simulated=True,
+            body_type="camera",
+            protocol="simulation",
         )
 
     @staticmethod
@@ -101,6 +105,11 @@ class DemoCamera:
             "simulated": True,
             "available": self.port.available,
             "label": "SIMULATED — labelled sequence, not a real detector",
+            "recording": {
+                "url": "/assets/city-walk.webm",
+                "role": "illustrative_recording",
+                "note": "Events are scripted, not detected from these pixels",
+            },
         }
 
     def step(self, action: str) -> dict[str, Any]:

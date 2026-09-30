@@ -11,7 +11,7 @@
   color: #e3e0d4;
   background: #0b0e12;
   font-synthesis: none;
-  font-size: 14px;
+  font-size: 16px;
   --bg: #0b0e12;
   --surface: #141a20;
   --raised: #1b242b;
@@ -90,7 +90,7 @@ button.danger {
   color: #efaba6;
 }
 button.small {
-  font-size: 12px;
+  font-size: 14px;
   padding: 7px 10px;
 }
 button.text-button {
@@ -98,7 +98,7 @@ button.text-button {
   padding: 4px 0;
   background: none;
   color: var(--signal);
-  font-size: 12px;
+  font-size: 14px;
   text-align: left;
 }
 button.text-button:hover:not(:disabled) {
@@ -132,7 +132,7 @@ h3 {
   font-size: 18px;
 }
 small {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--muted);
   line-height: 1.6;
 }
@@ -150,11 +150,11 @@ time {
     ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
 }
 code {
-  font-size: 12px;
+  font-size: 14px;
   overflow-wrap: anywhere;
 }
 pre {
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
@@ -169,7 +169,7 @@ fieldset {
 }
 legend {
   padding: 0 8px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 label {
@@ -177,7 +177,7 @@ label {
   flex-direction: column;
   gap: 8px;
   margin: 18px 0;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   font-weight: 500;
 }
@@ -202,7 +202,7 @@ input[type="checkbox"] {
   accent-color: var(--signal);
 }
 input[type="file"] {
-  font-size: 12px;
+  font-size: 14px;
   padding: 8px;
 }
 .check {
@@ -243,7 +243,7 @@ input[type="file"] {
 }
 .brand small {
   display: block;
-  font-size: 7px;
+  font-size: 14px;
   letter-spacing: 1.65px;
   color: #8f9d98;
   margin-top: 3px;
@@ -262,7 +262,7 @@ input[type="file"] {
 }
 .eyebrow {
   display: block;
-  font-size: 9px;
+  font-size: 14px;
   letter-spacing: 1.7px;
   color: var(--muted);
   font-weight: 500;
@@ -275,7 +275,7 @@ input[type="file"] {
   font-size: 14px;
 }
 .workspace code {
-  font-size: 10px;
+  font-size: 14px;
   color: #889690;
 }
 .dot {
@@ -301,7 +301,7 @@ nav button {
   border: 0;
   padding: 13px;
   border-radius: 3px;
-  font-size: 13px;
+  font-size: 14px;
   color: #aab5b0;
   margin-bottom: 5px;
 }
@@ -327,17 +327,17 @@ nav button.chosen > span {
   border-top: 1px solid #263039;
 }
 .sidebar-footer .eyebrow {
-  font-size: 7px;
+  font-size: 14px;
   letter-spacing: 1.3px;
   color: var(--trace);
 }
 .sidebar-footer p {
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1.7;
 }
 .faint {
   color: #74837f;
-  font-size: 9px;
+  font-size: 14px;
   letter-spacing: 1px;
 }
 .content {
@@ -356,7 +356,7 @@ nav button.chosen > span {
   padding: 0 37px;
 }
 .breadcrumb {
-  font-size: 9px;
+  font-size: 14px;
   letter-spacing: 1.5px;
   color: #a4aca5;
 }
@@ -365,7 +365,7 @@ nav button.chosen > span {
   color: #4d5f60;
 }
 .connection-status {
-  font-size: 10px;
+  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -386,7 +386,7 @@ main {
   margin: 7px 0 32px;
 }
 .page-heading p {
-  font-size: 12px;
+  font-size: 14px;
   margin: 8px 0;
 }
 .page-heading > .primary {
@@ -416,10 +416,10 @@ main {
   font-variant-numeric: tabular-nums;
 }
 .metric small {
-  font-size: 10px;
+  font-size: 14px;
 }
 .metric .eyebrow {
-  font-size: 8px;
+  font-size: 14px;
   letter-spacing: 1.2px;
 }
 .section-heading {
@@ -438,7 +438,7 @@ main {
   font-weight: 400;
 }
 .section-heading .muted {
-  font-size: 12px;
+  font-size: 14px;
   margin-left: 8px;
 }
 .panel {
@@ -453,7 +453,7 @@ main {
   padding: 75px 24px;
 }
 .empty p {
-  font-size: 13px;
+  font-size: 14px;
 }
 .empty h2 {
   font-size: 23px;
@@ -518,7 +518,7 @@ main {
   color: var(--signal);
 }
 .body-row strong {
-  font-size: 12px;
+  font-size: 14px;
 }
 .tag {
   display: inline-flex;
@@ -526,13 +526,13 @@ main {
   color: #b1bfb6;
   border-radius: 2px;
   padding: 4px 6px;
-  font-size: 8px;
+  font-size: 14px;
   letter-spacing: 0.6px;
   white-space: nowrap;
 }
 .quiet {
   padding: 18px 0;
-  font-size: 12px;
+  font-size: 14px;
 }
 .signal-row {
   display: flex;
@@ -542,7 +542,7 @@ main {
   border-top: 1px solid #29353c;
 }
 .signal-row strong {
-  font-size: 12px;
+  font-size: 14px;
 }
 .signal-row small {
   display: block;
@@ -577,7 +577,7 @@ main {
   margin-bottom: 20px;
 }
 .card-top .eyebrow {
-  font-size: 8px;
+  font-size: 14px;
   color: #a8b4a9;
 }
 .mission-card h3 {
@@ -588,12 +588,12 @@ main {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 10px;
+  font-size: 14px;
   color: var(--signal);
   letter-spacing: 0.15px;
 }
 .mission-card p {
-  font-size: 11px;
+  font-size: 14px;
   flex: 1;
 }
 .card-bottom {
@@ -602,7 +602,7 @@ main {
   display: flex;
   justify-content: space-between;
   width: 100%;
-  font-size: 9px;
+  font-size: 14px;
   color: #abb7af;
 }
 .fault {
@@ -618,7 +618,7 @@ main {
   margin: 0 38px;
   padding: 20px 0;
   border-top: 1px solid #263039;
-  font-size: 9px;
+  font-size: 14px;
   letter-spacing: 0.5px;
   color: #9a9e8b;
 }
@@ -640,7 +640,7 @@ main {
   border-bottom: 1px solid var(--line);
   padding: 0 0 21px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 .steps li > span {
   width: 25px;
@@ -686,7 +686,7 @@ main {
   margin-top: 25px;
 }
 .choice-grid p {
-  font-size: 12px;
+  font-size: 14px;
 }
 .choice-grid small {
   font: 8px monospace;
@@ -701,7 +701,7 @@ main {
   padding: 10px 16px;
   background: #222119;
   color: #d3c7a6;
-  font-size: 12px;
+  font-size: 14px;
 }
 .wizard-actions {
   display: flex;
@@ -731,7 +731,7 @@ main {
   display: grid;
   grid-template-columns: 150px 1fr;
   gap: 20px;
-  font-size: 13px;
+  font-size: 14px;
   margin: 30px 0;
 }
 .review dt {
@@ -747,11 +747,11 @@ details {
 }
 summary {
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 details p {
-  font-size: 12px;
+  font-size: 14px;
 }
 .run-picker {
   max-width: 600px;
@@ -766,7 +766,7 @@ details p {
   margin: 25px 0;
 }
 .run-status .status {
-  font-size: 12px;
+  font-size: 14px;
   margin-bottom: 8px;
 }
 .actions {
@@ -802,7 +802,7 @@ details p {
   border-top: 1px solid #31413f;
 }
 .observation p {
-  font-size: 13px;
+  font-size: 14px;
 }
 .demo-buttons {
   display: flex;
@@ -831,7 +831,7 @@ details p {
   margin: 18px 0 0;
 }
 .waiting p {
-  font-size: 12px;
+  font-size: 14px;
 }
 .activity-item {
   display: flex;
@@ -841,14 +841,14 @@ details p {
 }
 .activity-item time {
   color: var(--trace);
-  font-size: 10px;
+  font-size: 14px;
   line-height: 2;
 }
 .activity-item strong {
-  font-size: 12px;
+  font-size: 14px;
 }
 .activity-item p {
-  font-size: 12px;
+  font-size: 14px;
   margin: 8px 0;
 }
 .activity-panel form {
@@ -862,7 +862,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
-  font-size: 12px;
+  font-size: 14px;
 }
 th {
   font: 9px monospace;
@@ -882,7 +882,7 @@ th:first-child {
   padding-left: 0;
 }
 td code {
-  font-size: 10px;
+  font-size: 14px;
 }
 .node-detail {
   display: flex;
@@ -890,7 +890,7 @@ td code {
   gap: 20px;
   padding: 20px 0;
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
+  font-size: 14px;
 }
 .inbox-item {
   display: flex;
@@ -903,7 +903,7 @@ td code {
   flex: 1;
 }
 .inbox-item p {
-  font-size: 11px;
+  font-size: 14px;
 }
 .inbox-item .text-button {
   margin-right: 20px;
@@ -921,7 +921,7 @@ td code {
   font-size: 24px;
 }
 .connections-grid p {
-  font-size: 12px;
+  font-size: 14px;
 }
 .external-panel {
   grid-column: 1/-1;
@@ -948,7 +948,7 @@ td code {
   border-top: 1px solid var(--line);
 }
 .profile-row strong {
-  font-size: 12px;
+  font-size: 14px;
 }
 .profile-row small {
   display: block;
@@ -972,7 +972,7 @@ td code {
   align-items: center;
   gap: 18px;
   margin-bottom: 24px;
-  font-size: 12px;
+  font-size: 14px;
 }
 dialog {
   color: var(--text);
@@ -1045,7 +1045,7 @@ dialog::backdrop {
     padding: 20px 17px;
   }
   .metric small {
-    font-size: 9px;
+    font-size: 14px;
   }
   .mission-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1069,7 +1069,7 @@ dialog::backdrop {
     grid-column: auto;
   }
   .body-row strong {
-    font-size: 13px;
+    font-size: 14px;
   }
 }
 @media (max-width: 760px) {
@@ -1105,7 +1105,7 @@ dialog::backdrop {
     width: auto;
     white-space: nowrap;
     padding: 10px;
-    font-size: 11px;
+    font-size: 14px;
     gap: 6px;
   }
   nav button small {
@@ -1124,10 +1124,10 @@ dialog::backdrop {
     height: 46px;
   }
   .breadcrumb {
-    font-size: 8px;
+    font-size: 14px;
   }
   .connection-status {
-    font-size: 9px;
+    font-size: 14px;
   }
   main {
     padding: 24px 18px 35px;
@@ -1137,13 +1137,13 @@ dialog::backdrop {
     margin: 8px 0 24px;
   }
   .page-heading p {
-    font-size: 11px;
+    font-size: 14px;
   }
   .page-heading > .primary {
     min-width: auto;
     padding: 11px;
     gap: 10px;
-    font-size: 12px;
+    font-size: 14px;
   }
   h1 {
     font-size: 29px;
@@ -1165,7 +1165,7 @@ dialog::backdrop {
     font-size: 30px;
   }
   .metric small {
-    font-size: 10px;
+    font-size: 14px;
   }
   .mission-grid {
     grid-template-columns: 1fr;
@@ -1180,17 +1180,17 @@ dialog::backdrop {
     font-size: 16px;
   }
   .section-heading .eyebrow {
-    font-size: 7px;
+    font-size: 14px;
   }
   .body-row {
     flex-wrap: wrap;
   }
   .body-row .tag {
-    font-size: 7px;
+    font-size: 14px;
   }
   .footer {
     margin: 0 18px;
-    font-size: 8px;
+    font-size: 14px;
   }
   .footer span:nth-child(2) {
     display: none;
@@ -1202,7 +1202,7 @@ dialog::backdrop {
     flex-direction: column;
     align-items: flex-start;
     gap: 9px;
-    font-size: 10px;
+    font-size: 14px;
   }
   .wizard {
     padding: 23px;
@@ -1230,7 +1230,7 @@ dialog::backdrop {
   }
   .review {
     grid-template-columns: 90px 1fr;
-    font-size: 12px;
+    font-size: 14px;
     gap: 16px;
   }
   .run-status {
@@ -1241,7 +1241,7 @@ dialog::backdrop {
     margin-top: 16px;
   }
   .run-status .status {
-    font-size: 10px;
+    font-size: 14px;
   }
   .mission-columns {
     gap: 0;

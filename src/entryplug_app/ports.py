@@ -24,11 +24,18 @@ class EmbodimentPort:
     connection_id: str | None = None
     health_check: Callable[[], Awaitable[Any]] | None = None
 
+    body_type: str = "device"
+    protocol: str = "session"
+    source_protocol: str | None = None
+
     async def describe(self) -> dict[str, Any]:
         view = await self.session.observe()
         return {
             "id": self.body_id,
             "name": self.name,
+            "body_type": self.body_type,
+            "protocol": self.protocol,
+            "source_protocol": self.source_protocol,
             "simulated": self.simulated,
             "provenance": self.provenance,
             "status": "available" if self.available else "lost",

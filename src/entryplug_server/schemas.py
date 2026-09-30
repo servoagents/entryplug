@@ -65,6 +65,8 @@ def openapi() -> dict[str, Any]:
         }
     for route in (
         "health",
+        "providers",
+        "simulations",
         "snapshot",
         "bodies",
         "capabilities",
@@ -104,6 +106,8 @@ def openapi() -> dict[str, Any]:
         ("post", "session/bootstrap"),
         ("post", "session/exchange"),
         ("post", "demo/step"),
+        ("post", "simulations"),
+        ("post", "simulations/{simulation_id}/control"),
     ):
         paths.setdefault("/v1/" + route, {})[method] = {
             "requestBody": {"content": {"application/json": {"schema": {"type": "object"}}}},

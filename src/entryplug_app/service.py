@@ -26,6 +26,7 @@ from entryplug_app.demo import DemoCamera
 from entryplug_app.drivers import AgentDriver, RulesDriver, ScriptedDriver, TurnContext
 from entryplug_app.media import public_content
 from entryplug_app.ports import EmbodimentPort
+from entryplug_app.simulations import SimulationDriver, Simulations
 from entryplug_app.store import Store
 from entryplug_app.workspace import Workspace, WorkspaceLock
 
@@ -54,7 +55,11 @@ class ApplicationService:
         self.ports = {p.body_id: p for p in ports or []}
         if self.demo:
             self.ports[self.demo.port.body_id] = self.demo.port
-        self.drivers: dict[str, AgentDriver] = {"rules": RulesDriver()}
+        self.simulations = Simulations(self, self.demo)
+        self.drivers: dict[str, AgentDriver] = {
+            "rules": RulesDriver(),
+            "simulated": SimulationDriver(),
+        }
         if allow_scripted:
             self.drivers["scripted"] = ScriptedDriver()
         self.tasks: set[asyncio.Task[Any]] = set()
@@ -85,6 +90,7 @@ class ApplicationService:
         try:
             await self.store.open()
             self.started = True
+            await self.simulations.restore()
             async with self.lock:
                 for op in await self.store.list("operations"):
                     if op["lifecycle"] not in OP_TERMINAL:
@@ -172,9 +178,16 @@ class ApplicationService:
                 "build_id": BUILD_ID,
                 "bodies": await self.bodies(),
                 "topology": await self.topology(),
+                "simulations": self.simulations.snapshot(),
             }
 
     def _driver(self, definition: Any) -> AgentDriver:
+        if definition.agent.driver == "simulated":
+            port = self.ports.get(definition.body.selector)
+            if not port or not port.simulated:
+                raise AppError(
+                    "simulation_only", "The simulated agent can only use simulated bodies", 409
+                )
         key = (
             definition.agent.profile
             if definition.agent.driver == "native"
@@ -190,6 +203,8 @@ class ApplicationService:
         definition = validate_definition(value)
         port = self.ports.get(definition.body.selector)
         warnings = []
+        if definition.agent.driver == "simulated" and port and not port.simulated:
+            raise AppError("simulation_only", "Choose a simulated body for this agent", 409)
         if not port:
             warnings.append("body_not_connected")
         else:

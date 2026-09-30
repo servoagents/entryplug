@@ -3,3 +3,5 @@ recursive-include ui/src *.ts *.tsx *.css
 recursive-include src/entryplug_ui/static *
 recursive-include docs/api *.json
 include deps/compatibility.json
+
+recursive-include ui/public *
