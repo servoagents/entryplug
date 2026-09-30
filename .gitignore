@@ -11,3 +11,7 @@ install/
 log/
 runs/
 /.planning/
+
+ui/node_modules/
+ui/test-results/
+ui/playwright-report/

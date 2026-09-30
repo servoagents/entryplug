@@ -1,0 +1,5 @@
+include ui/package.json ui/package-lock.json ui/tsconfig.json ui/vite.config.ts ui/index.html
+recursive-include ui/src *.ts *.tsx *.css
+recursive-include src/entryplug_ui/static *
+recursive-include docs/api *.json
+include deps/compatibility.json

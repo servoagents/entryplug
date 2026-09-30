@@ -1,0 +1,47 @@
+name: Mission service
+on: [push, pull_request]
+jobs:
+  service:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: pip install -r deps/mission-service.lock -r deps/dev-tools.txt pytest==9.1.1 pytest-asyncio==1.4.0 build==1.6.1 setuptools==84.0.0 wheel==0.48.0
+      - run: npm ci --prefix ui
+      - run: PYTHONPATH=src python scripts/export_contracts.py
+      - run: npm --prefix ui run types && git diff --exit-code docs/api ui/src/generated.ts
+      - run: npm --prefix ui test
+      - run: npm --prefix ui run build
+      - run: python -m pytest tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant
+      - run: python -m build --wheel --no-isolation
+      - run: python scripts/check_wheel_assets.py dist/entryplug-0.0.1-py3-none-any.whl
+      - run: cd ui && npx playwright install --with-deps chromium
+      - run: cd ui && ENTRYPLUG_TEST_BROWSER='' npm run test:browser
+        env:
+          ENTRYPLUG_TEST_PYTHON: python
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pytest pytest-asyncio
+      - run: python -m pytest tests
+      - run: PYTHONPATH=src python -m entryplug --help
+  openenv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install openenv==0.5.0 pytest pytest-asyncio
+      - run: python -m pytest optional_tests/openenv

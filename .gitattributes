@@ -1,0 +1,2 @@
+# Compiled vendor shader strings intentionally retain upstream whitespace.
+src/entryplug_ui/static/assets/*.js -whitespace linguist-generated=true
