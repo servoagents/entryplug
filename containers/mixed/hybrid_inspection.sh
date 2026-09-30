@@ -2,6 +2,7 @@
 set -euo pipefail
 
 run_dir=${1:?usage: hybrid_inspection.sh RUN_DIRECTORY RUN_ID}
+mode=${3:-direct}
 run_id=${2:?missing run ID}
 if [[ -e "${run_dir}" ]]; then
   echo "refusing to overwrite evidence: ${run_dir}" >&2
@@ -53,5 +54,10 @@ python3 /workspace/entryplug/containers/harbor/mqtt_lamp_bridge.py \
   >"${run_dir}/bridge.log" 2>&1 &
 owned_pids+=("$!")
 
-python3 /workspace/entryplug/containers/mixed/hybrid_inspection.py \
-  --output "${run_dir}/hybrid.json" --run-id "${run_id}"
+if [[ "${mode}" == session ]]; then
+  python3 /workspace/entryplug/containers/mixed/hybrid_session_server.py \
+    --run-dir "${run_dir}" --run-id "${run_id}"
+else
+  python3 /workspace/entryplug/containers/mixed/hybrid_inspection.py \
+    --output "${run_dir}/hybrid.json" --run-id "${run_id}"
+fi

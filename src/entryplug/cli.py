@@ -234,6 +234,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
             )
             scenarios.add_argument("--build", action="store_true")
             scenarios.add_argument("--fault", choices=("none", "no-native-worker"), default="none")
+            scenarios.add_argument("--client", choices=("direct", "session"), default="direct")
             selected = scenarios.parse_args(forwarded)
             return argparse.Namespace(
                 command="test",
@@ -241,6 +242,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
                 scenario=selected.scenario,
                 build=selected.build,
                 fault=selected.fault,
+                client=selected.client,
             )
         return argparse.Namespace(command="test", pytest_args=forwarded, test_suite=suite)
 
@@ -316,6 +318,8 @@ def _test(args: argparse.Namespace) -> int:
         command = [sys.executable, str(root / "containers/scenarios/run_hybrid.py")]
         if args.build:
             command.append("--build")
+        if args.client != "direct":
+            command.extend(("--client", args.client))
         if args.fault != "none":
             command.extend(("--fault", args.fault))
         return subprocess.run(command, cwd=root, check=False).returncode

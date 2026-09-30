@@ -11,8 +11,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import uuid
 from pathlib import Path
+
 
 ROOT = Path(__file__).resolve().parents[2]
 COMPOSE = ROOT / "containers/scenarios/compose.yaml"
@@ -92,7 +94,7 @@ class OwnedStack:
             report = json.loads(output.strip())
         except json.JSONDecodeError as error:
             raise ScenarioFailure("HA bootstrap did not return scrubbed JSON") from error
-        if report.get("status") != "passed":
+        if report.get("status") not in {"passed", "completed"}:
             raise ScenarioFailure("fresh HA bootstrap did not pass")
         token = self.private / "ha-token"
         if token.stat().st_mode & 0o777 != 0o600:
@@ -192,14 +194,33 @@ def _check_secret(run_dir: Path, token_file: Path) -> None:
 def _check_result(run_dir: Path, token_file: Path) -> dict[str, object]:
     report = json.loads((run_dir / "hybrid.json").read_text(encoding="utf-8"))
     bridge = json.loads((run_dir / "bridge.json").read_text(encoding="utf-8"))
-    if report.get("status") != "passed" or bridge.get("status") != "stopped":
+    if report.get("status") not in {"passed", "completed"} or bridge.get("status") != "stopped":
         raise ScenarioFailure("hybrid task or world-owned bridge did not pass")
     operations = report.get("operations")
     if not isinstance(operations, list) or len(operations) != 2:
         raise ScenarioFailure("hybrid task did not return two operations")
-    first = operations[0].get("result")
-    if not isinstance(first, dict) or bridge.get("applied_count") != first.get("lighting_writes"):
-        raise ScenarioFailure("MQTT bridge did not confirm every task lighting write")
+    first, warm = (operation.get("result") for operation in operations)
+    if (
+        any(operation.get("lifecycle") != "succeeded" for operation in operations)
+        or operations[0].get("operation_id") == operations[1].get("operation_id")
+        or not isinstance(first, dict)
+        or not isinstance(warm, dict)
+        or first.get("worker_id") != warm.get("worker_id")
+        or first.get("worker_id") != "worker-a"
+        or first.get("lighting_writes") != 3
+        or warm.get("lighting_writes") != 0
+        or set(first.get("sample_ids", [])) & set(warm.get("sample_ids", []))
+        or bridge.get("applied_count") != first.get("lighting_writes")
+    ):
+        raise ScenarioFailure("hybrid task did not prove fresh checked reuse")
+    client_path = run_dir / "client.json"
+    if client_path.is_file():
+        client = json.loads(client_path.read_text(encoding="utf-8"))
+        client_ops = client.get("operations", [])
+        if [item.get("operation_id") for item in client_ops] != [
+            item.get("operation_id") for item in operations
+        ]:
+            raise ScenarioFailure("client and operation host disagree about task identity")
     _check_secret(run_dir, token_file)
     return {
         "status": "passed",
@@ -214,7 +235,11 @@ def _check_unavailable_result(run_dir: Path, token_file: Path) -> dict[str, obje
     report = json.loads((run_dir / "hybrid.json").read_text(encoding="utf-8"))
     bridge = json.loads((run_dir / "bridge.json").read_text(encoding="utf-8"))
     operations = report.get("operations")
-    if report.get("status") != "failed" or not isinstance(operations, list) or len(operations) != 1:
+    if (
+        report.get("status") not in {"failed", "completed"}
+        or not isinstance(operations, list)
+        or len(operations) != 1
+    ):
         raise ScenarioFailure("missing-worker task did not return one failed operation")
     operation = operations[0]
     result = operation.get("result")
@@ -238,10 +263,37 @@ def _check_unavailable_result(run_dir: Path, token_file: Path) -> dict[str, obje
     }
 
 
+def _run_local_session(stack: OwnedStack, run_dir: Path, run_id: str) -> None:
+    """Drive the same operation host through a local agent-facing Session socket."""
+
+    from hybrid_session_client import run_scripted
+
+    stack.compose(
+        "exec", "-T", "-d", "workbench", "/usr/local/bin/entryplug-container",
+        "bash", "/workspace/entryplug/containers/mixed/hybrid_inspection.sh",
+        f"/workspace/entryplug/runs/{run_id}", run_id, "session", hybrid=True,
+        label="starting bounded hybrid Session",
+    )
+    ready = run_dir / "session-ready.json"
+    deadline = time.monotonic() + 90.0
+    while not ready.is_file():
+        if time.monotonic() >= deadline:
+            raise ScenarioFailure("hybrid Session did not become ready")
+        time.sleep(0.25)
+    client_report = run_scripted(run_dir / "session.sock", run_id)
+    with (run_dir / "client.json").open("x", encoding="utf-8") as stream:
+        json.dump(client_report, stream, indent=2, sort_keys=True, allow_nan=False)
+        stream.write("\n")
+    while not (run_dir / "hybrid.json").is_file() or not (run_dir / "bridge.json").is_file():
+        if time.monotonic() >= deadline:
+            raise ScenarioFailure("hybrid Session did not finish owned teardown")
+        time.sleep(0.25)
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true", help="build source-current images")
     parser.add_argument("--fault", choices=("none", "no-native-worker"), default="none")
+    parser.add_argument("--client", choices=("direct", "session"), default="direct")
     args = parser.parse_args()
     RUNS.mkdir(exist_ok=True)
     run_id = "hybrid-" + uuid.uuid4().hex[:12]
@@ -278,6 +330,15 @@ def main() -> int:
                     hybrid=True,
                     label="starting native compute and ROS workbench",
                 )
+                if args.client == "session":
+                    _run_local_session(stack, run_dir, run_id)
+                    if args.fault == "no-native-worker":
+                        outcome.update(
+                            _check_unavailable_result(run_dir, stack.private / "ha-token")
+                        )
+                    else:
+                        outcome.update(_check_result(run_dir, stack.private / "ha-token"))
+                    continue
                 command_failed = False
                 try:
                     stack.compose(

@@ -73,3 +73,20 @@ def test_hybrid_fault_is_forwarded(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     assert cli._test(selected) == 0
     assert calls[0][-2:] == ["--fault", "no-native-worker"]
+
+
+def test_hybrid_session_client_is_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
+    root = Path("/checkout")
+    calls: list[list[str]] = []
+    monkeypatch.setattr(cli, "source_root", lambda: root)
+
+    def run(command: list[str], **kwargs: object) -> SimpleNamespace:
+        calls.append(command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", run)
+    selected = cli._parse_args(
+        ["test", "--suite", "scenarios", "--scenario", "hybrid", "--client", "session"]
+    )
+    assert cli._test(selected) == 0
+    assert calls[0][-2:] == ["--client", "session"]
