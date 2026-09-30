@@ -1,0 +1,18 @@
+
+> entryplug-console@0.1.0 test:browser
+> playwright test
+
+[WebServer] Entryplug service at http://127.0.0.1:8877; Ctrl-C closes the owner. Use entryplug ui to open the console.
+
+Running 6 tests using 1 worker
+
+(node:304105) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/browser/mission.spec.ts:5:1 › embark, observe, close browser, control by CLI, and retain alerts (3.5s)
+  ✓  2 tests/browser/performance.spec.ts:5:1 › measure loopback state visibility and a fixed 1000-node topology workload (15.3s)
+  ✓  3 tests/browser/simulations.spec.ts:23:1 › camera recording plays and the simulated agent records tool evidence (5.1s)
+  ✓  4 tests/browser/simulations.spec.ts:63:1 › a new rover can be added and the simulated agent moves it (4.5s)
+  ✓  5 tests/browser/simulations.spec.ts:107:1 › agent setup stays accessible and missing login libraries explain the remedy (977ms)
+  ✓  6 tests/browser/simulations.spec.ts:155:1 › room occupancy drives its light and protocol choices explain their bridge (3.7s)
+
+  6 passed (34.9s)

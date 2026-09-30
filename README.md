@@ -42,7 +42,11 @@ entryplug demo sequence
 entryplug mission status <run-id> --json
 ```
 
-Install a built wheel with `[ui]`. The browser is an observer: closing it leaves
+Python 3.12+ is required. Install a built wheel with `[ui]`, or `[ui,openai]`
+for model sign-in. Reinstall an updated 0.0.1 wheel with `--force-reinstall`.
+Open **Simulations** to explore a camera recording, rover, or smart room with a
+clearly labelled simulated agent. **Add body** offers named simulations and
+protocol connection choices. The browser is an observer: closing it leaves
 the mission running. See [installation, mission controls, and systemd](docs/mission-service.md).
 
 ## Connect an agent

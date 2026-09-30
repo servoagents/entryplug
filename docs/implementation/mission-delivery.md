@@ -201,3 +201,59 @@ exactly five console files, including runtime dependency license notices.
   was installed on this host. The CI workflow was added, not run remotely.
 - Screenshots, measurements and logs stay in the repository. An optional CI
   artifact-upload step was rejected by automatic approval review and omitted.
+
+## Simulation workbench update — 30 September 2026
+
+Implementation commit: `cf7480f`.
+
+The follow-up replaces promotional screen headings with task names, increases
+control/body text, and adds camera, rover, and room simulations with their own
+state. A deterministic simulated agent uses journalled observations and actions;
+its UI label distinguishes it from both the local rule and live model inference.
+Playback belongs to the service. Custom body definitions persist, with playback
+paused and simulated state reset after restart. The original evaluation-only
+scripted driver remains separate.
+
+The camera view includes an unmodified, offline CC0 recording with attribution
+and an explicit statement that scripted events are independent of its pixels.
+Rover movement/obstacle and room occupancy/light changes appear in illustrated
+views. The body picker uses labelled protocol glyphs; ROS 2, Zenoh and MQTT
+require a configured read-only MCP bridge, not direct native discovery.
+
+The mission wizard no longer disables native agent setup before a profile exists.
+Missing OpenAI libraries produce an actionable installation message in both API
+and UI. Account sign-in preserves the mission draft; model selection completes
+the profile. Browser tests verify the sign-in request using a fixture; **live
+ChatGPT account sign-in remains unverified**. No credentials or paid calls were
+used. Upgrade/restart instructions are in the [operating guide](../mission-service.md).
+
+Validation used the same isolated Python/Node/SDK versions listed above:
+
+- **350 Python tests passed**, one existing Authlib deprecation warning;
+  [log](evidence/workbench-python-tests.txt). Command: the Python regression
+  command above, including service, MCP, A2A and Home Assistant optional tests.
+- **28 application/server/provider modules passed strict mypy**, and the Ruff
+  command above passed. Unchanged isolated OpenEnv tests and whole-repository
+  optional-dependency typing were not rerun for this update.
+- **3 UI unit tests and 6 browser tests passed**; [browser log](evidence/workbench-browser-tests.txt).
+  Coverage includes actual video playback/pause, rover motion and obstacles,
+  body creation, room light state, mobile layout, protocol bridge copy, and login
+  dependency handling alongside the existing lifecycle and topology workflows.
+- Regenerated JSON/TypeScript contracts and built the console and wheel.
+  `check_wheel_assets.py` found exactly seven current console files, without
+  stale chunks. The installed wheel served all three simulations and HTTP range
+  video outside the repository with Node absent; SIGTERM released the owner and
+  journalled `service.stopped`. [Wheel result](evidence/workbench-wheel-smoke.json).
+- Initial JavaScript is **26,849 bytes gzip**, CSS **6,786 bytes gzip**, and the
+  deferred graph is **137,213 bytes gzip**. The offline recording adds **4,225,837
+  bytes**. [Exact sizes](evidence/workbench-bundle-sizes.json).
+- The existing browser workload measured **106 ms** p95 state visibility,
+  **187 ms** p95 reload/reconnect, and **40.2 frames/s** for the separate
+  1,000-node/2,000-edge graph fixture. [Raw samples](evidence/workbench-browser-metrics.json).
+  These are current observations, not a claim of performance improvement; idle
+  CPU and long-duration resource measurements were not repeated.
+
+Visual evidence: [camera](evidence/workbench-camera.png),
+[rover](evidence/workbench-rover.png), [room](evidence/workbench-room.png),
+[mobile](evidence/workbench-mobile.png), [body connections](evidence/workbench-add-body.png),
+and [provider setup](evidence/workbench-agent-setup.png). All evidence is local.

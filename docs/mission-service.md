@@ -6,22 +6,65 @@ The original laboratory commands retain their existing behavior.
 
 ## Install and run
 
-Python 3.12+ is required. Install a built wheel with its UI extra:
+Python 3.12+ is required (Python 3.10 is too old). From the project folder,
+install the built wheel with console and OpenAI support. If you use Conda:
 
 ```bash
-python -m pip install 'dist/entryplug-0.0.1-py3-none-any.whl[ui]'
-entryplug serve --workspace default
+# Once, if the environment does not exist:
+conda create -n entryplug python=3.12 pip
+conda activate entryplug
 ```
 
-In another terminal, `entryplug ui --workspace default` opens the console using
-a one-use local sign-in. If no service exists, `ui` starts one **in the foreground**.
-Closing that terminal closes its owner. Ordinary client commands never start a
-hidden process. Use `--no-demo` on `serve` to exclude the simulated body.
+Stop any running Entryplug owner with Ctrl-C before updating. The version is
+still 0.0.1, so use `--force-reinstall` to replace an earlier wheel:
 
-The four workflows are overview/embark, mission operation, body/topology, and
-connections. The inbox is persistent. Graph information also has a searchable
+```bash
+python -m pip install --force-reinstall './dist/entryplug-0.0.1-py3-none-any.whl[ui,openai]'
+python -m entryplug ui
+```
+
+`entryplug ui --workspace default` opens the console using a one-use local
+sign-in. `python -m entryplug ui` also works if the script is not on PATH. If no service exists, `ui` starts one **in the foreground**.
+Closing that terminal closes its owner. Ordinary client commands never start a
+hidden process. Use `--no-demo` on `serve` to exclude all simulated bodies and their creation.
+Use `[ui]` alone if you only want the account-free simulations.
+
+The console has Workspace, New mission, Simulations, Bodies & topology,
+Connections, and a persistent inbox. Graph information also has a searchable
 keyboard-accessible table. Dragged positions remain stable across updates;
 layers and capability groups can be hidden without changing body permissions.
+
+## Explore simulations
+
+Open **Simulations**, select a camera, warehouse rover, or smart room, and
+choose **Run with simulated agent**. The service creates a scoped mission and
+runs a finite scenario. No account, model call, or hardware is needed.
+
+- **Camera:** a bundled recording plays alongside scripted person events.
+  Switch between entry/reentry, disconnection/recovery, and stale observations.
+  The agent takes a simulated snapshot and emits alerts for labelled entries.
+- **Rover:** the map follows waypoint changes. The agent observes state, calls
+  `robot.move`, and stops moving when the simulated obstacle is present.
+- **Room:** occupancy changes trigger observation and `room.set_light`; the
+  illustrated room reflects the returned light state.
+
+Play, pause, step, reset, and manual event controls belong to the service.
+Closing the browser does not stop playback or its mission. Pausing a scenario
+stops new source events; **Pause** or **Stop mission** controls the agent run.
+Playback is finite and does not loop automatically. Custom body definitions
+survive a restart; their simulated world resets and playback remains paused.
+
+The **simulated agent** is a deterministic demonstration policy using the same
+scoped tools, operation journal, and evidence flow as missions. It cannot use
+connected hardware. The **local rule** is real automation without an LLM; it
+can process validated person-entry capabilities on either simulated or connected
+bodies. Body labels identify which source is in use. The **Entryplug agent**
+uses a configured live model profile and may incur provider usage.
+
+The camera footage is [Big City Life, Coverr (2015)](https://commons.wikimedia.org/wiki/File:Big_City_Life.webm),
+distributed under CC0. The unmodified recording is bundled for offline use.
+Scripted events are independent of its pixels: no person detector or video
+analysis is performed. Camera evidence identifies this recording as illustrative.
 
 ## Use a mission
 
@@ -45,7 +88,7 @@ entryplug alert list --json
 `tail --json` is NDJSON; Ctrl-C disconnects only that observer. The sequence
 distinguishes sustained presence, two people, reentry, detector epochs,
 source loss, recovery, and stale data. It is labelled data, **not a real person
-detector or video source**. A watch returns to waiting after each bounded turn.
+detector**; the UI recording is illustrative. A watch returns to waiting after each bounded turn.
 There are no inference calls while an event-driven mission waits.
 
 The GUI can launch the same template, load a UTF-8 instruction file, edit
@@ -79,7 +122,17 @@ effect was safe” reconciliation endpoint.
 
 ## Connect a body or external agent
 
-The Connections screen exposes the existing Home Assistant light adapter as
+Use **Add body** from Bodies & topology or the mission wizard. The icon picker
+offers simulations, Home Assistant, MCP, A2A, ROS 2, Zenoh, and MQTT. A simulated
+camera, rover, or room can be named and added immediately. Connected bodies
+show their connection status and verified capabilities after configuration.
+
+ROS 2, Zenoh, and MQTT selections currently require a user-provided **MCP bridge**
+that exports the desired read-only tools. The protocol label records the declared
+source behind that bridge. The console does not perform direct native discovery
+or create a bridge. Selecting an icon alone does not establish a connection.
+
+The Home Assistant option exposes the existing light adapter as
 the read-only `homeassistant.light_state` capability. Set a token in the
 **service** environment, choose the exact light entity, and use its WebSocket
 endpoint (`wss://.../api/websocket` except loopback fixtures). Device reports,
@@ -158,7 +211,13 @@ stderr; JSON results go to stdout. Historical command codes are unchanged.
 
 ## Inference and sign-in
 
-Install `entryplug[openai]`. Both routes use the official Responses SDK.
+Install the wheel with `[ui,openai]` as shown above. Select **Entryplug agent**
+in New mission or open Connections to configure a model. The agent choice is
+available before sign-in; missing login libraries display an installation command
+and restart instructions. ChatGPT sign-in preserves the mission draft in this
+browser tab. After sign-in, load an account model and save the profile before
+continuing. API-key profiles separately read `OPENAI_API_KEY` from the environment
+of the process that starts the service. Both routes use the official Responses SDK.
 
 ```bash
 entryplug auth login chatgpt --profile personal-chatgpt

@@ -1,0 +1,13 @@
+........................................................................ [ 20%]
+........................................................................ [ 41%]
+........................................................................ [ 61%]
+........................................................................ [ 82%]
+..............................................................           [100%]
+=============================== warnings summary ===============================
+optional_tests/service/test_auth.py:12
+  /home/javi/Documents/apps/entryplug/optional_tests/service/test_auth.py:12: AuthlibDeprecationWarning: authlib.jose module is deprecated, please use joserfc instead.
+  It will be compatible before version 2.0.0.
+    from authlib.jose import JsonWebKey, JsonWebToken
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+350 passed, 1 warning in 26.35s
