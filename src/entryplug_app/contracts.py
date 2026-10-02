@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Literal, get_args, get_origin, get_type_hints
 
 API_VERSION = "1"
-BUILD_ID = "mission-workbench-v2"
+BUILD_ID = "mission-workbench-v3"
 MAX_TEXT_BYTES = 65_536
 MAX_REQUEST_BYTES = 131_072
 NUMERIC_LIMITS: dict[str, tuple[float, float]] = {

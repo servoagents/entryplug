@@ -74,6 +74,9 @@ function App() {
     "camera.snapshot",
   ]);
   const [attachmentSecret, setAttachmentSecret] = createSignal<RecordData>();
+  const [connectionChecks, setConnectionChecks] = createSignal<
+    Record<string, RecordData>
+  >({});
   let disconnect: (() => void) | undefined;
   let retry: ReturnType<typeof setTimeout> | undefined;
   let refreshTimer: ReturnType<typeof setTimeout> | undefined;
@@ -99,7 +102,7 @@ function App() {
 
   async function refresh() {
     const next = await api<Snapshot>("snapshot");
-    if (next.build_id !== "mission-workbench-v2")
+    if (next.build_id !== "mission-workbench-v3")
       throw new Error(
         "Service updated. Reload the console before using controls.",
       );
@@ -1811,27 +1814,129 @@ function App() {
                   </button>
                   <For each={snapshot()!.connections}>
                     {(item) => (
-                      <div class="profile-row">
-                        <ProtocolIcon
-                          kind={item.source_protocol || item.kind}
-                        />
-                        <div>
-                          <strong>{item.name}</strong>
-                          <small>
-                            {item.status} ·{" "}
-                            {item.reason_code || item.provenance}
-                          </small>
+                      <div class="connection-entry">
+                        <div class="profile-row">
+                          <ProtocolIcon
+                            kind={item.source_protocol || item.kind}
+                          />
+                          <div>
+                            <strong>{item.name}</strong>
+                            <small>
+                              {item.status} ·{" "}
+                              {item.reason_code || item.provenance}
+                              <Show when={item.last_seen}>
+                                {" · last seen " + time(item.last_seen)}
+                              </Show>
+                            </small>
+                          </div>
+                          <button
+                            class="small"
+                            disabled={busy()}
+                            onClick={() =>
+                              act(async () => {
+                                if (
+                                  ["connected", "lost"].includes(item.status)
+                                ) {
+                                  const result = await api(
+                                    `connections/${item.id}/test`,
+                                    "POST",
+                                    {},
+                                  );
+                                  setConnectionChecks((old) => ({
+                                    ...old,
+                                    [item.id]: result,
+                                  }));
+                                } else {
+                                  await api(
+                                    `connections/${item.id}/retry`,
+                                    "POST",
+                                    {},
+                                  );
+                                  setConnectionChecks((old) => {
+                                    const next = { ...old };
+                                    delete next[item.id];
+                                    return next;
+                                  });
+                                }
+                              })
+                            }
+                          >
+                            {["connected", "lost"].includes(item.status)
+                              ? "Test read-only"
+                              : "Retry connection"}
+                          </button>
+                          <button
+                            class="small"
+                            disabled={busy() || item.status === "disconnected"}
+                            onClick={() =>
+                              act(() =>
+                                api(`connections/${item.id}`, "DELETE", {}),
+                              )
+                            }
+                          >
+                            Disconnect
+                          </button>
                         </div>
-                        <button
-                          class="small"
-                          onClick={() =>
-                            act(() =>
-                              api(`connections/${item.id}`, "DELETE", {}),
-                            )
-                          }
-                        >
-                          Disconnect
-                        </button>
+                        <Show when={connectionChecks()[item.id]}>
+                          {(check) => (
+                            <p class="connection-check" role="status">
+                              {check().available
+                                ? "Read-only check succeeded"
+                                : `Read-only check failed: ${label(check().reason_code || "unavailable")}`}
+                              {" · " + time(check().checked_at)}
+                            </p>
+                          )}
+                        </Show>
+                        <details class="connection-impact">
+                          <summary>
+                            Used by{" "}
+                            {
+                              snapshot()!.missions.filter(
+                                (mission) =>
+                                  mission.definition?.body?.selector ===
+                                  item.id,
+                              ).length
+                            }{" "}
+                            missions
+                          </summary>
+                          <For
+                            each={snapshot()!.missions.filter(
+                              (mission) =>
+                                mission.definition?.body?.selector === item.id,
+                            )}
+                          >
+                            {(mission) => {
+                              const run = () =>
+                                snapshot()!.runs.find(
+                                  (candidate) =>
+                                    candidate.mission_id === mission.id &&
+                                    !terminal.has(candidate.lifecycle),
+                                );
+                              return (
+                                <div class="connection-dependent">
+                                  <span>{mission.definition.name}</span>
+                                  <Show
+                                    when={run()}
+                                    fallback={<small>Not running</small>}
+                                  >
+                                    {(activeRun) => (
+                                      <button
+                                        class="text-button"
+                                        onClick={() => {
+                                          setSelected(activeRun().id);
+                                          go("mission");
+                                        }}
+                                      >
+                                        {label(activeRun().lifecycle)} ·{" "}
+                                        {label(activeRun().health)} ↗
+                                      </button>
+                                    )}
+                                  </Show>
+                                </div>
+                              );
+                            }}
+                          </For>
+                        </details>
                       </div>
                     )}
                   </For>

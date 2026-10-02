@@ -92,11 +92,9 @@ test("a new rover can be added and the simulated agent moves it", async ({
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390);
   await page.screenshot({
     path: "/tmp/entryplug-simulation-mobile.png",
     fullPage: true,
@@ -197,6 +195,79 @@ test("room occupancy drives its light and protocol choices explain their bridge"
   }
   await page.screenshot({
     path: "/tmp/entryplug-add-body.png",
+    fullPage: true,
+  });
+});
+
+test("failed body connection can be retried and lists the missions that use it", async ({
+  page,
+  request,
+}) => {
+  const token = readFileSync(
+    "/tmp/entryplug-playwright/config/client.token",
+    "utf8",
+  ).trim();
+  const headers = () => ({
+    Authorization: `Bearer ${token}`,
+    "Idempotency-Key": crypto.randomUUID(),
+  });
+  const name = `Offline light ${Date.now()}`;
+  const response = await request.post("/v1/connections", {
+    headers: headers(),
+    data: {
+      kind: "homeassistant",
+      name,
+      url: "ws://127.0.0.1:9998/api/websocket",
+      entity_id: "light.entry",
+      token_env: "ENTRYPLUG_ABSENT_BROWSER_TOKEN",
+    },
+  });
+  expect(response.status()).toBe(202);
+  const body = await response.json();
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await request.get("/v1/connections", { headers: headers() })
+          ).json()
+        ).find((c: { id: string }) => c.id === body.id)?.status,
+    )
+    .toBe("unverified");
+  const missionName = `Dependent watch ${Date.now()}`;
+  const mission = await request.post("/v1/missions", {
+    headers: headers(),
+    data: {
+      name: missionName,
+      instructions: "Wait for a verified light",
+      body: { selector: body.id, required_capabilities: [] },
+      trigger: { kind: "manual", source: body.id },
+      access: { allow: [] },
+    },
+  });
+  expect(mission.status()).toBe(202);
+  await page.getByRole("button", { name: /Connections/ }).click();
+  const card = page.locator(".connection-entry").filter({ hasText: name });
+  await expect(
+    card.getByRole("button", { name: "Retry connection" }),
+  ).toBeVisible();
+  await card.getByText("Used by 1 missions").click();
+  await expect(card.getByText(missionName, { exact: true })).toBeVisible();
+  const retry = page.waitForRequest(`**/v1/connections/${body.id}/retry`);
+  await card.getByRole("button", { name: "Retry connection" }).click();
+  await retry;
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await request.get("/v1/connections", { headers: headers() })
+          ).json()
+        ).find((c: { id: string }) => c.id === body.id)?.status,
+    )
+    .toBe("unverified");
+  await page.screenshot({
+    path: "/tmp/entryplug-connection-diagnostics.png",
     fullPage: true,
   });
 });

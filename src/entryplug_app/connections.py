@@ -16,11 +16,12 @@ class Connections:
     def __init__(self, service: Any, *, health_interval_s: float = 10):
         self.service = service
         self.health_interval_s = health_interval_s
+        self.attempts: dict[str, asyncio.Task[Any]] = {}
 
     async def restore(self) -> None:
         for connection in await self.service.store.list("connections"):
             if connection["status"] != "disconnected":
-                self.service.spawn(self.connect(connection))
+                self._start(connection)
 
     async def create(self, payload: dict[str, Any]) -> dict[str, Any]:
         if set(payload) - {
@@ -100,8 +101,60 @@ class Connections:
             raise AppError("validation_error", "Select 1–32 explicit MCP tool names")
         async with self.service.lock:
             await self.service._record("connections", connection, "connection.configured")
-        self.service.spawn(self.connect(connection))
+        self._start(connection)
         return connection
+
+    def _start(self, connection: dict[str, Any]) -> bool:
+        identifier = connection["id"]
+        previous = self.attempts.get(identifier)
+        if previous and not previous.done():
+            return False
+        task = self.service.spawn(self.connect(connection))
+        self.attempts[identifier] = task
+
+        def forget(finished: asyncio.Task[Any]) -> None:
+            if self.attempts.get(identifier) is finished:
+                self.attempts.pop(identifier, None)
+
+        task.add_done_callback(forget)
+        return True
+
+    async def retry(self, identifier: str) -> dict[str, Any]:
+        async with self.service.lock:
+            connection = await self.service.store.get("connections", identifier)
+            if identifier in self.service.ports:
+                raise AppError("already_connected", "Test the connected body instead", 409)
+            if not self._start(connection):
+                return cast(dict[str, Any], connection)
+            connection.update(status="configured", provenance="configured", reason_code=None)
+            await self.service._record("connections", connection, "connection.retrying")
+        return cast(dict[str, Any], connection)
+
+    async def probe(self, identifier: str) -> dict[str, Any]:
+        connection = await self.service.store.get("connections", identifier)
+        port = self.service.ports.get(identifier)
+        if not port or not port.health_check or connection["status"] == "disconnected":
+            raise AppError("not_connected", "Reconnect this body before testing it", 409)
+        try:
+            async with asyncio.timeout(20):
+                report = await port.health_check()
+            available = bool(getattr(report, "available", True))
+            reason_code = None if available else "source_unavailable"
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            available = False
+            reason_code = error.code if isinstance(error, AppError) else "connection_failed"
+        current = await self.service.store.get("connections", identifier)
+        if current["status"] == "disconnected" or self.service.ports.get(identifier) is not port:
+            available, reason_code = False, "disconnected"
+        return {
+            "id": identifier,
+            "available": available,
+            "reason_code": reason_code,
+            "checked_at": utc_now(),
+            "check": "read_only",
+        }
 
     async def connect(self, connection: dict[str, Any]) -> None:
         try:
@@ -183,12 +236,15 @@ class Connections:
         except asyncio.CancelledError:
             raise
         except Exception as error:
-            connection.update(
-                status="unverified",
-                reason_code=error.code if isinstance(error, AppError) else "connection_failed",
-            )
             async with self.service.lock:
-                await self.service._record("connections", connection, "connection.failed")
+                current = await self.service.store.get("connections", connection["id"])
+                if current["status"] == "disconnected":
+                    return
+                current.update(
+                    status="unverified",
+                    reason_code=error.code if isinstance(error, AppError) else "connection_failed",
+                )
+                await self.service._record("connections", current, "connection.failed")
 
     async def disconnect(self, identifier: str) -> dict[str, Any]:
         async with self.service.lock:
@@ -208,4 +264,8 @@ class Connections:
                 }
             )
             await port.close()
+        task = self.attempts.get(identifier)
+        if task and not task.done():
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
         return cast(dict[str, Any], connection)

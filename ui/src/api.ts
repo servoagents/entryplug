@@ -53,7 +53,7 @@ export async function authenticate(): Promise<void> {
   const session = token
     ? await api("session/exchange", "POST", { token })
     : await api("session");
-  if (session.build_id !== "mission-workbench-v2" || session.api_version !== "1")
+  if (session.build_id !== "mission-workbench-v3" || session.api_version !== "1")
     throw new Error("Console and service versions differ. Reload this page.");
   csrf = session.csrf;
 }

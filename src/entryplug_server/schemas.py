@@ -100,6 +100,8 @@ def openapi() -> dict[str, Any]:
         ("post", "missions/validate"),
         ("post", "connections"),
         ("delete", "connections/{connection_id}"),
+        ("post", "connections/{connection_id}/test"),
+        ("post", "connections/{connection_id}/retry"),
         ("post", "profiles"),
         ("post", "auth/chatgpt/start"),
         ("post", "auth/logout"),
@@ -142,6 +144,7 @@ def openapi() -> dict[str, Any]:
                             "/v1/session/bootstrap",
                             "/v1/session/exchange",
                             "/v1/missions/validate",
+                            "/v1/connections/{connection_id}/test",
                         },
                         "schema": {"type": "string"},
                     }

@@ -244,6 +244,20 @@ def create_app(
                 ),
                 status_code=202,
             )
+        if path.startswith("connections/") and path.endswith("/test") and request.method == "POST":
+            identifier = path.split("/")[1]
+            return JSONResponse(await connections.probe(identifier))
+        if path.startswith("connections/") and path.endswith("/retry") and request.method == "POST":
+            identifier = path.split("/")[1]
+            return JSONResponse(
+                await administrative(
+                    request,
+                    "connection.retrying",
+                    {"id": identifier},
+                    lambda: connections.retry(identifier),
+                ),
+                status_code=202,
+            )
         if path.startswith("connections/") and request.method == "DELETE":
             identifier = path.split("/")[1]
             return JSONResponse(
