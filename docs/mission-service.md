@@ -132,6 +132,16 @@ that exports the desired read-only tools. The protocol label records the declare
 source behind that bridge. The console does not perform direct native discovery
 or create a bridge. Selecting an icon alone does not establish a connection.
 
+Saved connections show their observed status and last-seen time. **Retry
+connection** starts a new verification attempt for a disconnected or unverified
+body. If the service environment gains a new credential, restart Entryplug
+first so the process receives it. **Test read-only** checks a connected body's existing health endpoint
+without invoking a capability or granting writes. A failed probe is reported
+separately; the resident health loop updates mission health and body status.
+Expand **Used by missions** before disconnecting to see each dependent mission
+and its current run status. Retry and test are also available at
+`POST /v1/connections/{connection-id}/retry` and `/test` for owner clients.
+
 The Home Assistant option exposes the existing light adapter as
 the read-only `homeassistant.light_state` capability. Set a token in the
 **service** environment, choose the exact light entity, and use its WebSocket

@@ -257,3 +257,40 @@ Visual evidence: [camera](evidence/workbench-camera.png),
 [rover](evidence/workbench-rover.png), [room](evidence/workbench-room.png),
 [mobile](evidence/workbench-mobile.png), [body connections](evidence/workbench-add-body.png),
 and [provider setup](evidence/workbench-agent-setup.png). All evidence is local.
+
+## Connection diagnostics — 2 October 2026
+
+Implementation commit: `6962b0d`.
+
+Connections now offers a read-only live health check for connected Home
+Assistant, MCP, and A2A bodies. Failed or explicitly disconnected bodies can
+be retried without creating duplicate connection tasks. Disconnect closes the
+previous health loop before a later retry, and a late connection failure cannot
+replace an intentional disconnected state. The screen shows last-seen state and
+the mission definitions and active runs that depend on a body. No device command
+is sent by Test read-only; an unavailable result is displayed separately while
+the resident health loop updates mission health. New service environment values
+require a service restart before Retry can use them.
+
+The owner-only routes are `POST /v1/connections/{id}/test` and `/retry`. The
+first is a read-only probe; the second is an idempotent owner command. The
+console build identifier advanced to `mission-workbench-v3` so old service
+processes reject the new controls until restarted.
+
+Validation: the Home Assistant WebSocket fixture reproduced missing credentials,
+then proved retry, live read-only health, an unavailable report, disconnect,
+and immediate reconnect without device commands. The full Python regression
+suite passed **351 tests** with one existing Authlib deprecation warning;
+[log](evidence/connection-python-tests.txt). Strict mypy passed for 28 application,
+server, and provider source files; Ruff passed. The console build, three UI
+unit tests, and [seven browser workflows](evidence/connection-browser-tests.txt)
+passed, including a failed body and its dependent mission on the Connections
+screen. The [screenshot](evidence/connection-diagnostics.png) records this view.
+
+The repeated browser workload measured **92 ms** p95 state visibility,
+**89 ms** p95 reload/reconnect, and **58.9 frames/s** for the fixed 1,000-node,
+2,000-edge graph fixture; [raw samples](evidence/connection-browser-metrics.json).
+An earlier concurrent test run measured 40.2 frames/s, so the result depends on
+host load. The [wheel smoke test](evidence/connection-wheel-smoke.json) installed
+outside the repository with Node absent and verified the console assets,
+three simulations, video range serving, health, and owner cleanup.
