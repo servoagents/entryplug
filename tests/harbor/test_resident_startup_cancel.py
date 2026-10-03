@@ -52,3 +52,31 @@ async def test_cancel_during_ready_stops_owned_world(monkeypatch, tmp_path, conf
         for run in runs:
             run.kwargs["temporary_log"].close()
             run.kwargs["temporary_log_path"].unlink(missing_ok=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wire", [b"native diagnostic\n", b"\xff\n", b'{"version":2}\n'])
+async def test_invalid_private_record_retains_bounded_local_diagnostic(tmp_path, wire):
+    from types import SimpleNamespace
+
+    from entryplug_harbor.resident import DockerResidentRun, ResidentReplyLost
+
+    reader = asyncio.StreamReader()
+    reader.feed_data(wire)
+    reader.feed_eof()
+    log = tmp_path / "temporary.log"
+    with log.open("wb") as stream:
+        run = DockerResidentRun(
+            run_id="bad-record",
+            evidence_path=tmp_path / "evidence",
+            container_name="owned-test",
+            process=SimpleNamespace(stdin=object(), stdout=reader),
+            temporary_log_path=log,
+            temporary_log=stream,
+        )
+        with pytest.raises(ResidentReplyLost):
+            await run._read(1)
+        artifacts = list(run.evidence_path.glob("invalid-record-*.bin"))
+        assert len(artifacts) == 1
+        assert artifacts[0].read_bytes() == wire
+        assert artifacts[0].stat().st_mode & 0o777 == 0o600

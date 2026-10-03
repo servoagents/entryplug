@@ -153,6 +153,9 @@ async def run_case(name: str, fault: str | None, *, seed: int) -> dict[str, obje
             "status": "failed",
             "reason": type(error).__name__,
             "detail": str(error),
+            "stop_confirmed": error.stop_confirmed
+            if isinstance(error, ResidentStartupFailure)
+            else None,
             "evidence_path": str(evidence) if evidence is not None else None,
         }
 

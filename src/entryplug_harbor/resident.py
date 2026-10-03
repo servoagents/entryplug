@@ -120,6 +120,15 @@ class DockerResidentRun(DockerHarborRun):
         self._request_lock = asyncio.Lock()
         self.ready: Mapping[str, JsonValue] = {}
 
+    def _retain_invalid_record(self, line: bytes) -> None:
+        # Preserve a bounded diagnostic instead of hiding the actual bad bytes.
+        # This remains local private fixture evidence, never a public task result.
+        self.evidence_path.mkdir(parents=True, exist_ok=True)
+        path = self.evidence_path / f"invalid-record-{uuid.uuid4().hex}.bin"
+        with path.open("xb") as stream:
+            path.chmod(0o600)
+            stream.write(line[:MAX_RECORD_BYTES])
+
     async def _read(self, timeout_seconds: float) -> Mapping[str, JsonValue]:
         try:
             async with asyncio.timeout(timeout_seconds):
@@ -129,12 +138,15 @@ class DockerResidentRun(DockerHarborRun):
                 "resident reply timed out or exceeded the pipe limit"
             ) from error
         if not line or len(line) > MAX_RECORD_BYTES:
+            self._retain_invalid_record(line)
             raise ResidentReplyLost("resident reply was absent or oversized")
         try:
             value = json.loads(line)
-        except json.JSONDecodeError as error:
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            self._retain_invalid_record(line)
             raise ResidentReplyLost("resident reply was not JSON") from error
         if not isinstance(value, dict) or value.get("version") != 1:
+            self._retain_invalid_record(line)
             raise ResidentReplyLost("resident reply did not match the private record version")
         return json_object(value, "resident reply")
 

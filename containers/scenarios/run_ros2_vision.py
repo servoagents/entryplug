@@ -26,7 +26,7 @@ from entryplug_harbor.resident import (
     harbor_resident_episode_factory,
     start_owned_resident,
 )
-from entryplug_harbor.runtime import DEFAULT_HARBOR_IMAGE, run_harbor
+from entryplug_harbor.runtime import DEFAULT_HARBOR_IMAGE, new_harbor_run_id, run_harbor
 from entryplug_harbor.visual_task import VISUAL_REACH
 
 
@@ -150,6 +150,47 @@ def check_session(report: dict, evidence: Path) -> None:
     )
 
 
+async def run_interrupted_start() -> dict:
+    """Cancel a real owned world during initialize, after controllers exist."""
+    run_id = new_harbor_run_id("resident")
+    evidence = RUNS / run_id
+    task = asyncio.create_task(start_owned_resident(ROOT, DEFAULT_HARBOR_IMAGE, run_id))
+    report = {"status": "failed", "run_id": run_id, "evidence_path": str(evidence)}
+    try:
+        until = time.monotonic() + 60
+        marker = evidence / "controllers-final.txt"
+        while not marker.is_file() and not task.done() and time.monotonic() < until:
+            await asyncio.sleep(0.05)
+        _require(
+            marker.is_file() and not task.done(), "startup interruption missed its native phase"
+        )
+        report["controllers_observed_before_ready"] = True
+        report["cancel_requested_monotonic"] = time.monotonic()
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            report["cancellation_propagated"] = True
+        else:
+            raise RuntimeError("startup cancellation did not propagate")
+        check_world_removed(evidence)
+        report.update(status="passed", world_removed=True)
+    except Exception as error:
+        report.update(reason=type(error).__name__, detail=str(error))
+    finally:
+        if not task.done():
+            task.cancel()
+        try:
+            run = await task
+        except (Exception, asyncio.CancelledError):
+            pass
+        else:
+            stopped = await run.stop()
+            if not stopped.confirmed:
+                report.update(status="failed", detail="interrupted startup cleanup unconfirmed")
+    return report
+
+
 async def run_connection(run_dir: Path) -> dict:
     report: dict = {"status": "failed", "operations": []}
     owned = []
@@ -268,6 +309,8 @@ def main() -> int:
             file=sys.stderr,
             flush=True,
         )
+        interruption = asyncio.run(run_interrupted_start())
+        outcome["startup_interruption"] = interruption
         connection = asyncio.run(run_connection(run_dir))
         outcome["connection"] = connection
         with (run_dir / "connection.json").open("x") as stream:
@@ -285,7 +328,9 @@ def main() -> int:
         outcome["mirrors"] = mirrors
         outcome["status"] = (
             "passed"
-            if connection["status"] == "passed" and mirrors["outcome"] == "passed"
+            if interruption["status"] == "passed"
+            and connection["status"] == "passed"
+            and mirrors["outcome"] == "passed"
             else "failed"
         )
     except Exception as error:

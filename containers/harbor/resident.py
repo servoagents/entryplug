@@ -14,6 +14,7 @@ import time
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TextIO
 
 import cv2
 import numpy as np
@@ -58,12 +59,14 @@ from entryplug_harbor.resident import (
     SOURCE_ID,
     SOURCE_LINEAGE,
 )
+from entryplug_harbor.resident_output import private_record_stream
 from entryplug_harbor.visual_task import visual_reach_arguments
 from entryplug_harbor.worker import ActiveDetectorPath, DetectorWorker, WorkerUnavailable
 
 REUSE_PROBES_RADIANS = HARBOR_RESIDENT_RECOVERY_V1.replacement_probes_radians
 REPAIR_BUDGET_SECONDS = HARBOR_RESIDENT_RECOVERY_V1.repair_budget_seconds
 SOURCE_TOPIC = "/camera/color/image_raw"
+_RECORD_STREAM: TextIO | None = None
 
 
 class QuiescenceUnconfirmed(RuntimeError):
@@ -74,8 +77,10 @@ def _send(record: dict[str, object]) -> None:
     encoded = json.dumps(record, allow_nan=False, separators=(",", ":"))
     if len(encoded.encode()) + 1 > MAX_RECORD_BYTES:
         raise ValueError("resident output exceeds record bound")
-    sys.stdout.write(encoded + "\n")
-    sys.stdout.flush()
+    if _RECORD_STREAM is None:
+        raise RuntimeError("resident record channel was not initialized")
+    _RECORD_STREAM.write(encoded + "\n")
+    _RECORD_STREAM.flush()
 
 
 def _read_control_line() -> bytes:
@@ -922,12 +927,16 @@ def main() -> int:
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--run-id", required=True)
     args = parser.parse_args()
-    rclpy.init()
-    try:
-        serve(args.run_dir, args.run_id)
-        return 0
-    finally:
-        rclpy.shutdown()
+    global _RECORD_STREAM
+    with private_record_stream() as records:
+        _RECORD_STREAM = records
+        rclpy.init()
+        try:
+            serve(args.run_dir, args.run_id)
+            return 0
+        finally:
+            rclpy.shutdown()
+            _RECORD_STREAM = None
 
 
 if __name__ == "__main__":
