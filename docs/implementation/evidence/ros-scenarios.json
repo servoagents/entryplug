@@ -1,0 +1,1693 @@
+{
+  "implementation_commits": [
+    "5d97cac",
+    "c2c1fa5",
+    "77846ce"
+  ],
+  "host_orchestrator_python": "3.14.4",
+  "fixture_and_test_python": "3.12.3",
+  "tests": {
+    "passed": 473,
+    "skipped": 1,
+    "pytest": "9.1.1",
+    "pytest_asyncio": "1.4.0",
+    "ruff": "0.13.3",
+    "mypy": "1.18.2",
+    "command": "/dev-env/venv/bin/python -m pytest -q -p no:cacheprovider tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant optional_tests/zenoh optional_tests/mqtt"
+  },
+  "retained_regressions": {
+    "canceled_start_before_fix": "runs/implementation-oct03-ros/startup-cancel-before.txt (1 failed; stop_calls was 0)",
+    "invalid_record_before_fix": "runs/implementation-oct03-ros/invalid-record-before.txt (3 failed; bytes not retained / wrong exception)"
+  },
+  "limitations": [
+    "Development seed 101, fixed numerical profiles; no holdout or release claim",
+    "First recovery matrix had 7/8 cases pass but failed overall: measured noise caused an honest binding refusal",
+    "Second recovery matrix had 7/8 cases pass but failed overall: a startup record was not JSON; exact old bytes were not retained, so the producer is unknown",
+    "Native fd-1/Python diagnostics now use stderr; records use a separate descriptor; malformed bytes remain private",
+    "Native-result loss is client exit after accepted goal, not independently lost admission acknowledgement or packet loss",
+    "Vision is local one-dimensional image-row alignment; Mirrors is a separate owned world",
+    "Source-checkout fixtures; installed bundle, native resident mission, aggregate/offline/acceptance and separate freezes still incomplete"
+  ],
+  "runs": [
+    {
+      "command": "./entryplug test --suite scenarios --scenario ros2-recovery --build",
+      "local_evidence": "runs/ros2-recovery-f2dc803f3fd3",
+      "manifest": {
+        "status": "failed",
+        "run_id": "ros2-recovery-f2dc803f3fd3",
+        "phase": "development",
+        "profile_id": "harbor-resident-recovery-v1",
+        "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+        "seed": 101,
+        "dependencies": [
+          "ROS 2 camera and trajectory controller",
+          "MuJoCo arm",
+          "local detector worker processes"
+        ],
+        "claim_boundary": "One-dimensional local image-row tasks. No release freeze, admission-acknowledgement loss, physical hardware or holdout claim.",
+        "source_sha256": "da70613e7e7d978c7f85313920f9e03df197535d0021880a4403ccb326359b1f",
+        "image_ids": {
+          "entryplug-harbor:jazzy": "sha256:5a98eed244108978d1224c785b3c6d967432fd30f8d4fa5842cd5120fd2250dd"
+        },
+        "cases": [
+          {
+            "case": "no_fault",
+            "fault": null,
+            "seed": 101,
+            "status": "failed",
+            "run_id": "harbor-resident-20261003T171238Z-ee2b6532",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171238Z-ee2b6532",
+            "score": {
+              "seed": 101,
+              "fault": null,
+              "run_id": "harbor-resident-20261003T171238Z-ee2b6532",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171238Z-ee2b6532",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "failed",
+              "reason_code": "task_not_completed",
+              "reported_status": "failed",
+              "admitted_tasks": 1,
+              "passed_tasks": 0,
+              "fault_applied": false,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 44753.477,
+                "container_startup_ms": 9549.427,
+                "acquisition_ms": 26670.886387,
+                "fault_to_detection_ms": null,
+                "repair_ms": null,
+                "post_fault_trace_order_ok": null,
+                "total_validation_probes": 2,
+                "replacement_validation_probes": null,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 0.159993
+              }
+            },
+            "world_removed": true
+          },
+          {
+            "case": "recoverable_loss",
+            "fault": "kill-active-worker",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T171326Z-de49b3f2",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171326Z-de49b3f2",
+            "score": {
+              "seed": 101,
+              "fault": "kill-active-worker",
+              "run_id": "harbor-resident-20261003T171326Z-de49b3f2",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171326Z-de49b3f2",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "passed",
+              "reason_code": null,
+              "reported_status": "passed",
+              "admitted_tasks": 4,
+              "passed_tasks": 4,
+              "fault_applied": true,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 97441.426,
+                "container_startup_ms": 9889.814,
+                "acquisition_ms": 27579.311573,
+                "fault_to_detection_ms": 996.654084,
+                "repair_ms": 9733.217932,
+                "post_fault_trace_order_ok": true,
+                "total_validation_probes": 8,
+                "replacement_validation_probes": 2,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 1.340512
+              }
+            },
+            "admitted_repair": {
+              "operation_id": "c069f613f64346439d1b95d15a7f8b07",
+              "runtime_id": "harbor-resident-641d11fce69d44acab36d5e8dad8e078",
+              "target_y_px": 245.261043,
+              "deadline_monotonic": 11304.495646936,
+              "completed_monotonic": 11273.653987787
+            },
+            "world_removed": true
+          },
+          {
+            "case": "stale_replacement",
+            "fault": "kill-active-worker-stale-alternate",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T171507Z-1b710041",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171507Z-1b710041",
+            "score": {
+              "seed": 101,
+              "fault": "kill-active-worker-stale-alternate",
+              "run_id": "harbor-resident-20261003T171507Z-1b710041",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171507Z-1b710041",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "passed",
+              "reason_code": null,
+              "reported_status": "failed",
+              "admitted_tasks": 2,
+              "passed_tasks": 1,
+              "fault_applied": true,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 62608.46,
+                "container_startup_ms": 9694.614,
+                "acquisition_ms": 26710.359044,
+                "fault_to_detection_ms": 990.498017,
+                "repair_ms": 1745.934352,
+                "post_fault_trace_order_ok": true,
+                "total_validation_probes": 4,
+                "replacement_validation_probes": null,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 0.49193
+              }
+            },
+            "world_removed": true
+          },
+          {
+            "case": "no_replacement",
+            "fault": "kill-both-workers",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T171613Z-8e880c55",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171613Z-8e880c55",
+            "score": {
+              "seed": 101,
+              "fault": "kill-both-workers",
+              "run_id": "harbor-resident-20261003T171613Z-8e880c55",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171613Z-8e880c55",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "passed",
+              "reason_code": null,
+              "reported_status": "failed",
+              "admitted_tasks": 2,
+              "passed_tasks": 1,
+              "fault_applied": true,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 63105.556,
+                "container_startup_ms": 11781.952,
+                "acquisition_ms": 27877.727658,
+                "fault_to_detection_ms": 1014.606181,
+                "repair_ms": 105.950237,
+                "post_fault_trace_order_ok": true,
+                "total_validation_probes": 4,
+                "replacement_validation_probes": null,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 0.496364
+              }
+            },
+            "world_removed": true
+          },
+          {
+            "case": "private_result_loss",
+            "fault": "kill-active-worker-drop-repair-result",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T171719Z-24caa55a",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171719Z-24caa55a",
+            "score": {
+              "run_id": "harbor-resident-20261003T171719Z-24caa55a",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171719Z-24caa55a",
+              "seed": 101,
+              "fault": "kill-active-worker-drop-repair-result",
+              "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+              "task_outcome": "failed",
+              "safety_outcome": "passed",
+              "reason_code": "reply_lost_after_validated_repair",
+              "host_stop_confirmed": true,
+              "replacement_checks_ordered": true,
+              "no_resumed_correction": true,
+              "fault_applied": true,
+              "repair_status": "validated",
+              "native_action_count": 11
+            },
+            "world_removed": true
+          },
+          {
+            "case": "native_result_unobserved",
+            "fault": "kill-active-worker-drop-native-result",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T171831Z-07216281",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171831Z-07216281",
+            "score": {
+              "run_id": "harbor-resident-20261003T171831Z-07216281",
+              "seed": 101,
+              "fault": "kill-active-worker-drop-native-result",
+              "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+              "task_outcome": "failed",
+              "safety_outcome": "passed",
+              "reason_code": "native_result_unobserved_world_stopped",
+              "host_stop_confirmed": true,
+              "native_goal_accepted_before_client_exit": true,
+              "no_task_result_or_retry": true
+            },
+            "world_removed": true
+          },
+          {
+            "case": "repair_cancel",
+            "fault": "repair_cancel",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T171936Z-9eda31b0",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T171936Z-9eda31b0",
+            "score": {
+              "safety_outcome": "passed",
+              "reason_code": "canceled_during_repair_and_held",
+              "fault_applied": true,
+              "cancel_after_detection": true,
+              "no_resumed_motion": true,
+              "native_cancel_confirmed": true,
+              "world_stop_confirmed": true,
+              "native_action_count": 8
+            },
+            "world_removed": true
+          },
+          {
+            "case": "quiescence_loss",
+            "fault": "quiescence_loss",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T172043Z-68a800d2",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T172043Z-68a800d2",
+            "score": {
+              "safety_outcome": "passed",
+              "reason_code": "feedback_loss_inhibited_motion",
+              "joint_feedback_lost_after_detection": true,
+              "no_repair_motion": true,
+              "no_third_goal": true,
+              "host_motion_inhibited": true,
+              "world_stop_confirmed": true
+            },
+            "world_removed": true
+          }
+        ]
+      },
+      "native_receipts": {
+        "recoverable_loss": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 11261.146428918,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "c069f613f64346439d1b95d15a7f8b07"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 11263.92593121,
+            "goal_id": "0d854232eb5c4de2943e115f3d8ebe9b",
+            "operation_id": "c069f613f64346439d1b95d15a7f8b07"
+          }
+        },
+        "stale_replacement": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 11361.226475697,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "f6044c6f8f5342e2a2032a1ea4a42248"
+          }
+        },
+        "no_replacement": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 11430.578972808,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "e62ecb7d8a1946b8ade91fb704973dbb"
+          }
+        },
+        "private_result_loss": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 11493.183241386,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "6c59dfcff22d46d48c3bab34ff15949c"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 11495.99172076,
+            "goal_id": "3f69dfef461b4a5986864611ea675683",
+            "operation_id": "6c59dfcff22d46d48c3bab34ff15949c"
+          }
+        },
+        "native_result_unobserved": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 11565.237279958,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "08e585beefba4f3fb1ee5a06d78cd375"
+          },
+          "task-0002-native-result-unobserved.evaluator.json": {
+            "client_exit_monotonic": 11568.071203231,
+            "fault_applied": true,
+            "fault_phase": "native_correction_accepted",
+            "goal_id": "ba1d29e8fffc4df1a4bb2a31f3f5a52b",
+            "mechanism": "client_exit_after_goal_acceptance",
+            "operation_id": "08e585beefba4f3fb1ee5a06d78cd375",
+            "primary_instance": "bf1846aaea6442b881729abd823c16c1"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 11568.070590995,
+            "goal_id": "ba1d29e8fffc4df1a4bb2a31f3f5a52b",
+            "operation_id": "08e585beefba4f3fb1ee5a06d78cd375"
+          }
+        },
+        "repair_cancel": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 11630.469262968,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "228af02b04034460ba28bc6f8d6c1d87"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 11633.271638435,
+            "goal_id": "24baf4956f1944cbbdd8b901439f8d89",
+            "operation_id": "228af02b04034460ba28bc6f8d6c1d87"
+          }
+        },
+        "quiescence_loss": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 11697.126743894,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "7aa127583658498ca5de8d0b38c4877d"
+          },
+          "task-0002-joint-feedback-lost.evaluator.json": {
+            "fault_phase": "native_correction_accepted",
+            "last_joint_sequence": 2233,
+            "loss_monotonic": 11697.128234495,
+            "operation_id": "7aa127583658498ca5de8d0b38c4877d",
+            "topic": "/joint_states"
+          }
+        }
+      }
+    },
+    {
+      "command": "./entryplug test --suite scenarios --scenario ros2-vision --build",
+      "local_evidence": "runs/ros2-vision-bd640594c57c",
+      "manifest": {
+        "status": "passed",
+        "run_id": "ros2-vision-bd640594c57c",
+        "phase": "development",
+        "dependencies": [
+          "ROS 2 camera and trajectory controller",
+          "MuJoCo arm",
+          "local detector processes"
+        ],
+        "claim_boundary": "Local one-dimensional image-row alignment. Mirrors uses a separate owned world; no 3D or hardware claim.",
+        "source_sha256": "a76c61efbeba51d9924d1d04d7d35af300ebb8cede20d98648a41473e6a021f9",
+        "image_ids": {
+          "entryplug-harbor:jazzy": "sha256:7d1e184e325f979574f1cad4cacc6704798d223d29af464c911884b5e149580b"
+        },
+        "connection": {
+          "status": "passed",
+          "operations": [
+            {
+              "cancel_requested": false,
+              "capability": "visual_reach",
+              "effect_state": "none",
+              "lifecycle": "succeeded",
+              "motion_state": "holding",
+              "operation_id": "2ee5833fd65f462a81db2981eaaaa98f",
+              "phase": "terminal",
+              "reason_code": null,
+              "result": {
+                "action_count": 5,
+                "binding_evidence_key": "sha256:6d869048db05bc47457f4d6b41aa8df7fa029ca651399e8f303d41bab603225b",
+                "binding_ready": true,
+                "binding_reference": "sha256:6d869048db05bc47457f4d6b41aa8df7fa029ca651399e8f303d41bab603225b:revision-1",
+                "binding_revision": 1,
+                "commanded_travel_radians": 0.221976,
+                "detector_worker": {
+                  "detector_id": "fixed-red-centroid-v1",
+                  "frame_received_monotonic": 12138.892330645,
+                  "frame_sequence": 211,
+                  "frame_sha256": "9f5530e22812718b124b39a7ea4676c758159c0195027b11f30c7adc1001e46e",
+                  "frame_stamp": {
+                    "nanosec": 350000000,
+                    "sec": 44
+                  },
+                  "interface_version": "1",
+                  "lineage_id": "camera-color-capture-v1",
+                  "source_id": "camera-color-v1",
+                  "worker_generation": 1,
+                  "worker_instance": "87aaccf412434a5c84739a4ee5196757"
+                },
+                "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T172817Z-7a0b7975",
+                "final_error_px": -0.261152,
+                "final_y_px": 256.630252,
+                "initial_y_px": 250.669164,
+                "lineage_id": "camera-color-capture-v1",
+                "operation_id": "2ee5833fd65f462a81db2981eaaaa98f",
+                "quiescence_confirmed": true,
+                "quiescence_evidence": {
+                  "confirmed": true,
+                  "consecutive_samples": 5,
+                  "latest_velocity_radians_s": {
+                    "joint1": -0.00010976270859481876,
+                    "joint2": 4.401940851498872e-05
+                  },
+                  "threshold_radians_s": 0.01
+                },
+                "reason_code": "TARGET_REACHED",
+                "recovery": null,
+                "reticle_path": "task-0001-reticle.observer.png",
+                "run_id": "harbor-resident-20261003T172817Z-7a0b7975",
+                "source_id": "camera-color-v1",
+                "source_topic": "/camera/color/image_raw",
+                "status": "passed",
+                "target_y_px": 256.3691,
+                "task_ms": 2244.167738,
+                "tolerance_px": 3.0,
+                "trace_path": "task-0001-trace.jsonl",
+                "validation": {
+                  "assessments": [
+                    {
+                      "candidate_id": "camera-color-v1",
+                      "eligible": true,
+                      "lineage_id": "camera-color-capture-v1",
+                      "maximum_age_ms": 4.390225,
+                      "maximum_error_px": 0.56505,
+                      "reasons": [],
+                      "signal_to_noise": 2.59787,
+                      "tolerance_px": 2.851766
+                    }
+                  ],
+                  "candidate_id": "camera-color-v1",
+                  "evidence_key": "sha256:6d869048db05bc47457f4d6b41aa8df7fa029ca651399e8f303d41bab603225b",
+                  "lineage_id": "camera-color-capture-v1",
+                  "matching_candidate_ids": [
+                    "camera-color-v1"
+                  ],
+                  "matching_independent_lineage_count": 1,
+                  "probe_count": 2,
+                  "status": "reused"
+                },
+                "validation_ms": 8460.497878,
+                "validation_probe_count": 2,
+                "visual_capability_available": true,
+                "wall_ms": 10704.674465
+              }
+            },
+            {
+              "cancel_requested": false,
+              "capability": "visual_reach",
+              "effect_state": "none",
+              "lifecycle": "succeeded",
+              "motion_state": "holding",
+              "operation_id": "f5102c23a62c40fb976bbac99b9ea6e7",
+              "phase": "terminal",
+              "reason_code": null,
+              "result": {
+                "action_count": 6,
+                "binding_evidence_key": "sha256:6d869048db05bc47457f4d6b41aa8df7fa029ca651399e8f303d41bab603225b",
+                "binding_ready": true,
+                "binding_reference": "sha256:6d869048db05bc47457f4d6b41aa8df7fa029ca651399e8f303d41bab603225b:revision-1",
+                "binding_revision": 1,
+                "commanded_travel_radians": 0.270037,
+                "detector_worker": {
+                  "detector_id": "fixed-red-centroid-v1",
+                  "frame_received_monotonic": 12151.368617233,
+                  "frame_sequence": 283,
+                  "frame_sha256": "bf17f9ca3a64d87aaa1f7da4e6f5890dfb736e4e9e09f421309ddf4000302083",
+                  "frame_stamp": {
+                    "nanosec": 824000000,
+                    "sec": 56
+                  },
+                  "interface_version": "1",
+                  "lineage_id": "camera-color-capture-v1",
+                  "source_id": "camera-color-v1",
+                  "worker_generation": 1,
+                  "worker_instance": "87aaccf412434a5c84739a4ee5196757"
+                },
+                "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T172817Z-7a0b7975",
+                "final_error_px": -0.145505,
+                "final_y_px": 246.173605,
+                "initial_y_px": 256.588235,
+                "lineage_id": "camera-color-capture-v1",
+                "operation_id": "f5102c23a62c40fb976bbac99b9ea6e7",
+                "quiescence_confirmed": true,
+                "quiescence_evidence": {
+                  "confirmed": true,
+                  "consecutive_samples": 5,
+                  "latest_velocity_radians_s": {
+                    "joint1": 7.537206775145088e-05,
+                    "joint2": -8.68786886128069e-07
+                  },
+                  "threshold_radians_s": 0.01
+                },
+                "reason_code": "TARGET_REACHED",
+                "recovery": null,
+                "reticle_path": "task-0002-reticle.observer.png",
+                "run_id": "harbor-resident-20261003T172817Z-7a0b7975",
+                "source_id": "camera-color-v1",
+                "source_topic": "/camera/color/image_raw",
+                "status": "passed",
+                "target_y_px": 246.0281,
+                "task_ms": 2255.905605,
+                "tolerance_px": 3.0,
+                "trace_path": "task-0002-trace.jsonl",
+                "validation": {
+                  "assessments": [
+                    {
+                      "candidate_id": "camera-color-v1",
+                      "eligible": true,
+                      "lineage_id": "camera-color-capture-v1",
+                      "maximum_age_ms": 4.120767,
+                      "maximum_error_px": 0.17312,
+                      "reasons": [],
+                      "signal_to_noise": 2.59787,
+                      "tolerance_px": 2.851766
+                    }
+                  ],
+                  "candidate_id": "camera-color-v1",
+                  "evidence_key": "sha256:6d869048db05bc47457f4d6b41aa8df7fa029ca651399e8f303d41bab603225b",
+                  "lineage_id": "camera-color-capture-v1",
+                  "matching_candidate_ids": [
+                    "camera-color-v1"
+                  ],
+                  "matching_independent_lineage_count": 1,
+                  "probe_count": 2,
+                  "status": "reused"
+                },
+                "validation_ms": 10216.510361,
+                "validation_probe_count": 2,
+                "visual_capability_available": true,
+                "wall_ms": 12472.423581
+              }
+            },
+            {
+              "cancel_requested": false,
+              "capability": "visual_reach",
+              "effect_state": "none",
+              "lifecycle": "failed",
+              "motion_state": "idle",
+              "operation_id": "efa2b0fef8fe462f8e79b63e6638a28f",
+              "phase": "terminal",
+              "reason_code": "REPLY_LOST_STOPPED",
+              "result": {
+                "quiescence_confirmed": true,
+                "run_id": "harbor-resident-20261003T172817Z-7a0b7975"
+              }
+            }
+          ],
+          "before_connect": {
+            "available": false,
+            "lineage_id": "camera-color-capture-v1",
+            "readiness_basis": "unavailable",
+            "run_id": null,
+            "runtime_id": "harbor-resident-be1f77d0faba4e9ea2dc09238190aaa4",
+            "source_id": "camera-color-v1"
+          },
+          "runtime_id": "harbor-resident-be1f77d0faba4e9ea2dc09238190aaa4",
+          "missing_observed_monotonic": 12092.065960441,
+          "initial_refusal": "WORLD_UNAVAILABLE",
+          "initial_operations": 0,
+          "world_start_requested_monotonic": 12092.066268996,
+          "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T172817Z-7a0b7975",
+          "after_connect": {
+            "available": true,
+            "lineage_id": "camera-color-capture-v1",
+            "readiness_basis": "native_acquisition_and_checked_binding",
+            "run_id": "harbor-resident-20261003T172817Z-7a0b7975",
+            "runtime_id": "harbor-resident-be1f77d0faba4e9ea2dc09238190aaa4",
+            "source_id": "camera-color-v1"
+          },
+          "after_loss": {
+            "available": false,
+            "lineage_id": "camera-color-capture-v1",
+            "readiness_basis": "unavailable",
+            "run_id": "harbor-resident-20261003T172817Z-7a0b7975",
+            "runtime_id": "harbor-resident-be1f77d0faba4e9ea2dc09238190aaa4",
+            "source_id": "camera-color-v1"
+          },
+          "post_loss_refusal": "WORLD_UNAVAILABLE",
+          "world_stop_confirmed": true,
+          "world_removed": true,
+          "raw_artifacts": [
+            {
+              "path": "runs/harbor-resident-20261003T172817Z-7a0b7975/task-0001-after.raw.png",
+              "sha256": "cc081fc5d4504f98989beda285b552ef051b0ad6825edc32c6f058e2c21bb80f"
+            },
+            {
+              "path": "runs/harbor-resident-20261003T172817Z-7a0b7975/task-0001-before.raw.png",
+              "sha256": "bac1b8932c1025a013a939b6ac600d45c18a3ed2709130534a4722f324f6eea3"
+            },
+            {
+              "path": "runs/harbor-resident-20261003T172817Z-7a0b7975/task-0002-after.raw.png",
+              "sha256": "3a410bd4c831cfcfda8d5b77708f60096a26247a21c00383dec008a2f1b3a268"
+            },
+            {
+              "path": "runs/harbor-resident-20261003T172817Z-7a0b7975/task-0002-before.raw.png",
+              "sha256": "fc0ce62bcb7e7a7f5aa534f5aa01b1730e2e7215b29226f1593e1669c9dfc861"
+            }
+          ]
+        },
+        "mirrors": {
+          "seed": 101,
+          "run_id": "harbor-mirrors-s101-20261003T172920Z-4a2b0daa",
+          "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-mirrors-s101-20261003T172920Z-4a2b0daa",
+          "returncode": 0,
+          "reported_status": "passed",
+          "outcome": "passed",
+          "reason_code": null,
+          "selected_role": "controlled_rendered_camera",
+          "selected_candidate_id": "view-ecb85980",
+          "selected_controlled_source": true,
+          "stale_path_rejected": true,
+          "unrelated_source_rejected": true,
+          "metrics": {
+            "total_duration_ms": 62865.498627,
+            "probe_count": 6,
+            "validation_probe_count": 4,
+            "reuse_probe_count": 2,
+            "reuse_duration_ms": 9488.651873,
+            "reacquisition_duration_ms": 47655.751895,
+            "reacquisition_command_travel_radians": 0.35,
+            "wrapper_overhead_ms": 855.339152
+          }
+        }
+      }
+    },
+    {
+      "command": "./entryplug test --suite scenarios --scenario ros2-recovery",
+      "local_evidence": "runs/ros2-recovery-2799cdf334e9",
+      "manifest": {
+        "status": "failed",
+        "run_id": "ros2-recovery-2799cdf334e9",
+        "phase": "development",
+        "profile_id": "harbor-resident-recovery-v1",
+        "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+        "seed": 101,
+        "dependencies": [
+          "ROS 2 camera and trajectory controller",
+          "MuJoCo arm",
+          "local detector worker processes"
+        ],
+        "claim_boundary": "One-dimensional local image-row tasks. No release freeze, admission-acknowledgement loss, physical hardware or holdout claim.",
+        "source_sha256": "a76c61efbeba51d9924d1d04d7d35af300ebb8cede20d98648a41473e6a021f9",
+        "image_ids": {
+          "entryplug-harbor:jazzy": "sha256:7d1e184e325f979574f1cad4cacc6704798d223d29af464c911884b5e149580b"
+        },
+        "cases": [
+          {
+            "case": "no_fault",
+            "fault": null,
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T173116Z-239c2b38",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173116Z-239c2b38",
+            "score": {
+              "seed": 101,
+              "fault": null,
+              "run_id": "harbor-resident-20261003T173116Z-239c2b38",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173116Z-239c2b38",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "passed",
+              "reason_code": null,
+              "reported_status": "passed",
+              "admitted_tasks": 4,
+              "passed_tasks": 4,
+              "fault_applied": false,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 84720.903,
+                "container_startup_ms": 9661.424,
+                "acquisition_ms": 26797.124539,
+                "fault_to_detection_ms": null,
+                "repair_ms": null,
+                "post_fault_trace_order_ok": null,
+                "total_validation_probes": 8,
+                "replacement_validation_probes": null,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 1.058592
+              }
+            },
+            "world_removed": true
+          },
+          {
+            "case": "recoverable_loss",
+            "fault": "kill-active-worker",
+            "seed": 101,
+            "status": "failed",
+            "reason": "ResidentStartupFailure",
+            "detail": "resident harbor-resident-20261003T173244Z-592ca029 failed before ready: ResidentReplyLost: resident reply was not JSON",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173244Z-592ca029"
+          },
+          {
+            "case": "stale_replacement",
+            "fault": "kill-active-worker-stale-alternate",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T173258Z-54065615",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173258Z-54065615",
+            "score": {
+              "seed": 101,
+              "fault": "kill-active-worker-stale-alternate",
+              "run_id": "harbor-resident-20261003T173258Z-54065615",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173258Z-54065615",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "passed",
+              "reason_code": null,
+              "reported_status": "failed",
+              "admitted_tasks": 2,
+              "passed_tasks": 1,
+              "fault_applied": true,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 62476.559,
+                "container_startup_ms": 10107.765,
+                "acquisition_ms": 26626.033285,
+                "fault_to_detection_ms": 1003.087337,
+                "repair_ms": 1723.657922,
+                "post_fault_trace_order_ok": true,
+                "total_validation_probes": 4,
+                "replacement_validation_probes": null,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 0.497516
+              }
+            },
+            "world_removed": true
+          },
+          {
+            "case": "no_replacement",
+            "fault": "kill-both-workers",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T173403Z-171259b8",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173403Z-171259b8",
+            "score": {
+              "seed": 101,
+              "fault": "kill-both-workers",
+              "run_id": "harbor-resident-20261003T173403Z-171259b8",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173403Z-171259b8",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "passed",
+              "reason_code": null,
+              "reported_status": "failed",
+              "admitted_tasks": 2,
+              "passed_tasks": 1,
+              "fault_applied": true,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 58313.693,
+                "container_startup_ms": 8574.683,
+                "acquisition_ms": 26897.165465,
+                "fault_to_detection_ms": 1003.433523,
+                "repair_ms": 93.825626,
+                "post_fault_trace_order_ok": true,
+                "total_validation_probes": 4,
+                "replacement_validation_probes": null,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 0.494987
+              }
+            },
+            "world_removed": true
+          },
+          {
+            "case": "private_result_loss",
+            "fault": "kill-active-worker-drop-repair-result",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T173505Z-d3d114cb",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173505Z-d3d114cb",
+            "score": {
+              "run_id": "harbor-resident-20261003T173505Z-d3d114cb",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173505Z-d3d114cb",
+              "seed": 101,
+              "fault": "kill-active-worker-drop-repair-result",
+              "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+              "task_outcome": "failed",
+              "safety_outcome": "passed",
+              "reason_code": "reply_lost_after_validated_repair",
+              "host_stop_confirmed": true,
+              "replacement_checks_ordered": true,
+              "no_resumed_correction": true,
+              "fault_applied": true,
+              "repair_status": "validated",
+              "native_action_count": 11
+            },
+            "world_removed": true
+          },
+          {
+            "case": "native_result_unobserved",
+            "fault": "kill-active-worker-drop-native-result",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T173616Z-e2ea183a",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173616Z-e2ea183a",
+            "score": {
+              "run_id": "harbor-resident-20261003T173616Z-e2ea183a",
+              "seed": 101,
+              "fault": "kill-active-worker-drop-native-result",
+              "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+              "task_outcome": "failed",
+              "safety_outcome": "passed",
+              "reason_code": "native_result_unobserved_world_stopped",
+              "host_stop_confirmed": true,
+              "native_goal_accepted_before_client_exit": true,
+              "no_task_result_or_retry": true
+            },
+            "world_removed": true
+          },
+          {
+            "case": "repair_cancel",
+            "fault": "repair_cancel",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T173720Z-c4703ebe",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173720Z-c4703ebe",
+            "score": {
+              "safety_outcome": "passed",
+              "reason_code": "canceled_during_repair_and_held",
+              "fault_applied": true,
+              "cancel_after_detection": true,
+              "no_resumed_motion": true,
+              "native_cancel_confirmed": true,
+              "world_stop_confirmed": true,
+              "native_action_count": 8
+            },
+            "world_removed": true
+          },
+          {
+            "case": "quiescence_loss",
+            "fault": "quiescence_loss",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T173827Z-84996029",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T173827Z-84996029",
+            "score": {
+              "safety_outcome": "passed",
+              "reason_code": "feedback_loss_inhibited_motion",
+              "joint_feedback_lost_after_detection": true,
+              "no_repair_motion": true,
+              "no_third_goal": true,
+              "host_motion_inhibited": true,
+              "world_stop_confirmed": true
+            },
+            "world_removed": true
+          }
+        ]
+      },
+      "native_receipts": {
+        "stale_replacement": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 12431.779430837,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "0f54e88983e84a0ca66c93cb9d10da03"
+          }
+        },
+        "no_replacement": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 12496.259725312,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "0e78740b4db54f1f9bc52ab4dccee6bf"
+          }
+        },
+        "private_result_loss": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 12557.380525185,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "7bbedd2a568e4bb791acea568740cc70"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 12560.370189226,
+            "goal_id": "9620a5438afe4876a355a4d76f20302e",
+            "operation_id": "7bbedd2a568e4bb791acea568740cc70"
+          }
+        },
+        "native_result_unobserved": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 12630.51709071,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "ec32365a68fc4c6292b49851117a9fcd"
+          },
+          "task-0002-native-result-unobserved.evaluator.json": {
+            "client_exit_monotonic": 12633.312038918,
+            "fault_applied": true,
+            "fault_phase": "native_correction_accepted",
+            "goal_id": "5ccd9304e36241eb96f80f5c343e573f",
+            "mechanism": "client_exit_after_goal_acceptance",
+            "operation_id": "ec32365a68fc4c6292b49851117a9fcd",
+            "primary_instance": "a2c85d82faac4d0c82fb91354b2572d9"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 12633.310767806,
+            "goal_id": "5ccd9304e36241eb96f80f5c343e573f",
+            "operation_id": "ec32365a68fc4c6292b49851117a9fcd"
+          }
+        },
+        "repair_cancel": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 12694.492192865,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "d096ae6d73af4c6987cf74d0989758d1"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 12697.286575372,
+            "goal_id": "c9184ce29a064274aafe825ba413a31a",
+            "operation_id": "d096ae6d73af4c6987cf74d0989758d1"
+          }
+        },
+        "quiescence_loss": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 12759.458438154,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "a2926d05d8d5408287904ad15d04f609"
+          },
+          "task-0002-joint-feedback-lost.evaluator.json": {
+            "fault_phase": "native_correction_accepted",
+            "last_joint_sequence": 2219,
+            "loss_monotonic": 12759.459000031,
+            "operation_id": "a2926d05d8d5408287904ad15d04f609",
+            "topic": "/joint_states"
+          }
+        }
+      }
+    },
+    {
+      "command": "./entryplug test --suite scenarios --scenario ros2-vision --build",
+      "local_evidence": "runs/ros2-vision-b9098f84808a",
+      "manifest": {
+        "status": "passed",
+        "run_id": "ros2-vision-b9098f84808a",
+        "phase": "development",
+        "dependencies": [
+          "ROS 2 camera and trajectory controller",
+          "MuJoCo arm",
+          "local detector processes"
+        ],
+        "claim_boundary": "Local one-dimensional image-row alignment. Mirrors uses a separate owned world; no 3D or hardware claim.",
+        "source_sha256": "bc4f94e27709bea9078448e048a77e4d6a367cc8d13ed3f96babc7563f5151c5",
+        "image_ids": {
+          "entryplug-harbor:jazzy": "sha256:9eb0673eb5a54be2641ed54e98255725ea85ebd5baf19ef87037bc4bc08b130e"
+        },
+        "startup_interruption": {
+          "status": "passed",
+          "run_id": "harbor-resident-20261003T174256Z-e5a7ba84",
+          "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174256Z-e5a7ba84",
+          "controllers_observed_before_ready": true,
+          "cancel_requested_monotonic": 12976.911450875,
+          "cancellation_propagated": true,
+          "world_removed": true
+        },
+        "connection": {
+          "status": "passed",
+          "operations": [
+            {
+              "cancel_requested": false,
+              "capability": "visual_reach",
+              "effect_state": "none",
+              "lifecycle": "succeeded",
+              "motion_state": "holding",
+              "operation_id": "554aba82cdad4c3fbb9875ddfffe52c5",
+              "phase": "terminal",
+              "reason_code": null,
+              "result": {
+                "action_count": 5,
+                "binding_evidence_key": "sha256:fbed3d02fc4af1c9e7015b7d8242d7652cd90c9eadeb6fef60152349b74ce01d",
+                "binding_ready": true,
+                "binding_reference": "sha256:fbed3d02fc4af1c9e7015b7d8242d7652cd90c9eadeb6fef60152349b74ce01d:revision-1",
+                "binding_revision": 1,
+                "commanded_travel_radians": 0.219278,
+                "detector_worker": {
+                  "detector_id": "fixed-red-centroid-v1",
+                  "frame_received_monotonic": 13026.875423768,
+                  "frame_sequence": 211,
+                  "frame_sha256": "3ff7e8509d80ea537aaf209ad6d9c5b80372651b888741c9a5d893e4a4e23112",
+                  "frame_stamp": {
+                    "nanosec": 202000000,
+                    "sec": 44
+                  },
+                  "interface_version": "1",
+                  "lineage_id": "camera-color-capture-v1",
+                  "source_id": "camera-color-v1",
+                  "worker_generation": 1,
+                  "worker_instance": "25392bdb5b314923a7013a9875de3611"
+                },
+                "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174305Z-17ad31bd",
+                "final_error_px": -0.261778,
+                "final_y_px": 256.606498,
+                "initial_y_px": 250.46634,
+                "lineage_id": "camera-color-capture-v1",
+                "operation_id": "554aba82cdad4c3fbb9875ddfffe52c5",
+                "quiescence_confirmed": true,
+                "quiescence_evidence": {
+                  "confirmed": true,
+                  "consecutive_samples": 5,
+                  "latest_velocity_radians_s": {
+                    "joint1": -9.424355367445458e-05,
+                    "joint2": 7.332489267727528e-06
+                  },
+                  "threshold_radians_s": 0.01
+                },
+                "reason_code": "TARGET_REACHED",
+                "recovery": null,
+                "reticle_path": "task-0001-reticle.observer.png",
+                "run_id": "harbor-resident-20261003T174305Z-17ad31bd",
+                "source_id": "camera-color-v1",
+                "source_topic": "/camera/color/image_raw",
+                "status": "passed",
+                "target_y_px": 256.34472,
+                "task_ms": 2238.476752,
+                "tolerance_px": 3.0,
+                "trace_path": "task-0001-trace.jsonl",
+                "validation": {
+                  "assessments": [
+                    {
+                      "candidate_id": "camera-color-v1",
+                      "eligible": true,
+                      "lineage_id": "camera-color-capture-v1",
+                      "maximum_age_ms": 5.686769,
+                      "maximum_error_px": 0.460798,
+                      "reasons": [],
+                      "signal_to_noise": 2.438981,
+                      "tolerance_px": 3.095004
+                    }
+                  ],
+                  "candidate_id": "camera-color-v1",
+                  "evidence_key": "sha256:fbed3d02fc4af1c9e7015b7d8242d7652cd90c9eadeb6fef60152349b74ce01d",
+                  "lineage_id": "camera-color-capture-v1",
+                  "matching_candidate_ids": [
+                    "camera-color-v1"
+                  ],
+                  "matching_independent_lineage_count": 1,
+                  "probe_count": 2,
+                  "status": "reused"
+                },
+                "validation_ms": 8421.61984,
+                "validation_probe_count": 2,
+                "visual_capability_available": true,
+                "wall_ms": 10660.104961
+              }
+            },
+            {
+              "cancel_requested": false,
+              "capability": "visual_reach",
+              "effect_state": "none",
+              "lifecycle": "succeeded",
+              "motion_state": "holding",
+              "operation_id": "86868646667f4d9790e8b81c57307e35",
+              "phase": "terminal",
+              "reason_code": null,
+              "result": {
+                "action_count": 6,
+                "binding_evidence_key": "sha256:fbed3d02fc4af1c9e7015b7d8242d7652cd90c9eadeb6fef60152349b74ce01d",
+                "binding_ready": true,
+                "binding_reference": "sha256:fbed3d02fc4af1c9e7015b7d8242d7652cd90c9eadeb6fef60152349b74ce01d:revision-1",
+                "binding_revision": 1,
+                "commanded_travel_radians": 0.269171,
+                "detector_worker": {
+                  "detector_id": "fixed-red-centroid-v1",
+                  "frame_received_monotonic": 13039.27579543,
+                  "frame_sequence": 283,
+                  "frame_sha256": "271818ec04793ad2f71dbe58c5dd832d496549a074bf81ff514463971a71d99c",
+                  "frame_stamp": {
+                    "nanosec": 614000000,
+                    "sec": 56
+                  },
+                  "interface_version": "1",
+                  "lineage_id": "camera-color-capture-v1",
+                  "source_id": "camera-color-v1",
+                  "worker_generation": 1,
+                  "worker_instance": "25392bdb5b314923a7013a9875de3611"
+                },
+                "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174305Z-17ad31bd",
+                "final_error_px": 0.362518,
+                "final_y_px": 245.641202,
+                "initial_y_px": 256.235294,
+                "lineage_id": "camera-color-capture-v1",
+                "operation_id": "86868646667f4d9790e8b81c57307e35",
+                "quiescence_confirmed": true,
+                "quiescence_evidence": {
+                  "confirmed": true,
+                  "consecutive_samples": 5,
+                  "latest_velocity_radians_s": {
+                    "joint1": 8.130501251447537e-05,
+                    "joint2": -1.573339956737448e-06
+                  },
+                  "threshold_radians_s": 0.01
+                },
+                "reason_code": "TARGET_REACHED",
+                "recovery": null,
+                "reticle_path": "task-0002-reticle.observer.png",
+                "run_id": "harbor-resident-20261003T174305Z-17ad31bd",
+                "source_id": "camera-color-v1",
+                "source_topic": "/camera/color/image_raw",
+                "status": "passed",
+                "target_y_px": 246.00372,
+                "task_ms": 2254.32033,
+                "tolerance_px": 3.0,
+                "trace_path": "task-0002-trace.jsonl",
+                "validation": {
+                  "assessments": [
+                    {
+                      "candidate_id": "camera-color-v1",
+                      "eligible": true,
+                      "lineage_id": "camera-color-capture-v1",
+                      "maximum_age_ms": 5.460385,
+                      "maximum_error_px": 0.401827,
+                      "reasons": [],
+                      "signal_to_noise": 2.438981,
+                      "tolerance_px": 3.095004
+                    }
+                  ],
+                  "candidate_id": "camera-color-v1",
+                  "evidence_key": "sha256:fbed3d02fc4af1c9e7015b7d8242d7652cd90c9eadeb6fef60152349b74ce01d",
+                  "lineage_id": "camera-color-capture-v1",
+                  "matching_candidate_ids": [
+                    "camera-color-v1"
+                  ],
+                  "matching_independent_lineage_count": 1,
+                  "probe_count": 2,
+                  "status": "reused"
+                },
+                "validation_ms": 10137.621712,
+                "validation_probe_count": 2,
+                "visual_capability_available": true,
+                "wall_ms": 12391.949292
+              }
+            },
+            {
+              "cancel_requested": false,
+              "capability": "visual_reach",
+              "effect_state": "none",
+              "lifecycle": "failed",
+              "motion_state": "idle",
+              "operation_id": "92f053d10253420e9343e17205d5619d",
+              "phase": "terminal",
+              "reason_code": "REPLY_LOST_STOPPED",
+              "result": {
+                "quiescence_confirmed": true,
+                "run_id": "harbor-resident-20261003T174305Z-17ad31bd"
+              }
+            }
+          ],
+          "before_connect": {
+            "available": false,
+            "lineage_id": "camera-color-capture-v1",
+            "readiness_basis": "unavailable",
+            "run_id": null,
+            "runtime_id": "harbor-resident-0edde6e30aca469dbca8704b92522c0b",
+            "source_id": "camera-color-v1"
+          },
+          "runtime_id": "harbor-resident-0edde6e30aca469dbca8704b92522c0b",
+          "missing_observed_monotonic": 12980.195371033,
+          "initial_refusal": "WORLD_UNAVAILABLE",
+          "initial_operations": 0,
+          "world_start_requested_monotonic": 12980.196038116,
+          "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174305Z-17ad31bd",
+          "after_connect": {
+            "available": true,
+            "lineage_id": "camera-color-capture-v1",
+            "readiness_basis": "native_acquisition_and_checked_binding",
+            "run_id": "harbor-resident-20261003T174305Z-17ad31bd",
+            "runtime_id": "harbor-resident-0edde6e30aca469dbca8704b92522c0b",
+            "source_id": "camera-color-v1"
+          },
+          "after_loss": {
+            "available": false,
+            "lineage_id": "camera-color-capture-v1",
+            "readiness_basis": "unavailable",
+            "run_id": "harbor-resident-20261003T174305Z-17ad31bd",
+            "runtime_id": "harbor-resident-0edde6e30aca469dbca8704b92522c0b",
+            "source_id": "camera-color-v1"
+          },
+          "post_loss_refusal": "WORLD_UNAVAILABLE",
+          "world_stop_confirmed": true,
+          "world_removed": true,
+          "raw_artifacts": [
+            {
+              "path": "runs/harbor-resident-20261003T174305Z-17ad31bd/task-0001-after.raw.png",
+              "sha256": "9854936975e9e2c2f4c5fcb359676a2dec69c6aba829a39385446dfdeb0a9956"
+            },
+            {
+              "path": "runs/harbor-resident-20261003T174305Z-17ad31bd/task-0001-before.raw.png",
+              "sha256": "b5db09ef85721bb53b4e94cb5c88774dd1060e862e606d570a5c873cdefa823f"
+            },
+            {
+              "path": "runs/harbor-resident-20261003T174305Z-17ad31bd/task-0002-after.raw.png",
+              "sha256": "a5ade5d79e46e59220eb2ea7b847e18a23c452926af82792b479a4efa0eedec9"
+            },
+            {
+              "path": "runs/harbor-resident-20261003T174305Z-17ad31bd/task-0002-before.raw.png",
+              "sha256": "7b86fe7f6a3191bf712e9ba7302863f66fe3bb600020db70c60670c8d25edbb6"
+            }
+          ]
+        },
+        "mirrors": {
+          "seed": 101,
+          "run_id": "harbor-mirrors-s101-20261003T174408Z-c920235e",
+          "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-mirrors-s101-20261003T174408Z-c920235e",
+          "returncode": 0,
+          "reported_status": "passed",
+          "outcome": "passed",
+          "reason_code": null,
+          "selected_role": "controlled_rendered_camera",
+          "selected_candidate_id": "view-ecb85980",
+          "selected_controlled_source": true,
+          "stale_path_rejected": true,
+          "unrelated_source_rejected": true,
+          "metrics": {
+            "total_duration_ms": 63414.341994,
+            "probe_count": 6,
+            "validation_probe_count": 4,
+            "reuse_probe_count": 2,
+            "reuse_duration_ms": 9497.733448,
+            "reacquisition_duration_ms": 48188.896069,
+            "reacquisition_command_travel_radians": 0.35,
+            "wrapper_overhead_ms": 817.129426
+          }
+        }
+      }
+    },
+    {
+      "command": "./entryplug test --suite scenarios --scenario ros2-recovery",
+      "local_evidence": "runs/ros2-recovery-2060ad78b2dd",
+      "manifest": {
+        "status": "passed",
+        "run_id": "ros2-recovery-2060ad78b2dd",
+        "phase": "development",
+        "profile_id": "harbor-resident-recovery-v1",
+        "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+        "seed": 101,
+        "dependencies": [
+          "ROS 2 camera and trajectory controller",
+          "MuJoCo arm",
+          "local detector worker processes"
+        ],
+        "claim_boundary": "One-dimensional local image-row tasks. No release freeze, admission-acknowledgement loss, physical hardware or holdout claim.",
+        "source_sha256": "bc4f94e27709bea9078448e048a77e4d6a367cc8d13ed3f96babc7563f5151c5",
+        "image_ids": {
+          "entryplug-harbor:jazzy": "sha256:9eb0673eb5a54be2641ed54e98255725ea85ebd5baf19ef87037bc4bc08b130e"
+        },
+        "cases": [
+          {
+            "case": "no_fault",
+            "fault": null,
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T174524Z-1fb534e6",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174524Z-1fb534e6",
+            "score": {
+              "seed": 101,
+              "fault": null,
+              "run_id": "harbor-resident-20261003T174524Z-1fb534e6",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174524Z-1fb534e6",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "passed",
+              "reason_code": null,
+              "reported_status": "passed",
+              "admitted_tasks": 4,
+              "passed_tasks": 4,
+              "fault_applied": false,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 84736.802,
+                "container_startup_ms": 9720.367,
+                "acquisition_ms": 26769.417424,
+                "fault_to_detection_ms": null,
+                "repair_ms": null,
+                "post_fault_trace_order_ok": null,
+                "total_validation_probes": 8,
+                "replacement_validation_probes": null,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 1.059204
+              }
+            },
+            "world_removed": true
+          },
+          {
+            "case": "recoverable_loss",
+            "fault": "kill-active-worker",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T174652Z-8a0786d3",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174652Z-8a0786d3",
+            "score": {
+              "seed": 101,
+              "fault": "kill-active-worker",
+              "run_id": "harbor-resident-20261003T174652Z-8a0786d3",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174652Z-8a0786d3",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "passed",
+              "reason_code": null,
+              "reported_status": "passed",
+              "admitted_tasks": 4,
+              "passed_tasks": 4,
+              "fault_applied": true,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 97290.787,
+                "container_startup_ms": 10181.376,
+                "acquisition_ms": 26779.410525,
+                "fault_to_detection_ms": 998.15385,
+                "repair_ms": 9694.658098,
+                "post_fault_trace_order_ok": true,
+                "total_validation_probes": 8,
+                "replacement_validation_probes": 2,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 1.312396
+              }
+            },
+            "admitted_repair": {
+              "operation_id": "b115ecc9f3b14fa3b17069c14d375b3c",
+              "runtime_id": "harbor-resident-9a948b860e8247768d230f01b1a59246",
+              "target_y_px": 245.842909,
+              "deadline_monotonic": 13309.865119985,
+              "completed_monotonic": 13279.20285524
+            },
+            "world_removed": true
+          },
+          {
+            "case": "stale_replacement",
+            "fault": "kill-active-worker-stale-alternate",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T174833Z-f92a961d",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174833Z-f92a961d",
+            "score": {
+              "seed": 101,
+              "fault": "kill-active-worker-stale-alternate",
+              "run_id": "harbor-resident-20261003T174833Z-f92a961d",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174833Z-f92a961d",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "passed",
+              "reason_code": null,
+              "reported_status": "failed",
+              "admitted_tasks": 2,
+              "passed_tasks": 1,
+              "fault_applied": true,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 63110.291,
+                "container_startup_ms": 10138.017,
+                "acquisition_ms": 26838.848456,
+                "fault_to_detection_ms": 1001.979376,
+                "repair_ms": 1704.953603,
+                "post_fault_trace_order_ok": true,
+                "total_validation_probes": 4,
+                "replacement_validation_probes": null,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 0.47545
+              }
+            },
+            "world_removed": true
+          },
+          {
+            "case": "no_replacement",
+            "fault": "kill-both-workers",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T174939Z-bf5da3a5",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174939Z-bf5da3a5",
+            "score": {
+              "seed": 101,
+              "fault": "kill-both-workers",
+              "run_id": "harbor-resident-20261003T174939Z-bf5da3a5",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T174939Z-bf5da3a5",
+              "qualification_profile": {
+                "profile_id": "harbor-resident-recovery-v1",
+                "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0"
+              },
+              "offered_tasks": 4,
+              "recovery_strategy": "checked_reuse",
+              "execution_path": "session",
+              "outcome": "passed",
+              "reason_code": null,
+              "reported_status": "failed",
+              "admitted_tasks": 2,
+              "passed_tasks": 1,
+              "fault_applied": true,
+              "false_completion_count": 0,
+              "structural_gates_passed": true,
+              "measurements": {
+                "episode_wall_ms": 59288.559,
+                "container_startup_ms": 9947.488,
+                "acquisition_ms": 26592.77021,
+                "fault_to_detection_ms": 996.770638,
+                "repair_ms": 90.930692,
+                "post_fault_trace_order_ok": true,
+                "total_validation_probes": 4,
+                "replacement_validation_probes": null,
+                "recovery_identification_probes": null,
+                "completed_reacquisition_fit_probes": 0,
+                "completed_reacquisition_validation_probes": 0,
+                "commanded_travel_radians": 0.467784
+              }
+            },
+            "world_removed": true
+          },
+          {
+            "case": "private_result_loss",
+            "fault": "kill-active-worker-drop-repair-result",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T175042Z-26409722",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T175042Z-26409722",
+            "score": {
+              "run_id": "harbor-resident-20261003T175042Z-26409722",
+              "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T175042Z-26409722",
+              "seed": 101,
+              "fault": "kill-active-worker-drop-repair-result",
+              "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+              "task_outcome": "failed",
+              "safety_outcome": "passed",
+              "reason_code": "reply_lost_after_validated_repair",
+              "host_stop_confirmed": true,
+              "replacement_checks_ordered": true,
+              "no_resumed_correction": true,
+              "fault_applied": true,
+              "repair_status": "validated",
+              "native_action_count": 11
+            },
+            "world_removed": true
+          },
+          {
+            "case": "native_result_unobserved",
+            "fault": "kill-active-worker-drop-native-result",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T175154Z-e40f4295",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T175154Z-e40f4295",
+            "score": {
+              "run_id": "harbor-resident-20261003T175154Z-e40f4295",
+              "seed": 101,
+              "fault": "kill-active-worker-drop-native-result",
+              "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+              "task_outcome": "failed",
+              "safety_outcome": "passed",
+              "reason_code": "native_result_unobserved_world_stopped",
+              "host_stop_confirmed": true,
+              "native_goal_accepted_before_client_exit": true,
+              "no_task_result_or_retry": true
+            },
+            "world_removed": true
+          },
+          {
+            "case": "repair_cancel",
+            "fault": "repair_cancel",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T175259Z-17cbdf06",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T175259Z-17cbdf06",
+            "score": {
+              "safety_outcome": "passed",
+              "reason_code": "canceled_during_repair_and_held",
+              "fault_applied": true,
+              "cancel_after_detection": true,
+              "no_resumed_motion": true,
+              "native_cancel_confirmed": true,
+              "world_stop_confirmed": true,
+              "native_action_count": 8
+            },
+            "world_removed": true
+          },
+          {
+            "case": "quiescence_loss",
+            "fault": "quiescence_loss",
+            "seed": 101,
+            "status": "passed",
+            "run_id": "harbor-resident-20261003T175406Z-cb8ff8a4",
+            "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T175406Z-cb8ff8a4",
+            "score": {
+              "safety_outcome": "passed",
+              "reason_code": "feedback_loss_inhibited_motion",
+              "joint_feedback_lost_after_detection": true,
+              "no_repair_motion": true,
+              "no_third_goal": true,
+              "host_motion_inhibited": true,
+              "world_stop_confirmed": true
+            },
+            "world_removed": true
+          }
+        ]
+      },
+      "native_receipts": {
+        "recoverable_loss": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 13266.576509742,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "b115ecc9f3b14fa3b17069c14d375b3c"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 13269.380908733,
+            "goal_id": "0232b8a4e0ca4e4da713200903f44f22",
+            "operation_id": "b115ecc9f3b14fa3b17069c14d375b3c"
+          }
+        },
+        "stale_replacement": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 13367.454856976,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "4b5c626b0f294dd59a59c3f0a9bc0819"
+          }
+        },
+        "no_replacement": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 13433.078835963,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "12dce82ad857424b8045ce88497ab242"
+          }
+        },
+        "private_result_loss": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 13495.763804073,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "6186013c3f054f9db74ee63777ff921a"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 13498.599074557,
+            "goal_id": "bc11923e2ca94891a1f0f63cead51e47",
+            "operation_id": "6186013c3f054f9db74ee63777ff921a"
+          }
+        },
+        "native_result_unobserved": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 13568.656688131,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "c928097ad76b4fbc947f8fc5b6ce927d"
+          },
+          "task-0002-native-result-unobserved.evaluator.json": {
+            "client_exit_monotonic": 13571.430570184,
+            "fault_applied": true,
+            "fault_phase": "native_correction_accepted",
+            "goal_id": "b4bb0fc256a04ddb9ee4400d54c213c4",
+            "mechanism": "client_exit_after_goal_acceptance",
+            "operation_id": "c928097ad76b4fbc947f8fc5b6ce927d",
+            "primary_instance": "7febbb7d8fab46c29cc4fd46d3d685a4"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 13571.430253448,
+            "goal_id": "b4bb0fc256a04ddb9ee4400d54c213c4",
+            "operation_id": "c928097ad76b4fbc947f8fc5b6ce927d"
+          }
+        },
+        "repair_cancel": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 13633.741296025,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "5033b1c9bc5f47dd964825ede92b122c"
+          },
+          "task-0002-repair-goal-accepted.evaluator.json": {
+            "accepted_monotonic": 13636.537609802,
+            "goal_id": "3599dd05e1e34751a65afba9aa3c4038",
+            "operation_id": "5033b1c9bc5f47dd964825ede92b122c"
+          }
+        },
+        "quiescence_loss": {
+          "task-0002-repair-started.evaluator.json": {
+            "detected_monotonic": 13700.257891108,
+            "fault_phase": "native_correction_accepted",
+            "operation_id": "6208a4fadd1b4a02bd97f83745b762d5"
+          },
+          "task-0002-joint-feedback-lost.evaluator.json": {
+            "fault_phase": "native_correction_accepted",
+            "last_joint_sequence": 2211,
+            "loss_monotonic": 13700.258346882,
+            "operation_id": "6208a4fadd1b4a02bd97f83745b762d5",
+            "topic": "/joint_states"
+          }
+        }
+      }
+    }
+  ]
+}

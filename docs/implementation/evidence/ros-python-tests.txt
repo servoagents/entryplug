@@ -1,0 +1,18 @@
+........................................................................ [ 15%]
+........................................................................ [ 30%]
+........................................................................ [ 45%]
+........................................................................ [ 60%]
+........................................................................ [ 75%]
+........................................................................ [ 91%]
+........................................s.                               [100%]
+=============================== warnings summary ===============================
+optional_tests/service/test_auth.py:12
+  /workspace/entryplug/optional_tests/service/test_auth.py:12: AuthlibDeprecationWarning: authlib.jose module is deprecated, please use joserfc instead.
+  It will be compatible before version 2.0.0.
+    from authlib.jose import JsonWebKey, JsonWebToken
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] optional_tests/mqtt/test_fixture_light.py:97: explicit local Mosquitto test port was not provided
+473 passed, 1 skipped, 1 warning in 19.96s
+Success: no issues found in 2 source files

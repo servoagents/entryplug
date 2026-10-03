@@ -438,3 +438,74 @@ Remaining work is in the existing plan: ROS scenario wrappers and remaining
 faults, then the real Borrowed Light resident mission, installed/exported task
 qualification and separate freeze/comparison/release gates. This slice does not
 complete Slice B, Slice C or M3 and adds no physical-hardware or live-account claim.
+
+## ROS scenario lanes and startup ownership — 3 October 2026
+
+Implementation commits: `5d97cac` (recovery selector), `c2c1fa5` (continuing
+vision Session and startup cancellation), `77846ce` (record isolation and live
+startup interruption). All five scenario names now dispatch implemented runners.
+This does not close the aggregate, installed acceptance or release gates.
+
+```bash
+./entryplug test --suite scenarios --scenario ros2-vision --build
+./entryplug test --suite scenarios --scenario ros2-recovery
+```
+
+The ROS vision lane creates its Session before the world exists. Inspection
+reports unavailable and admission refuses without dispatch. The existing idle
+reconfiguration barrier stays closed while the actual ROS camera/controller,
+local detector workers and acquired visual binding become ready. The same
+Session/runtime then completes two distinct image-row goals using new frames.
+Removing the idle owned world causes a failed, confirmed-stopped operation and
+fences another admission. Raw image hashes and independent visual scoring are
+required by the evaluator. A separate existing Hall of Mirrors development world
+selects the controlled camera and rejects stale and unrelated sources. This
+remains local one-dimensional alignment, not 3D reach or hardware qualification.
+
+The recovery selector runs eight fixed development cases sequentially: ordinary
+reuse, active-worker repair, stale and absent replacement, private task-reply
+loss, native-client exit after goal acceptance, cancellation during a native
+replacement probe, and loss of public joint feedback. It uses existing resident
+evaluators and the unchanged numerical profile. Repair evidence explicitly joins
+the admitted operation, target and deadline to the completed task. No holdout seed
+is selectable through this runner. Required case failures make the suite fail.
+
+The first recovery attempt retained **7/8 passes and overall failure**: measured
+image noise caused a legitimate cached-binding refusal. The second likewise
+retained **7/8 passes and overall failure**: one world failed before ready on a
+non-JSON private record. Its exact bytes were not retained by the old parser, so
+the producer of that original line is unknown. No thresholds, probe sizes or
+noise requirements were changed to erase either failure.
+
+A reproduced startup cancellation bug is fixed: cancellation during the ready
+handshake now stops the already-started owned world and propagates cancellation;
+an unconfirmed stop remains an explicit startup failure. Python and native fd-1
+diagnostics now go to stderr, while JSON records use a dedicated descriptor.
+Malformed records are refused and saved locally with a size bound and mode 0600.
+A real interrupted-start test passed after the controller report appeared and
+before readiness completed; cancellation propagated and the world was removed.
+
+Final live verdicts: **ROS recovery 8/8 passed (passed)** and **ROS vision passed**, including
+startup interruption, continuing goals, resource-loss refusal and Hall of Mirrors.
+The final recovery command reused the same source-labelled Harbor image without
+building or pulling. The ROS lanes use only the Harbor image and its network-none
+profile. [All manifests and selected native receipts](evidence/ros-scenarios.json)
+retain failed attempts, source/image/profile identities and evidence paths. Raw
+images and full traces remain in ignored `runs/`; this is not an installed or
+complete public fixture bundle.
+
+Validation: **473 passed, 1 skipped**, with the existing Authlib warning;
+[log](evidence/ros-python-tests.txt). Tests and native fixtures used Python 3.12.3,
+pytest 9.1.1 and pytest-asyncio 1.4.0; the source-checkout host launcher used Python
+3.14.4. Strict mypy 1.18.2 passed for resident lifecycle and record isolation; Ruff
+0.13.3 and diff checks passed. The skipped standalone MQTT test lacked an explicit
+broker port. Browser, wheel/bundle, OpenEnv and held-out release suites were not
+rerun. The portable cancellation and malformed-record failures before the fixes
+remain retained separately.
+
+The authority audit still distinguishes portable worker-generation, competing
+client and hung-agent tests from live resident proofs. Independently lost native
+admission acknowledgement, aggregate/offline modes, remaining mixed faults, native
+Borrowed Light missions, installed/exported use and separate freeze/comparison
+work remain open. Current native-result loss proves client exit **after** native
+acceptance; it does not establish network packet loss or admission ambiguity.
