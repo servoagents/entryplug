@@ -1,0 +1,662 @@
+{
+  "baseline_commit": "0a296c3660de89293ab00dd4a947f950e95b4ef2",
+  "checks": {
+    "browser": "not run",
+    "hardware": "not run",
+    "held_out": "not run",
+    "python": {
+      "passed": 405,
+      "skip_reason": "explicit local Mosquitto test port not supplied",
+      "skipped": 1,
+      "warning": "existing Authlib deprecation"
+    },
+    "ruff": "passed for touched Python modules",
+    "strict_mypy": "passed: inspection.py and detector.py"
+  },
+  "failed_attempts": [
+    {
+      "reason": "pip cannot uninstall Debian-owned pluggy; fixed by isolated test venv",
+      "run_id": "hybrid-05d8a3c2c7a8",
+      "stage": "test dependency installation"
+    },
+    {
+      "reason": "pytest 9 incompatible with Jazzy launch_testing hook; retained distro pytest for ROS tests",
+      "run_id": "hybrid-3cf044ec884c",
+      "stage": "ROS test plugin loading"
+    }
+  ],
+  "implementation_commits": [
+    "b525516",
+    "9ff7b87",
+    "fe861ba"
+  ],
+  "pytest": "9.1.1",
+  "pytest_asyncio": "1.4.0",
+  "python": "3.12.3",
+  "runs": [
+    {
+      "command": "./entryplug test --suite scenarios --scenario hybrid --client session --build",
+      "local_evidence": "runs/hybrid-4932482075ee",
+      "manifest": {
+        "bridge_applied_count": 3,
+        "fault": "none",
+        "fresh_volume_bootstraps": [
+          {
+            "fixture": "proof",
+            "home_assistant_version": "2026.9.3",
+            "mqtt": "configured",
+            "status": "passed"
+          },
+          {
+            "fixture": "task",
+            "home_assistant_version": "2026.9.3",
+            "mqtt": "configured",
+            "status": "passed"
+          }
+        ],
+        "home_assistant_entity": "light.entryplug_hybrid_4932482075ee",
+        "image_ids": {
+          "entryplug-harbor-mixed:jazzy": "sha256:0d55627d0a4dab73e1051d790eab5338b62d4ba79bcbb6e00dec88b3f7a9a554",
+          "entryplug-harbor:jazzy": "sha256:07fbaef32050801abd7139a4cceaa5184aeec771ce79f6784dc5d40b437df49c",
+          "entryplug-scenario-worker:dev": "sha256:1c6344a742150401f17f179250928813e6bd7b2dbea6514b1fe7d40e7df04e78"
+        },
+        "lighting_writes": [
+          3,
+          0
+        ],
+        "operation_ids": [
+          "f24eb874ad614a92bbcc2aaa30de9471",
+          "121303518e514e47bb634572e4d8bbd8"
+        ],
+        "run_id": "hybrid-4932482075ee",
+        "source_sha256": "ede86498c1cb105ac4f643d34b8a112ea7a96f3e696bcc204e941632938bcb41",
+        "status": "passed"
+      },
+      "operations": [
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "reported",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "f24eb874ad614a92bbcc2aaa30de9471",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 1,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": 0.7490196078431373,
+            "last_sequence": 9,
+            "lighting_writes": 3,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-2-241999999",
+              "panel-2-411999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 6977.027168908,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.17813255100008973,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "34f1df9276d14997a7ca51836d45dd6b",
+                  "quality": 0.72,
+                  "received_monotonic": 6976.849036357,
+                  "sample_id": "panel-2-241999999",
+                  "sequence": 8,
+                  "worker_generation": 1
+                },
+                {
+                  "age_at_acceptance_s": 0.013888954000321974,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "c12da8893e2345ec9b40c1ee50ee39f7",
+                  "quality": 0.72,
+                  "received_monotonic": 6977.013279954,
+                  "sample_id": "panel-2-411999999",
+                  "sequence": 9,
+                  "worker_generation": 1
+                }
+              ]
+            },
+            "worker_id": "worker-a",
+            "worker_replacements": 0
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "121303518e514e47bb634572e4d8bbd8",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 1,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": null,
+            "last_sequence": 11,
+            "lighting_writes": 0,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-2-581999999",
+              "panel-2-751999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 6977.374809361,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.19212272799995844,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "3a007a76d9c04cd494c35a982d61e30f",
+                  "quality": 0.72,
+                  "received_monotonic": 6977.182686633,
+                  "sample_id": "panel-2-581999999",
+                  "sequence": 10,
+                  "worker_generation": 1
+                },
+                {
+                  "age_at_acceptance_s": 0.017002420000608254,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "c959473cca6045d0a1c471369fdd7223",
+                  "quality": 0.72,
+                  "received_monotonic": 6977.357806941,
+                  "sample_id": "panel-2-751999999",
+                  "sequence": 11,
+                  "worker_generation": 1
+                }
+              ]
+            },
+            "worker_id": "worker-a",
+            "worker_replacements": 0
+          }
+        }
+      ],
+      "worker-cleanup": {
+        "status": "stopped",
+        "workers": [
+          {
+            "exit_code": 0,
+            "worker_id": "worker-a"
+          }
+        ]
+      }
+    },
+    {
+      "command": "./entryplug test --suite scenarios --scenario hybrid --client session --fault no-native-worker",
+      "local_evidence": "runs/hybrid-4dab74ccfb71",
+      "manifest": {
+        "bridge_applied_count": 0,
+        "fault": "no-native-worker",
+        "fresh_volume_bootstraps": [
+          {
+            "fixture": "proof",
+            "home_assistant_version": "2026.9.3",
+            "mqtt": "configured",
+            "status": "passed"
+          },
+          {
+            "fixture": "task",
+            "home_assistant_version": "2026.9.3",
+            "mqtt": "configured",
+            "status": "passed"
+          }
+        ],
+        "image_ids": {
+          "entryplug-harbor-mixed:jazzy": "sha256:0d55627d0a4dab73e1051d790eab5338b62d4ba79bcbb6e00dec88b3f7a9a554",
+          "entryplug-harbor:jazzy": "sha256:07fbaef32050801abd7139a4cceaa5184aeec771ce79f6784dc5d40b437df49c",
+          "entryplug-scenario-worker:dev": "sha256:1c6344a742150401f17f179250928813e6bd7b2dbea6514b1fe7d40e7df04e78"
+        },
+        "lighting_writes": [
+          0
+        ],
+        "operation_ids": [
+          "3f7825d489eb40f194e68da21a6358ad"
+        ],
+        "run_id": "hybrid-4dab74ccfb71",
+        "source_sha256": "ede86498c1cb105ac4f643d34b8a112ea7a96f3e696bcc204e941632938bcb41",
+        "status": "passed",
+        "task_lifecycle": "failed",
+        "task_reason": "OBSERVATION_PROVIDER_FAILED"
+      },
+      "operations": [
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "failed",
+          "motion_state": "idle",
+          "operation_id": "3f7825d489eb40f194e68da21a6358ad",
+          "phase": "terminal",
+          "reason_code": "OBSERVATION_PROVIDER_FAILED",
+          "result": {
+            "error_type": "NativeDetectorError",
+            "lighting_writes": 0,
+            "worker_replacements": 0
+          }
+        }
+      ]
+    },
+    {
+      "command": "./entryplug test --suite scenarios --scenario zenoh --build",
+      "local_evidence": "runs/zenoh-29a5c528a817",
+      "manifest": {
+        "dependencies": [
+          "ROS 2 camera",
+          "MuJoCo panel",
+          "native Zenoh router",
+          "native detector"
+        ],
+        "fixture_lighting_writes": 1,
+        "image_ids": {
+          "entryplug-harbor-mixed:jazzy": "sha256:e169ac09b4079c90b3de7381fb38a37a00fd7503cfb7937bc272733c0da3ed29",
+          "entryplug-harbor:jazzy": "sha256:499aed250db8b0ddeb7138d0fdb082a93283a27def261b4761e6905bff6eb220",
+          "entryplug-scenario-worker:dev": "sha256:0adc97ee058a3d20432e0e2e2c6bb96d0e61422b77dea8bc09a6954934a0a2d2"
+        },
+        "operation_ids": [
+          "b9df8ff0d86d4abf85bc97950286fc84",
+          "ff3d4756e6f744bcb703448fe1934429",
+          "5dcdd2881d1b45c8854f43e96fc20ebc",
+          "09a99649d8684e32bd1790d831e2710e"
+        ],
+        "run_id": "zenoh-29a5c528a817",
+        "runtime_id": "zenoh-29a5c528a817",
+        "source_sha256": "b3001468c8d9324765ac8465020256069f9f400e25a23f299b8a578f4bde4660",
+        "status": "passed",
+        "task_lighting_writes": 0,
+        "task_outcomes": [
+          "failed",
+          "succeeded",
+          "succeeded",
+          "failed"
+        ]
+      },
+      "operations": [
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "failed",
+          "motion_state": "idle",
+          "operation_id": "b9df8ff0d86d4abf85bc97950286fc84",
+          "phase": "terminal",
+          "reason_code": "OBSERVATION_PROVIDER_FAILED",
+          "result": {
+            "error_type": "NativeDetectorError",
+            "lighting_writes": 0,
+            "worker_replacements": 0
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "ff3d4756e6f744bcb703448fe1934429",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 1,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": null,
+            "last_sequence": 3,
+            "lighting_writes": 0,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-2-217999999",
+              "panel-2-387999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 7448.591133675,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.033441920999393915,
+                  "input_sha256": "2df2942762389416656289dd3680cfb2e43443d1c7a82c918e5af3b2e563635a",
+                  "job_id": "ede891262e2546648ed8d1e9fca4ad4b",
+                  "quality": 0.72,
+                  "received_monotonic": 7448.557691754,
+                  "sample_id": "panel-2-217999999",
+                  "sequence": 2,
+                  "worker_generation": 1
+                },
+                {
+                  "age_at_acceptance_s": 0.013955788999737706,
+                  "input_sha256": "2df2942762389416656289dd3680cfb2e43443d1c7a82c918e5af3b2e563635a",
+                  "job_id": "13db7dc48f664faaa0a22a3c79ad0c3c",
+                  "quality": 0.72,
+                  "received_monotonic": 7448.577177886,
+                  "sample_id": "panel-2-387999999",
+                  "sequence": 3,
+                  "worker_generation": 1
+                }
+              ]
+            },
+            "worker_id": "worker-a",
+            "worker_replacements": 0
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "5dcdd2881d1b45c8854f43e96fc20ebc",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 1,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": null,
+            "last_sequence": 5,
+            "lighting_writes": 0,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-2-555999999",
+              "panel-2-725999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 7448.624222881,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.029542672999923525,
+                  "input_sha256": "2df2942762389416656289dd3680cfb2e43443d1c7a82c918e5af3b2e563635a",
+                  "job_id": "5e0b3f9b278c4c1587b33b6489e91ed4",
+                  "quality": 0.72,
+                  "received_monotonic": 7448.594680208,
+                  "sample_id": "panel-2-555999999",
+                  "sequence": 4,
+                  "worker_generation": 1
+                },
+                {
+                  "age_at_acceptance_s": 0.013728295999499096,
+                  "input_sha256": "2df2942762389416656289dd3680cfb2e43443d1c7a82c918e5af3b2e563635a",
+                  "job_id": "9757e4cfe1ac4a56ac8cd8a802dfb712",
+                  "quality": 0.72,
+                  "received_monotonic": 7448.610494585,
+                  "sample_id": "panel-2-725999999",
+                  "sequence": 5,
+                  "worker_generation": 1
+                }
+              ]
+            },
+            "worker_id": "worker-a",
+            "worker_replacements": 0
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "failed",
+          "motion_state": "idle",
+          "operation_id": "09a99649d8684e32bd1790d831e2710e",
+          "phase": "terminal",
+          "reason_code": "OBSERVATION_PROVIDER_FAILED",
+          "result": {
+            "error_type": "NativeDetectorError",
+            "lighting_writes": 0,
+            "worker_replacements": 0
+          }
+        }
+      ],
+      "worker-cleanup": {
+        "status": "stopped",
+        "workers": [
+          {
+            "exit_code": 0,
+            "worker_id": "worker-a"
+          }
+        ]
+      },
+      "world-cleanup": {
+        "forced_stops": 0,
+        "status": "stopped"
+      }
+    },
+    {
+      "command": "./entryplug test --suite scenarios --scenario hybrid --client session --fault kill-active-worker --build",
+      "fault": {
+        "job_number": 3,
+        "phase": "before_native_reply",
+        "result_identity": {
+          "input_sha256": "8ac5d0b93be253dac9b191daead01a00eb4496cc38f8b27fe8514bb6dd4d1cb4",
+          "program_id": "fixed-red-centroid-v1",
+          "request_id": "aa866ca49886442aab6abd83592fcaa9",
+          "sample_id": "panel-0-844000000",
+          "source_id": "panel-camera",
+          "worker_generation": 1,
+          "worker_id": "worker-a"
+        },
+        "signal": "SIGKILL"
+      },
+      "local_evidence": "runs/hybrid-56d91b2c1608",
+      "manifest": {
+        "bridge_applied_count": 3,
+        "fault": "kill-active-worker",
+        "fresh_volume_bootstraps": [
+          {
+            "fixture": "proof",
+            "home_assistant_version": "2026.9.3",
+            "mqtt": "configured",
+            "status": "passed"
+          },
+          {
+            "fixture": "task",
+            "home_assistant_version": "2026.9.3",
+            "mqtt": "configured",
+            "status": "passed"
+          }
+        ],
+        "home_assistant_entity": "light.entryplug_hybrid_56d91b2c1608",
+        "image_ids": {
+          "entryplug-harbor-mixed:jazzy": "sha256:6994f905f38faf6a7a97d39116e4e52b42b2716718c6ca17e314f72b51d2fb52",
+          "entryplug-harbor:jazzy": "sha256:48b3b33121440b8a318a7457e877f774cce3030823409401dc3fe5819864291d",
+          "entryplug-scenario-worker:dev": "sha256:3519522385b305242ce0a606e728b4e13fa2fed0afb759937f55f92196ebfb83"
+        },
+        "lighting_writes": [
+          3,
+          0
+        ],
+        "operation_ids": [
+          "97853352798d4c82a38c04cd302b5bde",
+          "348350c0f31742a292f31304eba268c6"
+        ],
+        "run_id": "hybrid-56d91b2c1608",
+        "source_sha256": "3de5f5f87d43f8e2c50088363fa611f8bfc1bb04c5c378dab5a66183c0626c2d",
+        "status": "passed"
+      },
+      "operations": [
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "reported",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "97853352798d4c82a38c04cd302b5bde",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 2,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": 0.7490196078431373,
+            "last_sequence": 12,
+            "lighting_writes": 3,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-1-868000000",
+              "panel-2-39999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 7919.612570699,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.18618820099982258,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "55eb63ed84f94bda901ac63c050a8002",
+                  "quality": 0.72,
+                  "received_monotonic": 7919.426382498,
+                  "sample_id": "panel-1-868000000",
+                  "sequence": 11,
+                  "worker_generation": 1
+                },
+                {
+                  "age_at_acceptance_s": 0.013923367999268521,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "9d52da61014a403c8174529db763d8d2",
+                  "quality": 0.72,
+                  "received_monotonic": 7919.598647331,
+                  "sample_id": "panel-2-39999999",
+                  "sequence": 12,
+                  "worker_generation": 1
+                }
+              ]
+            },
+            "worker_id": "worker-b",
+            "worker_replacements": 1
+          },
+          "timing": {
+            "accepted_deadline_monotonic": 7948.15754825,
+            "accepted_monotonic": 7918.15754825,
+            "completed_monotonic": 7919.613348141,
+            "final_deadline_monotonic": 7948.15754825
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "348350c0f31742a292f31304eba268c6",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 2,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": null,
+            "last_sequence": 16,
+            "lighting_writes": 0,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-2-549999999",
+              "panel-2-719999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 7920.296804991,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.1907418829996459,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "dde00d51ac574ab49e800df0ffcb4338",
+                  "quality": 0.72,
+                  "received_monotonic": 7920.106063108,
+                  "sample_id": "panel-2-549999999",
+                  "sequence": 15,
+                  "worker_generation": 1
+                },
+                {
+                  "age_at_acceptance_s": 0.014749773999938043,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "077ede207fab4a829676bbf95d34549e",
+                  "quality": 0.72,
+                  "received_monotonic": 7920.282055217,
+                  "sample_id": "panel-2-719999999",
+                  "sequence": 16,
+                  "worker_generation": 1
+                }
+              ]
+            },
+            "worker_id": "worker-b",
+            "worker_replacements": 1
+          },
+          "timing": {
+            "accepted_deadline_monotonic": 7949.616386864,
+            "accepted_monotonic": 7919.616386864,
+            "completed_monotonic": 7920.297323012,
+            "final_deadline_monotonic": 7949.616386864
+          }
+        }
+      ],
+      "worker-cleanup": {
+        "status": "stopped",
+        "workers": [
+          {
+            "exit_code": 137,
+            "worker_id": "worker-a"
+          },
+          {
+            "exit_code": 0,
+            "worker_id": "worker-b"
+          }
+        ]
+      },
+      "world-cleanup": {
+        "forced_stops": 0,
+        "status": "stopped"
+      }
+    }
+  ],
+  "scope": "development qualification, simulated hardware, actual middleware"
+}

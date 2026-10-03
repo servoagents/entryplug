@@ -294,3 +294,91 @@ An earlier concurrent test run measured 40.2 frames/s, so the result depends on
 host load. The [wheel smoke test](evidence/connection-wheel-smoke.json) installed
 outside the repository with Node absent and verified the console assets,
 three simulations, video range serving, health, and owner cleanup.
+
+## Distributed inspection qualification — 3 October 2026
+
+Implementation commits: `b525516` (test environments), `9ff7b87` (freshness),
+`fe861ba` (native scenarios and evidence).
+
+`inspect_target` now checks frame age after compute and checks both verifying
+frames together at acceptance. Stale output cannot establish success or trigger
+another light adjustment. Cancellation/deadline checks surround pending capture,
+compute and alternate warmup; known lighting effects remain reported on failure.
+Results include the local acceptance clock, sample ages and quality, with native
+worker generation, job identity and input digest when that adapter supplies them.
+The timing profile remains 500 ms; the 10 ms/60 ms regression uses a controlled
+clock and does not redefine production timing.
+
+The hybrid evaluator now requires distinct progressing samples, valid quality,
+source/program identity, matching raw-frame hashes and native input digests,
+post-application simulation timestamps and native worker shutdown. Mutation tests
+reject empty, stale, malformed and contradictory evidence. Freshness and repair
+checks are separate from the missing-worker-at-startup refusal.
+
+Two scenario selectors now launch actual rendered cases:
+
+```bash
+./entryplug test --suite scenarios --scenario hybrid --client session --build
+./entryplug test --suite scenarios --scenario hybrid --client session --fault no-native-worker
+./entryplug test --suite scenarios --scenario zenoh --build
+./entryplug test --suite scenarios --scenario hybrid --client session --fault kill-active-worker --build
+```
+
+An unchanged no-build run verifies image/source identity and performs no image
+build or pull. Changed source requires `--build`; source changes during image
+preparation also cause refusal. `mqtt`, `ros2-vision` and `ros2-recovery` remain
+explicitly unsupported selectors. Aggregate/acceptance/offline selectors are
+still future work. These are source-checkout commands, not installed demo claims.
+The hybrid `direct` client remains an invocation mode using OperationHost, not
+the no-OperationHost performance baseline.
+
+The standalone Zenoh case starts its Session before the detector process joins.
+It records an unavailable operation, performs an explicit idle rebind after the
+supervisor starts the approved worker, then obtains two successful requests with
+new samples. A later request with a mismatched worker generation is refused.
+The same Session/runtime survives all four operations. Fixture setup applies
+one adequate light setting before admission; the read-only tasks make zero
+lighting writes. This lane runs the ROS camera, MuJoCo and a separate native
+router/worker, with no HA or MQTT process.
+
+The hybrid active-loss case holds the primary's third validated job **before its
+native reply**, then SIGKILLs that owned process. The held result, input sample
+and actual process exit are retained. This qualifies active request/result loss,
+not arbitrary network packet loss or a kill during detector arithmetic. The
+ordinary task uses one approved alternate, records binding revision 2 and stays
+within its original 30-second deadline. The warm operation also uses worker-b
+with zero light writes. The current task-local policy retries the poisoned
+primary and rechecks the alternate on the next operation; no persistent worker
+selection efficiency is claimed.
+
+[Retained manifests and operation evidence](evidence/distributed-inspection.json)
+record source digests, image IDs, operation IDs, sample ages, shutdown outcomes,
+exact commands and unsuccessful build attempts. The full raw frame/log directories
+remain local under `runs/` and are not an installed or public evidence bundle.
+The no-fault hybrid run recorded writes `[3, 0]`; its verifying frame ages were
+approximately `[178, 14]` ms and `[192, 17]` ms. These are development observations,
+not a speed or reliability claim. Later lane changes have their own source hashes.
+
+Validation used CPython **3.12.3** in the cached Jazzy substrate, pytest **9.1.1**,
+pytest-asyncio **1.4.0**, Ruff **0.13.3**, and mypy **1.18.2**. The initial portable
+baseline passed 317 tests. The final portable/service/MCP/A2A/HA/Zenoh/MQTT run
+passed **405 tests**, with one explicit broker-port test skipped and the existing
+Authlib deprecation warning; [test/type log](evidence/distributed-python-tests.txt).
+An earlier expanded run failed because the temporary environment lacked HTTPX;
+installing the existing locked service profile resolved that dependency gap. The service extras came from `mission-service.lock`.
+Strict mypy passed for the inspection task and native detector adapter; touched
+Python Ruff, shell syntax, Compose configuration and diff whitespace checks passed.
+The final source-labelled Harbor/mixed/worker builds and the four live runs above
+passed. Browser, wheel, OpenEnv, old arm release and held-out suites were not rerun.
+
+`deps/test-tools.txt` now pins async-capable portable/service test tools in CI
+and in an isolated Harbor test venv. ROS launch tests retain Jazzy's distro pytest
+7.4.4: its `launch_testing` plugin is incompatible with pytest 9. Two failed builds
+are retained: attempting to replace Debian-owned pluggy, then loading that ROS
+plugin under pytest 9. Neither is counted as a pass.
+
+The mission service/console behavior was preserved. Connecting this native body
+to a resident inspection mission, the remaining scenario lanes and native faults,
+installed fixture packaging, exported native-task qualification, strong comparisons
+and freeze/release gates remain open. No hardware, second-host, model-token or
+live account claim follows from these development runs.
