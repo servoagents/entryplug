@@ -9,4 +9,4 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 USER entryplug
 
 RUN python3 -c "import paho.mqtt.client; import zenoh; import entryplug_harbor.mqtt_light"
-RUN python3 -m pytest -q -p no:cacheprovider optional_tests/zenoh optional_tests/mqtt
+RUN /opt/entryplug/test-env/bin/python -m pytest -q -p no:cacheprovider optional_tests/zenoh optional_tests/mqtt

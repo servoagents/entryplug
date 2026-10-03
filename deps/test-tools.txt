@@ -1,0 +1,3 @@
+# Shared Python test tools for the portable and service environments; ROS launch tests retain distro pytest.
+pytest==9.1.1
+pytest-asyncio==1.4.0

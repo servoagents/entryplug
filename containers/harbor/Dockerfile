@@ -64,6 +64,10 @@ RUN source /opt/ros/jazzy/setup.bash && \
       --install-base /opt/entryplug/fixture-lamp \
       --packages-select entryplug_fixture_lamp \
       --cmake-args -DCMAKE_BUILD_TYPE=Release
+COPY deps/test-tools.txt /opt/entryplug/test-tools.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m venv --system-site-packages /opt/entryplug/test-env && \
+    /opt/entryplug/test-env/bin/python -m pip install -r /opt/entryplug/test-tools.txt
 COPY --chown=entryplug:entryplug . /workspace/entryplug
 RUN install -o entryplug -g entryplug -d /workspace/entryplug/runs && \
     chown entryplug:entryplug /workspace/entryplug && \
@@ -78,7 +82,7 @@ USER entryplug
 ENV HOME=/home/entryplug \
     PYTHONPATH=/workspace/entryplug/src
 
-RUN python3 -m pytest -q
+RUN /opt/entryplug/test-env/bin/python -m pytest -q
 RUN source /opt/ros/jazzy/setup.bash && \
     PYTHONPATH="/workspace/entryplug/src:/workspace/entryplug/containers/harbor:${PYTHONPATH}" \
     python3 -m pytest -q optional_tests/harbor
