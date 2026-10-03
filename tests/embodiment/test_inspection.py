@@ -370,3 +370,121 @@ def test_alternate_program_must_match_approved_primary() -> None:
 
     with pytest.raises(ValueError, match="approved program"):
         inspection_spec(CameraFixture([]), WorkerFixture([]), alternate_worker=OtherWorker([]))
+
+
+@pytest.mark.parametrize(
+    ("delays", "qualities", "primary_fails", "reason", "writes"),
+    [
+        ([0.006, 0.006], [0.9, 0.9], False, "FRAME_STALE", []),
+        ([0.06], [0.9], False, "FRAME_STALE", []),
+        ([0.06], [0.1], False, "FRAME_STALE", []),
+        ([0.001, 0.001, 0.06], [0.1, 0.1, 0.9], False, "FRAME_STALE", [0.25]),
+        ([0.06], [0.9], True, "WORKER_ALTERNATE_UNAVAILABLE", []),
+        ([0.001, 0.001, 0.06], [0.9, 0.9, 0.9], True, "FRAME_STALE", []),
+    ],
+)
+def test_expired_compute_evidence_cannot_succeed_or_adjust_light(
+    monkeypatch: pytest.MonkeyPatch,
+    delays: list[float],
+    qualities: list[float],
+    primary_fails: bool,
+    reason: str,
+    writes: list[float],
+) -> None:
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    from entryplug.embodiment import inspection
+
+    clock = SimpleNamespace(now=100.0)
+    monkeypatch.setattr(inspection, "time", SimpleNamespace(monotonic=lambda: clock.now))
+
+    class ClockCamera(CameraFixture):
+        async def capture(self) -> CameraFrame:
+            clock.now += 0.0001  # strictly after a reported lighting boundary
+            return replace(await super().capture(), received_monotonic=clock.now)
+
+    class ClockWorker(WorkerFixture):
+        def __init__(self) -> None:
+            super().__init__(qualities)
+            self.delays = iter(delays)
+
+        async def detect(self, frame: CameraFrame) -> MarkerMeasurement:
+            result = await super().detect(frame)
+            clock.now += next(self.delays)
+            return result
+
+    class DeadWorker(WorkerFixture):
+        async def detect(self, frame: CameraFrame) -> MarkerMeasurement:
+            raise ConnectionError("primary retired")
+
+    async def scenario() -> None:
+        light = LightFixture()
+        worker = ClockWorker()
+        if primary_fails:
+            worker.worker_id = "worker-b"
+        host = OperationHost(
+            (
+                inspection_spec(
+                    ClockCamera(list(range(1, 20))),
+                    DeadWorker([]) if primary_fails else worker,
+                    alternate_worker=worker if primary_fails else None,
+                    light=light,
+                    config=InspectionConfig(maximum_frame_age_s=0.01),
+                ),
+            )
+        )
+        async with Session(host, owns_runtime=True) as session:
+            operation = await session.act("inspect_target", {"target_id": "bench-marker"})
+            result = await session.wait(operation, 1)
+            assert result.lifecycle == Lifecycle.FAILED
+            assert result.reason_code == reason
+            assert light.writes == writes
+            assert result.effect_state == (EffectState.REPORTED if writes else EffectState.NONE)
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("deadline", [False, True])
+def test_stop_while_compute_is_pending_prevents_late_success_and_writes(deadline: bool) -> None:
+    from dataclasses import replace
+
+    class PendingWorker(WorkerFixture):
+        def __init__(self) -> None:
+            super().__init__([0.1, 0.1])
+            self.started = asyncio.Event()
+            self.release = asyncio.Event()
+
+        async def detect(self, frame: CameraFrame) -> MarkerMeasurement:
+            self.started.set()
+            await self.release.wait()
+            return await super().detect(frame)
+
+    async def scenario() -> None:
+        worker = PendingWorker()
+        camera = CameraFixture([1, 2])
+        light = LightFixture()
+        spec = inspection_spec(camera, worker, light=light)
+        if deadline:
+            spec = replace(spec, deadline_seconds=0.01)
+        host = OperationHost((spec,))
+        async with Session(host, owns_runtime=True) as session:
+            operation = await session.act("inspect_target", {"target_id": "bench-marker"})
+            await worker.started.wait()
+            if deadline:
+                # Observe the host's deadline event, not a guessed worker delay.
+                await asyncio.wait_for(
+                    host._operation(operation.operation_id).cancel_event.wait(), 1
+                )
+            else:
+                await session.cancel(operation)
+            worker.release.set()
+            result = await session.wait(operation, 1)
+            assert result.lifecycle == (Lifecycle.FAILED if deadline else Lifecycle.CANCELED)
+            assert result.reason_code == ("DEADLINE_EXCEEDED" if deadline else "CANCEL_REQUESTED")
+            assert camera.captures == 1
+            assert light.writes == []
+            assert result.effect_state == EffectState.NONE
+            assert (await session.wait(operation, 0)).lifecycle == result.lifecycle
+
+    asyncio.run(scenario())

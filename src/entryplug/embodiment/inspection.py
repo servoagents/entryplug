@@ -51,6 +51,9 @@ class MarkerMeasurement:
     centroid_x: float | None
     centroid_y: float | None
     quality: float
+    worker_generation: int | None = None
+    job_id: str | None = None
+    input_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +123,8 @@ def _check_frame(
     previous: CameraFrame | None,
     config: InspectionConfig,
     not_before_monotonic: float | None = None,
+    *,
+    checked_at: float | None = None,
 ) -> None:
     if not isinstance(frame, CameraFrame):
         raise _ObservationFault("FRAME_INVALID")
@@ -141,7 +146,7 @@ def _check_frame(
         raise _ObservationFault("FRAME_INVALID")
     if not isinstance(frame.received_monotonic, (int, float)):
         raise _ObservationFault("FRAME_INVALID")
-    age = time.monotonic() - frame.received_monotonic
+    age = (time.monotonic() if checked_at is None else checked_at) - frame.received_monotonic
     if not math.isfinite(age) or not 0 <= age <= config.maximum_frame_age_s:
         raise _ObservationFault("FRAME_STALE")
     if not_before_monotonic is not None and frame.received_monotonic <= not_before_monotonic:
@@ -191,18 +196,29 @@ def _check_measurement(
     return True
 
 
+def _check_active(context: OperationContext) -> None:
+    if context.remaining_seconds <= 0:
+        raise _ObservationFault("DEADLINE_EXCEEDED")
+    if context.cancel_requested:
+        raise _ObservationFault("CANCEL_REQUESTED")
+
+
 async def _observe_pair(
     camera: CameraSource,
     worker: DetectorWorker,
     config: InspectionConfig,
+    context: OperationContext,
     previous: CameraFrame | None,
     not_before_monotonic: float | None = None,
-) -> tuple[CameraFrame, MarkerMeasurement, bool, list[str]]:
-    samples: list[str] = []
+) -> tuple[CameraFrame, MarkerMeasurement, bool, list[str], dict[str, JsonValue]]:
+    frames: list[CameraFrame] = []
+    measurements: list[MarkerMeasurement] = []
     usable = True
     last_measurement: MarkerMeasurement | None = None
     for _ in range(2):
+        _check_active(context)
         frame = await camera.capture()
+        _check_active(context)
         _check_frame(frame, previous, config, not_before_monotonic)
         try:
             measurement = await worker.detect(frame)
@@ -213,12 +229,40 @@ async def _observe_pair(
             raise _WorkerFault(
                 "OBSERVATION_PROVIDER_FAILED", frame, type(error).__name__
             ) from error
+        _check_active(context)
+        # Computation can outlive a frame's freshness budget. This is an
+        # observation failure, not permission to adapt the lamp or retry a worker.
+        _check_frame(frame, previous, config, not_before_monotonic)
         usable &= detected and measurement.quality >= config.minimum_quality
-        samples.append(frame.sample_id)
+        frames.append(frame)
+        measurements.append(measurement)
         previous = frame
         last_measurement = measurement
     assert previous is not None and last_measurement is not None
-    return previous, last_measurement, usable, samples
+    accepted_at = time.monotonic()
+    for frame in frames:
+        _check_frame(frame, None, config, not_before_monotonic, checked_at=accepted_at)
+    # No await separates this check, the task result, and OperationHost._finish.
+    verification: dict[str, JsonValue] = {
+        "accepted_monotonic": accepted_at,
+        "clock": "runtime_local_monotonic",
+        "maximum_frame_age_s": config.maximum_frame_age_s,
+        "minimum_quality": config.minimum_quality,
+        "samples": [
+            {
+                "sample_id": frame.sample_id,
+                "sequence": frame.sequence,
+                "received_monotonic": frame.received_monotonic,
+                "age_at_acceptance_s": accepted_at - frame.received_monotonic,
+                "quality": measurement.quality,
+                "worker_generation": measurement.worker_generation,
+                "job_id": measurement.job_id,
+                "input_sha256": measurement.input_sha256,
+            }
+            for frame, measurement in zip(frames, measurements, strict=True)
+        ],
+    }
+    return previous, last_measurement, usable, [frame.sample_id for frame in frames], verification
 
 
 def inspection_spec(
@@ -307,8 +351,8 @@ def inspection_spec(
             try:
                 while True:
                     try:
-                        previous, measurement, usable, samples = await _observe_pair(
-                            camera, active_worker, config, previous, not_before_monotonic
+                        previous, measurement, usable, samples, verification = await _observe_pair(
+                            camera, active_worker, config, context, previous, not_before_monotonic
                         )
                         break
                     except _WorkerFault as error:
@@ -326,6 +370,7 @@ def inspection_spec(
                                 reason_code=error.reason_code,
                                 effect_state=effect,
                             )
+                        _check_active(context)
                         # The failed or late result cannot validate the task.
                         # Warm the approved alternate on a new current frame, then
                         # require two more progressing frames through that worker.
@@ -333,6 +378,7 @@ def inspection_spec(
                         active_worker = alternate_worker
                         context.report("replace_worker", MotionState.IDLE)
                         warm_frame = await camera.capture()
+                        _check_active(context)
                         _check_frame(warm_frame, error.frame, config, not_before_monotonic)
                         try:
                             warm_result = await active_worker.detect(warm_frame)
@@ -349,11 +395,18 @@ def inspection_spec(
                                 reason_code="WORKER_ALTERNATE_UNAVAILABLE",
                                 effect_state=effect,
                             )
+                        _check_active(context)
+                        try:
+                            _check_frame(warm_frame, None, config, not_before_monotonic)
+                        except _ObservationFault as stale:
+                            raise _ObservationFault("WORKER_ALTERNATE_UNAVAILABLE") from stale
                         previous = warm_frame
                         binding_revision += 1
             except _ObservationFault as error:
                 return OperationResult(
-                    Lifecycle.FAILED,
+                    Lifecycle.CANCELED
+                    if error.reason_code == "CANCEL_REQUESTED"
+                    else Lifecycle.FAILED,
                     MotionState.IDLE,
                     result={"lighting_writes": writes},
                     reason_code=error.reason_code,
@@ -386,6 +439,7 @@ def inspection_spec(
                         "source_id": previous.source_id,
                         "lineage_id": previous.lineage_id,
                         "sample_ids": samples,
+                        "verification": verification,
                         "last_sequence": previous.sequence,
                         "centroid_px": [measurement.centroid_x, measurement.centroid_y],
                         "quality": measurement.quality,

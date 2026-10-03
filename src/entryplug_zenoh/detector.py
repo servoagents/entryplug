@@ -9,7 +9,7 @@ import math
 import re
 import threading
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
 import zenoh
@@ -277,8 +277,14 @@ class ZenohDetectorWorker:
                 raise NativeDetectorError("worker instance requires explicit replacement")
             request_id = uuid.uuid4().hex
             try:
-                return await asyncio.wait_for(
+                measurement = await asyncio.wait_for(
                     asyncio.to_thread(self._query, frame, request_id), self._timeout_s + 0.5
+                )
+                return replace(
+                    measurement,
+                    worker_generation=self.generation,
+                    job_id=request_id,
+                    input_sha256=hashlib.sha256(frame.rgb8).hexdigest(),
                 )
             except asyncio.CancelledError:
                 self._poisoned = True
