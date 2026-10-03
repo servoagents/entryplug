@@ -300,17 +300,35 @@ deliberately offline rebuild of already generated assets, set
 `ENTRYPLUG_SKIP_UI_BUILD=1`. `npm ci --prefix ui` uses the committed lockfile.
 
 ```bash
-python -m pip install -r deps/mission-service.lock
+python -m pip install -r deps/dev-tools.txt -r deps/test-tools.txt -r deps/build-tools.txt
+python -m pip install --require-hashes -r deps/mission-service.lock
+python -m pip check
+npm ci --prefix ui
 PYTHONPATH=src python scripts/export_contracts.py
 npm --prefix ui run types
 npm --prefix ui run build
 npm --prefix ui test
 python -m pytest tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant
-python -m build --wheel
+python -m build --wheel --no-isolation
+python scripts/check_wheel_assets.py dist/entryplug-0.0.1-py3-none-any.whl
+python -m pip install --no-deps --force-reinstall dist/entryplug-0.0.1-py3-none-any.whl
 # Browser tests use an installed Chrome by default; empty selects Playwright Chromium:
-ENTRYPLUG_TEST_BROWSER='' npm --prefix ui run test:browser
+(cd ui && npx playwright install --with-deps chromium)
+ENTRYPLUG_TEST_INSTALLED=1 ENTRYPLUG_TEST_BROWSER='' npm --prefix ui run test:browser
 PYTHONPATH=src python -m entryplug_app.evaluation
 ```
+
+Install tooling and the runtime lock in separate pip commands: hashes in the
+runtime lock enable pip's hash-required mode for that entire invocation. Keep
+runtime hash verification enabled. Use a fresh Python 3.12 virtual environment
+for core and a separate one for service; inherited optional packages or
+`PYTHONPATH` can mask failures that appear on CI.
+
+`ENTRYPLUG_TEST_INSTALLED=1` makes the browser server and CLI parity check use
+Python isolated mode from the temporary directory. They import the installed
+wheel, including its console assets, without source-path injection. Omit that
+flag for ordinary source development. This validates the labelled simulation
+product journey; it does not package the native container scenario fixtures.
 
 OpenEnv 0.5.0's FastMCP dependency requires MCP <2, conflicting with the existing
 MCP 2.2.0 export. Keep the published pins and run OpenEnv tests in a separate

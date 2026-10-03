@@ -3,8 +3,21 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+from pathlib import Path
+
+from entryplug_harbor import resident_output
+
+
+def _run(script: str) -> subprocess.CompletedProcess[bytes]:
+    environment = dict(os.environ)
+    # pytest adds src to this process only; children must select the same code.
+    environment["PYTHONPATH"] = str(Path(resident_output.__file__).resolve().parents[1])
+    return subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, check=True, env=environment
+    )
 
 
 def test_python_and_native_diagnostics_are_separate_from_control_records() -> None:
@@ -17,7 +30,7 @@ with private_record_stream() as records:
     records.write('{"version":1,"type":"ready"}\\n')
     records.flush()
 """
-    result = subprocess.run([sys.executable, "-c", script], capture_output=True, check=True)
+    result = _run(script)
     assert json.loads(result.stdout) == {"version": 1, "type": "ready"}
     assert result.stderr.splitlines() == [b"python diagnostic", b"native diagnostic"]
 
@@ -32,6 +45,6 @@ try:
 except RuntimeError:
     print("restored", flush=True)
 """
-    result = subprocess.run([sys.executable, "-c", script], capture_output=True, check=True)
+    result = _run(script)
     assert result.stdout == b"restored\n"
     assert result.stderr == b"diagnostic\n"

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { testRuntime } from "../../test-runtime";
 
 test("embark, observe, close browser, control by CLI, and retain alerts", async ({
   page,
@@ -73,8 +74,9 @@ test("embark, observe, close browser, control by CLI, and retain alerts", async 
   const run = state.runs.find((item: any) => item.name === name);
   await page.close();
   const output = execFileSync(
-    process.env.ENTRYPLUG_TEST_PYTHON || "python3",
+    testRuntime.python,
     [
+      ...testRuntime.pythonArgs,
       "-m",
       "entryplug",
       "mission",
@@ -84,7 +86,7 @@ test("embark, observe, close browser, control by CLI, and retain alerts", async 
       "/tmp/entryplug-playwright",
       "--json",
     ],
-    { cwd: "..", env: { ...process.env, PYTHONPATH: "src" }, encoding: "utf8" },
+    { cwd: testRuntime.cwd, env: { ...process.env, ...testRuntime.env }, encoding: "utf8" },
   );
   expect(JSON.parse(output).lifecycle).toBe("paused");
   const next = await browser.newPage({ viewport: { width: 390, height: 844 } });

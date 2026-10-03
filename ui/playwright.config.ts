@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { testRuntime } from "./test-runtime";
 
 export default defineConfig({
   testDir: "./tests/browser",
@@ -17,9 +18,9 @@ export default defineConfig({
     trace: "off",
   },
   webServer: {
-    command: `${process.env.ENTRYPLUG_TEST_PYTHON || "python3"} -m entryplug serve --workspace /tmp/entryplug-playwright --port 8877`,
-    cwd: "..",
-    env: { PYTHONPATH: "src" },
+    command: `${testRuntime.python} ${testRuntime.pythonArgs.join(" ")} -m entryplug serve --workspace /tmp/entryplug-playwright --port 8877`,
+    cwd: testRuntime.cwd,
+    env: testRuntime.env,
     port: 8877,
     reuseExistingServer: false,
   },
