@@ -293,11 +293,12 @@ class HomeAssistantLight:
                     )
                 except TimeoutError as error:
                     raise HomeAssistantLightError("light state was not confirmed") from error
-            except Exception as error:
+            except (Exception, asyncio.CancelledError) as error:
                 # A service call can have taken effect even when its result is lost.
+                # Cancellation/deadline expiry does not undo the native write.
                 # Drop this generation and never replay the command automatically.
                 self._uncertain = True
                 await self._drop()
-                if isinstance(error, HomeAssistantLightError):
+                if isinstance(error, (HomeAssistantLightError, asyncio.CancelledError)):
                     raise
                 raise HomeAssistantLightError("light command outcome is uncertain") from error

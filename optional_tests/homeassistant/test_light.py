@@ -300,3 +300,103 @@ def test_lost_ha_result_inhibits_task_level_effects() -> None:
             await light.close()
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("phase", ["service_reply", "state_readback"])
+@pytest.mark.parametrize("termination", ["cancel", "deadline"])
+def test_interrupted_light_write_requires_reconciliation(
+    monkeypatch: pytest.MonkeyPatch, phase: str, termination: str
+) -> None:
+    async def scenario() -> None:
+        fake = FakeHomeAssistant(report_stale=phase == "state_readback")
+        async with server(fake) as url:
+            light = HomeAssistantLight(url, "test-token", ENTITY)
+            reached = asyncio.Event()
+            timeout = asyncio.timeout(None)
+            original_command = light._command
+            original_readback = light._wait_for_level
+
+            async def held_command(command):
+                result = await original_command(command)
+                if command.get("type") == "call_service":
+                    reached.set()
+                    await asyncio.Event().wait()
+                return result
+
+            async def held_readback(level):
+                state = await light._refresh_state()
+                assert state.level == 10 / 255
+                reached.set()
+                await asyncio.Event().wait()
+
+            async def write():
+                async with timeout:
+                    await light.set_brightness(0.25)
+
+            monkeypatch.setattr(
+                light,
+                "_command" if phase == "service_reply" else "_wait_for_level",
+                held_command if phase == "service_reply" else held_readback,
+            )
+            task = asyncio.create_task(write())
+            try:
+                await asyncio.wait_for(reached.wait(), 2)
+                assert len(fake.commands) == 1
+                if termination == "cancel":
+                    task.cancel()
+                else:
+                    timeout.reschedule(asyncio.get_running_loop().time())
+                with pytest.raises(
+                    asyncio.CancelledError if termination == "cancel" else TimeoutError
+                ):
+                    await task
+                monkeypatch.setattr(light, "_command", original_command)
+                monkeypatch.setattr(light, "_wait_for_level", original_readback)
+                fake.report_stale = False
+                with pytest.raises(HomeAssistantLightError, match="explicit reconciliation"):
+                    await light.set_brightness(0.5)
+                assert len(fake.commands) == 1
+                await light.reconnect()
+                assert light.generation == 2
+                assert len(fake.commands) == 1
+                assert (await light.current_state()).available
+                await light.set_brightness(0.5)
+                assert [item["service_data"]["brightness"] for item in fake.commands] == [64, 128]
+            finally:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+                await light.close()
+
+    asyncio.run(scenario())
+
+
+def test_cancel_before_dispatch_does_not_inhibit_light(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def scenario() -> None:
+        fake = FakeHomeAssistant()
+        async with server(fake) as url:
+            light = HomeAssistantLight(url, "test-token", ENTITY)
+            await light.connect()
+            reached = asyncio.Event()
+            original = light._refresh_state
+
+            async def held_state():
+                reached.set()
+                await asyncio.Event().wait()
+
+            monkeypatch.setattr(light, "_refresh_state", held_state)
+            task = asyncio.create_task(light.set_brightness(0.25))
+            try:
+                await asyncio.wait_for(reached.wait(), 2)
+                task.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await task
+                assert fake.commands == []
+                monkeypatch.setattr(light, "_refresh_state", original)
+                await light.set_brightness(0.5)
+                assert len(fake.commands) == 1
+            finally:
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+                await light.close()
+
+    asyncio.run(scenario())
