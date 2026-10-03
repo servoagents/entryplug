@@ -20,9 +20,8 @@ def test_hybrid_selection_keeps_build_explicit() -> None:
     assert built.build is True
 
 
-def test_scenario_suite_requires_an_explicit_lane() -> None:
-    with pytest.raises(SystemExit):
-        cli._parse_args(["test", "--suite", "scenarios"])
+def test_scenario_suite_defaults_to_all_lanes() -> None:
+    assert cli._parse_args(["test", "--suite", "scenarios"]).scenario is None
 
 
 def test_unknown_lane_is_refused() -> None:
@@ -135,3 +134,29 @@ def test_ros_recovery_dispatch_and_option_refusal(monkeypatch: pytest.MonkeyPatc
     args.fault = "no-native-worker"
     assert cli._test(args) == 2
     assert len(commands) == 1
+
+
+@pytest.mark.parametrize(
+    "options", [[], ["--offline"], ["--tier", "acceptance"], ["--scenario", "mqtt", "--json"]]
+)
+def test_suite_dispatch_preserves_options(monkeypatch, options):
+    monkeypatch.setattr(cli, "source_root", lambda: Path("/checkout"))
+    commands = []
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda cmd, **kw: commands.append(cmd) or SimpleNamespace(returncode=2),
+    )
+    args = cli._parse_args(["test", "--suite", "scenarios", *options])
+    assert cli._test(args) == 2
+    assert commands[0][1:] == ["/checkout/containers/scenarios/run_suite.py", *options]
+
+
+@pytest.mark.parametrize(
+    "options",
+    [["--build", "--offline"], ["--client", "session"], ["--fault", "kill-active-worker"]],
+)
+def test_invalid_suite_options_do_not_launch(monkeypatch, options):
+    monkeypatch.setattr(cli, "source_root", lambda: Path("/checkout"))
+    monkeypatch.setattr(cli.subprocess, "run", lambda *a, **kw: pytest.fail("launched"))
+    assert cli._test(cli._parse_args(["test", "--suite", "scenarios", *options])) == 2

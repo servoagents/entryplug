@@ -91,6 +91,7 @@ def harbor_run_command(
         "--pids-limit=512",
         "--shm-size=512m",
         "--network=none",
+        "--pull=never",
         "--tmpfs",
         "/tmp:rw,nosuid,nodev,size=512m",
         "--tmpfs",

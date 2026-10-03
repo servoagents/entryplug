@@ -44,6 +44,7 @@ def test_harbor_run_drops_privilege_and_only_mounts_evidence(tmp_path: Path, cas
     assert "--cap-drop=ALL" in command
     assert "--security-opt=no-new-privileges" in command
     assert "--network=none" in command
+    assert "--pull=never" in command
     assert "docker.sock" not in joined
     assert "src=" + str((tmp_path / "runs").resolve()) in joined
     assert "type=bind,src=" + str(Path.home()) not in joined

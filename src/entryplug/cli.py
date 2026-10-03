@@ -233,9 +233,11 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
             scenarios.add_argument(
                 "--scenario",
                 choices=("zenoh", "mqtt", "ros2-vision", "ros2-recovery", "hybrid"),
-                required=True,
             )
             scenarios.add_argument("--build", action="store_true")
+            scenarios.add_argument("--offline", action="store_true")
+            scenarios.add_argument("--tier", choices=("smoke", "acceptance"))
+            scenarios.add_argument("--json", action="store_true")
             scenarios.add_argument(
                 "--fault",
                 choices=("none", "no-native-worker", "kill-active-worker"),
@@ -250,6 +252,9 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
                 build=selected.build,
                 fault=selected.fault,
                 client=selected.client,
+                offline=selected.offline,
+                tier=selected.tier,
+                json=selected.json,
             )
         return argparse.Namespace(command="test", pytest_args=forwarded, test_suite=suite)
 
@@ -316,6 +321,26 @@ def _test(args: argparse.Namespace) -> int:
         return 2
     suite = getattr(args, "test_suite", "core")
     if suite == "scenarios":
+        if args.offline and args.build:
+            print("entryplug test: --offline cannot be combined with --build", file=sys.stderr)
+            return 2
+        if args.scenario is None and (args.fault != "none" or args.client != "direct"):
+            print("entryplug test: --fault/--client require --scenario hybrid", file=sys.stderr)
+            return 2
+        if args.scenario is None or args.offline or args.tier or args.json:
+            command = [sys.executable, str(root / "containers/scenarios/run_suite.py")]
+            if args.scenario:
+                command.extend(("--scenario", args.scenario))
+            for option in ("build", "offline", "json"):
+                if getattr(args, option):
+                    command.append(f"--{option}")
+            if args.tier:
+                command.extend(("--tier", args.tier))
+            if args.client != "direct":
+                command.extend(("--client", args.client))
+            if args.fault != "none":
+                command.extend(("--fault", args.fault))
+            return subprocess.run(command, cwd=root, check=False).returncode
         if args.scenario not in {"hybrid", "zenoh", "mqtt", "ros2-recovery", "ros2-vision"}:
             print(
                 f"entryplug test: {args.scenario} live scenario is not packaged yet",
