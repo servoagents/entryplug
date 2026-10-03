@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import time
 from collections.abc import Callable
@@ -106,6 +107,7 @@ class PanelFixture(Node):
         self.latest_state: tuple[float, float, int] | None = None
         self.minimum_sim_stamp = -1.0
         self.frame_artifacts: list[str] = []
+        self.frames: list[dict[str, object]] = []
         self.applied_states: list[dict[str, float | int]] = []
         self.command = self.create_publisher(Float32, COMMAND_TOPIC, 1) if direct_lamp else None
         self.create_subscription(Image, IMAGE_TOPIC, self._on_image, qos_profile_sensor_data)
@@ -162,6 +164,19 @@ class PanelFixture(Node):
         with (self.output_dir / name).open("xb") as stream:
             stream.write(image.tobytes())
         self.frame_artifacts.append(name)
+        self.frames.append(
+            {
+                "sample_id": frame.sample_id,
+                "sequence": sequence,
+                "source_id": frame.source_id,
+                "lineage_id": frame.lineage_id,
+                "captured_sim_time_s": _sim_stamp(message),
+                "received_monotonic": received,
+                "artifact": name,
+                "artifact_sha256": hashlib.sha256(image.tobytes()).hexdigest(),
+                "input_sha256": hashlib.sha256(rgb8).hexdigest(),
+            }
+        )
         return frame
 
     async def capture(self) -> CameraFrame:

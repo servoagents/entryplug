@@ -35,14 +35,61 @@ def main() -> int:
     parser.add_argument("--router-host")
     parser.add_argument("--ready", type=Path)
     parser.add_argument("--report", type=Path)
+    parser.add_argument("--hold-result-number", type=int)
+    parser.add_argument("--held-file", type=Path)
     args = parser.parse_args()
+    if (args.hold_result_number is None) != (args.held_file is None):
+        parser.error("held result requires both its sequence and private evidence file")
+    if args.hold_result_number is not None and args.hold_result_number < 1:
+        parser.error("held result sequence must be positive")
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     report: dict[str, object] = {"worker_id": args.worker_id, "status": "stopped"}
+
+    class HeldResultServer(NativeDetectorServer):
+        """Fixture-only fault after a validated real job, before its native reply."""
+
+        def __init__(self, *positional, **keywords):
+            self.job_count = 0
+            super().__init__(*positional, **keywords)
+
+        def _detect_query(self, query):
+            result = super()._detect_query(query)
+            self.job_count += 1
+            if self.job_count == args.hold_result_number:
+                with args.held_file.open("x") as stream:
+                    json.dump(
+                        {
+                            "phase": "before_native_reply",
+                            "job_number": self.job_count,
+                            "result_identity": {
+                                key: result[key]
+                                for key in (
+                                    "request_id",
+                                    "source_id",
+                                    "sample_id",
+                                    "input_sha256",
+                                    "worker_id",
+                                    "worker_generation",
+                                    "program_id",
+                                )
+                            },
+                        },
+                        stream,
+                    )
+                # The supervisor kills this owned process while its query is active.
+                # Bounded fallback keeps a failed injector from wedging teardown.
+                stop.wait(10)
+                raise RuntimeError("held fixture result was not delivered")
+            return result
+
     try:
         with zenoh.open(_config(args.port, args.router_host)) as session:
-            worker = NativeDetectorServer(
+            server_type = (
+                HeldResultServer if args.hold_result_number is not None else NativeDetectorServer
+            )
+            worker = server_type(
                 session, run_id=args.run_id, worker_id=args.worker_id, generation=1
             )
             try:

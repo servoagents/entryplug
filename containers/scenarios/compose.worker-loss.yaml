@@ -1,0 +1,39 @@
+# Evaluator-only fault profile. The task receives only an approved alternate.
+services:
+  native-worker:
+    user: "${ENTRYPLUG_FIXTURE_UID:?}:${ENTRYPLUG_FIXTURE_GID:?}"
+    command:
+      - python
+      - /opt/entryplug/native_detector_worker.py
+      - --run-id
+      - ${ENTRYPLUG_SCENARIO_RUN_ID:?}
+      - --worker-id
+      - worker-a
+      - --port
+      - "7448"
+      - --router-host
+      - native-router
+      - --hold-result-number
+      - "3"
+      - --held-file
+      - /control/job-held.json
+    volumes:
+      - ${ENTRYPLUG_FIXTURE_PRIVATE:?}/compute-control:/control
+  native-worker-b:
+    extends:
+      file: compose.hybrid.yaml
+      service: native-worker
+    command:
+      - python
+      - /opt/entryplug/native_detector_worker.py
+      - --run-id
+      - ${ENTRYPLUG_SCENARIO_RUN_ID:?}
+      - --worker-id
+      - worker-b
+      - --port
+      - "7448"
+      - --router-host
+      - native-router
+  workbench:
+    environment:
+      ENTRYPLUG_HYBRID_ALTERNATE: "1"

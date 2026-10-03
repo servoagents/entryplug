@@ -90,3 +90,19 @@ def test_hybrid_session_client_is_explicit(monkeypatch: pytest.MonkeyPatch) -> N
     )
     assert cli._test(selected) == 0
     assert calls[0][-2:] == ["--client", "session"]
+
+
+def test_zenoh_lane_launches_its_own_native_join_runner(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "source_root", lambda: Path("/checkout"))
+    commands = []
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda cmd, **kwargs: (commands.append(cmd) or SimpleNamespace(returncode=0)),
+    )
+    args = cli._parse_args(["test", "--suite", "scenarios", "--scenario", "zenoh", "--build"])
+    assert cli._test(args) == 0
+    assert commands[0][1:] == ["/checkout/containers/scenarios/run_zenoh.py", "--build"]
+    args.client = "session"
+    assert cli._test(args) == 2
+    assert len(commands) == 1

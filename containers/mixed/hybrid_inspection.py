@@ -8,9 +8,10 @@ import asyncio
 import json
 from pathlib import Path
 
+from hybrid_runtime import open_hybrid_runtime
+
 from entryplug.core.evidence import json_object
 from entryplug.core.operation import Lifecycle
-from hybrid_runtime import open_hybrid_runtime
 
 
 async def run(output: Path, run_id: str, token_file: Path) -> dict[str, object]:
@@ -48,6 +49,7 @@ async def run(output: Path, run_id: str, token_file: Path) -> dict[str, object]:
             "operations": operations,
             "applied_states": runtime.camera.applied_states,
             "frame_artifacts": runtime.camera.frame_artifacts,
+            "frames": runtime.camera.frames,
         }
 
 

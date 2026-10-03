@@ -7,12 +7,13 @@ import asyncio
 import json
 from pathlib import Path
 
-from entryplug.core.evidence import json_object
-from entryplug.harness.session_wire import dispatch_session_request
 from hybrid_runtime import open_hybrid_runtime
 
+from entryplug.core.evidence import json_object
+from entryplug.harness.session_wire import dispatch_session_request
+
 MAX_REQUEST_BYTES = 16_384
-MAX_REQUEST_BYTES = 16_384
+
 
 async def serve(run_dir: Path, run_id: str, token_file: Path) -> None:
     socket_path = run_dir / "session.sock"
@@ -40,7 +41,18 @@ async def serve(run_dir: Path, run_id: str, token_file: Path) -> None:
                             value = await dispatch_session_request(runtime.session, request)
                             response = {"ok": True, "value": value}
                             if request.get("kind") == "act":
-                                records.append({"operation_id": value["operation_id"]})
+                                snapshot = next(
+                                    item
+                                    for item in (await runtime.session.observe()).operations
+                                    if item.operation_id == value["operation_id"]
+                                )
+                                records.append(
+                                    {
+                                        "operation_id": value["operation_id"],
+                                        "accepted_monotonic": snapshot.accepted_monotonic,
+                                        "accepted_deadline_monotonic": snapshot.deadline_monotonic,
+                                    }
+                                )
                     except (KeyError, TypeError, ValueError, RuntimeError) as error:
                         response = {"ok": False, "error": type(error).__name__}
                     writer.write(json.dumps(response, allow_nan=False).encode() + b"\n")
@@ -59,6 +71,9 @@ async def serve(run_dir: Path, run_id: str, token_file: Path) -> None:
             async with server:
                 await closed.wait()
         finally:
+            snapshots = {
+                item.operation_id: item for item in (await runtime.session.observe()).operations
+            }
             operations = [
                 json_object(
                     await runtime.session.inspect(record["operation_id"], detail="result"),
@@ -66,6 +81,14 @@ async def serve(run_dir: Path, run_id: str, token_file: Path) -> None:
                 )
                 for record in records
             ]
+            for record, operation in zip(records, operations, strict=True):
+                snapshot = snapshots[record["operation_id"]]
+                operation["timing"] = {
+                    "accepted_monotonic": record["accepted_monotonic"],
+                    "accepted_deadline_monotonic": record["accepted_deadline_monotonic"],
+                    "final_deadline_monotonic": snapshot.deadline_monotonic,
+                    "completed_monotonic": snapshot.completed_monotonic,
+                }
             with (run_dir / "hybrid.json").open("x", encoding="utf-8") as stream:
                 json.dump(
                     {
@@ -77,6 +100,7 @@ async def serve(run_dir: Path, run_id: str, token_file: Path) -> None:
                         "operations": operations,
                         "applied_states": runtime.camera.applied_states,
                         "frame_artifacts": runtime.camera.frame_artifacts,
+                        "frames": runtime.camera.frames,
                     },
                     stream,
                     indent=2,

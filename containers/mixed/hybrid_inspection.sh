@@ -13,6 +13,7 @@ mkdir -p "${run_dir}"
 declare -a owned_pids=()
 cleanup() {
   local pid
+  local forced=0
   for pid in "${owned_pids[@]}"; do
     kill -TERM "${pid}" 2>/dev/null || true
   done
@@ -25,9 +26,13 @@ cleanup() {
     sleep 0.1
   done
   for pid in "${owned_pids[@]}"; do
-    kill -KILL "${pid}" 2>/dev/null || true
+    if kill -0 "${pid}" 2>/dev/null; then
+      forced=$((forced + 1))
+      kill -KILL "${pid}" 2>/dev/null || true
+    fi
     wait "${pid}" 2>/dev/null || true
   done
+  printf '{"status":"stopped","forced_stops":%s}\n' "${forced}" > "${run_dir}/world-cleanup.json"
 }
 trap cleanup EXIT INT TERM
 
@@ -49,12 +54,18 @@ owned_pids+=("$!")
 python3 /workspace/entryplug/containers/harbor/panel_launch.py \
   >"${run_dir}/mujoco.log" 2>&1 &
 owned_pids+=("$!")
+if [[ "${mode}" != zenoh ]]; then
 python3 /workspace/entryplug/containers/harbor/mqtt_lamp_bridge.py \
   --run-id "${run_id}" --broker-host broker --output "${run_dir}/bridge.json" \
   >"${run_dir}/bridge.log" 2>&1 &
 owned_pids+=("$!")
 
-if [[ "${mode}" == session ]]; then
+fi
+
+if [[ "${mode}" == zenoh ]]; then
+  python3 /workspace/entryplug/containers/mixed/panel_connection.py \
+    --run-dir "${run_dir}" --run-id "${run_id}"
+elif [[ "${mode}" == session ]]; then
   python3 /workspace/entryplug/containers/mixed/hybrid_session_server.py \
     --run-dir "${run_dir}" --run-id "${run_id}"
 else

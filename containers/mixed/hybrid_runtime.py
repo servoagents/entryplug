@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from pathlib import Path
 
 import rclpy
 import zenoh
+from hybrid_ports import AppliedHAPanelLight, connect_light, zenoh_config
 from panel_inspection import PanelFixture
 
 from entryplug.core.operation import OperationHost
@@ -16,7 +18,6 @@ from entryplug.embodiment.inspection import inspection_spec
 from entryplug.harness.session import Session
 from entryplug_homeassistant.light import HomeAssistantLight
 from entryplug_zenoh.detector import ZenohDetectorWorker
-from hybrid_ports import AppliedHAPanelLight, connect_light, zenoh_config
 
 
 @dataclass(slots=True)
@@ -42,8 +43,22 @@ async def open_hybrid_runtime(
             worker = ZenohDetectorWorker(
                 native_session, run_id=run_id, worker_id="worker-a", generation=1
             )
+            alternate = (
+                ZenohDetectorWorker(
+                    native_session, run_id=run_id, worker_id="worker-b", generation=1
+                )
+                if os.environ.get("ENTRYPLUG_HYBRID_ALTERNATE") == "1"
+                else None
+            )
             host = OperationHost(
-                (inspection_spec(camera, worker, light=AppliedHAPanelLight(camera, light)),),
+                (
+                    inspection_spec(
+                        camera,
+                        worker,
+                        alternate_worker=alternate,
+                        light=AppliedHAPanelLight(camera, light),
+                    ),
+                ),
                 runtime_id=run_id,
             )
             session = Session(host, owns_runtime=True)
@@ -52,6 +67,8 @@ async def open_hybrid_runtime(
             finally:
                 await session.close()
                 worker.close()
+                if alternate is not None:
+                    alternate.close()
     finally:
         if light is not None:
             await light.close()
