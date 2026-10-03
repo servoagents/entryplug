@@ -1,0 +1,28 @@
+name: ${ENTRYPLUG_COMPOSE_PROJECT:?set a unique owned project}
+services:
+  broker:
+    extends:
+      file: compose.yaml
+      service: broker
+  workbench:
+    image: entryplug-harbor-mixed:jazzy
+    command: [sleep, infinity]
+    depends_on: [broker]
+    networks: [scenario]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 512
+    shm_size: 512m
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m
+      - /home/entryplug/.ros:rw,nosuid,nodev,size=32m
+      - /home/entryplug/.cache:rw,nosuid,nodev,size=64m
+    volumes:
+      - ${ENTRYPLUG_RUNS_DIR:?set the project runs path}:/workspace/entryplug/runs
+    environment:
+      PYTHONPATH: /workspace/entryplug/src:/workspace/entryplug/containers/harbor
+    restart: "no"
+networks:
+  scenario:
+    internal: true

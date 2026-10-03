@@ -54,7 +54,7 @@ owned_pids+=("$!")
 python3 /workspace/entryplug/containers/harbor/panel_launch.py \
   >"${run_dir}/mujoco.log" 2>&1 &
 owned_pids+=("$!")
-if [[ "${mode}" != zenoh ]]; then
+if [[ "${mode}" != zenoh && "${mode}" != mqtt ]]; then
 python3 /workspace/entryplug/containers/harbor/mqtt_lamp_bridge.py \
   --run-id "${run_id}" --broker-host broker --output "${run_dir}/bridge.json" \
   >"${run_dir}/bridge.log" 2>&1 &
@@ -64,6 +64,9 @@ fi
 
 if [[ "${mode}" == zenoh ]]; then
   python3 /workspace/entryplug/containers/mixed/panel_connection.py \
+    --run-dir "${run_dir}" --run-id "${run_id}"
+elif [[ "${mode}" == mqtt ]]; then
+  python3 /workspace/entryplug/containers/mixed/panel_mqtt_connection.py \
     --run-dir "${run_dir}" --run-id "${run_id}"
 elif [[ "${mode}" == session ]]; then
   python3 /workspace/entryplug/containers/mixed/hybrid_session_server.py \

@@ -33,16 +33,23 @@ class _WorldLamp(Node):
         self.command = self.create_publisher(Float32, COMMAND_TOPIC, 1)
         self.create_subscription(Float64MultiArray, STATE_TOPIC, self._on_state, 10)
         self.applied_count = 0
+        self.received_at = 0.0
 
     def _on_state(self, message: Float64MultiArray) -> None:
         if len(message.data) != 3:
             return
-        level, _sim_time, revision = message.data
-        if not math.isfinite(level) or not math.isfinite(revision) or not 0 <= level <= 0.75:
+        level, sim_time, revision = message.data
+        if not all(math.isfinite(v) for v in (level, sim_time, revision)) or not 0 <= level <= 0.75:
             return
         if int(revision) != revision:
             return
-        self.current = AppliedLampState(float(level), int(revision))
+        self.current = AppliedLampState(float(level), int(revision), float(sim_time))
+        self.received_at = time.monotonic()
+
+    def snapshot(self) -> AppliedLampState:
+        if self.current is None or time.monotonic() - self.received_at > 0.5:
+            raise TimeoutError("ROS lamp state is not current")
+        return self.current
 
     def wait_until(self, condition: Callable[[], bool], label: str, timeout_s: float = 5.0) -> None:
         deadline = time.monotonic() + timeout_s
@@ -87,7 +94,7 @@ def run(
         lamp.publish_initial_state(node.current)
         while rclpy.ok() and not stop.is_set():
             rclpy.spin_once(node, timeout_sec=0.05)
-            lamp.process_one(node.apply)
+            lamp.process_one(node.apply, node.snapshot)
     except Exception as error:
         status = "failed"
         reason = type(error).__name__

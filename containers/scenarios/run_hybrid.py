@@ -141,14 +141,18 @@ def _source_digest() -> str:
     return digest.hexdigest()
 
 
-def _prepare_images(*, build: bool) -> dict[str, object]:
+def _prepare_images(*, build: bool, native_worker: bool = True) -> dict[str, object]:
     source_sha256 = _source_digest()
     images: dict[str, str] = {}
-    for dockerfile, tag in (
+    selected_images = [
         ("containers/harbor/Dockerfile", "entryplug-harbor:jazzy"),
         ("containers/mixed/Dockerfile.harbor", "entryplug-harbor-mixed:jazzy"),
-        ("containers/scenarios/Dockerfile.worker", "entryplug-scenario-worker:dev"),
-    ):
+    ]
+    if native_worker:
+        selected_images.append(
+            ("containers/scenarios/Dockerfile.worker", "entryplug-scenario-worker:dev")
+        )
+    for dockerfile, tag in selected_images:
         if build:
             _command(
                 [
@@ -240,7 +244,9 @@ def _check_inspection_evidence(
     run_dir: Path, report: dict[str, object], *, profile: str = "hybrid"
 ) -> None:
     """Check the declared no-fault profile, separately from startup/repair cases."""
-    _require(profile in {"hybrid", "hybrid-repair", "zenoh"}, "unsupported evaluator profile")
+    _require(
+        profile in {"hybrid", "hybrid-repair", "zenoh", "mqtt"}, "unsupported evaluator profile"
+    )
     operations = report["operations"]
     levels = (0.25, 0.5, 0.75) if profile != "zenoh" else (0.75,)
     states = report.get("applied_states")
@@ -364,23 +370,34 @@ def _check_inspection_evidence(
                 _number(sample.get("quality")) and 0.5 <= sample["quality"] <= 1,
                 "invalid verifying sample quality",
             )
-            _require(
-                type(sample.get("worker_generation")) is int and sample["worker_generation"] == 1,
-                "wrong worker generation",
-            )
-            job = sample.get("job_id")
-            _require(
-                isinstance(job, str) and bool(job) and job not in jobs,
-                "missing or reused compute job",
-            )
-            jobs.add(job)
-            digest = sample.get("input_sha256")
-            _require(
-                isinstance(digest, str)
-                and re.fullmatch(r"[a-f0-9]{64}", digest) is not None
-                and digest == frame.get("input_sha256"),
-                "compute input mismatch",
-            )
+            if profile == "mqtt":
+                _require(
+                    result.get("worker_id") == "local-panel-worker-v1"
+                    and all(
+                        sample.get(k) is None
+                        for k in ("worker_generation", "job_id", "input_sha256")
+                    ),
+                    "local detector must not claim native worker evidence",
+                )
+            else:
+                _require(
+                    type(sample.get("worker_generation")) is int
+                    and sample["worker_generation"] == 1,
+                    "wrong worker generation",
+                )
+                job = sample.get("job_id")
+                _require(
+                    isinstance(job, str) and bool(job) and job not in jobs,
+                    "missing or reused compute job",
+                )
+                jobs.add(job)
+                digest = sample.get("input_sha256")
+                _require(
+                    isinstance(digest, str)
+                    and re.fullmatch(r"[a-f0-9]{64}", digest) is not None
+                    and digest == frame.get("input_sha256"),
+                    "compute input mismatch",
+                )
             name = frame.get("artifact")
             _require(
                 isinstance(name, str)
@@ -398,6 +415,8 @@ def _check_inspection_evidence(
             )
             last_sequence, last_capture = sequence, stamp
         _require(result.get("last_sequence") == last_sequence, "result sequence mismatch")
+    if profile == "mqtt":
+        return  # Local detector lives and closes inside the owned evaluator process.
     cleanup_path = run_dir / "worker-cleanup.json"
     _require(cleanup_path.is_file(), "missing native worker cleanup evidence")
     cleanup = json.loads(cleanup_path.read_text())

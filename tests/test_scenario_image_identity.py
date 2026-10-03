@@ -92,3 +92,18 @@ def test_absent_worker_passes_only_on_precise_refusal(tmp_path: Path) -> None:
     )
     with pytest.raises(runner.ScenarioFailure, match="made a write"):
         runner._check_unavailable_result(evidence, token_file)
+
+
+def test_mqtt_does_not_prepare_native_worker_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    runner = _runner()
+    calls = []
+    monkeypatch.setattr(runner, "_source_digest", lambda: "current")
+
+    def command(args: list[str], label: str) -> str:
+        calls.append(args)
+        return "sha256:image" if "{{.Id}}" in args else "current"
+
+    monkeypatch.setattr(runner, "_command", command)
+    result = runner._prepare_images(build=False, native_worker=False)
+    assert set(result["image_ids"]) == {"entryplug-harbor:jazzy", "entryplug-harbor-mixed:jazzy"}
+    assert all("entryplug-scenario-worker:dev" not in args for args in calls)

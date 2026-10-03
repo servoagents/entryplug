@@ -25,6 +25,7 @@ _RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 class AppliedLampState:
     level: float
     revision: int
+    sim_time_s: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +47,14 @@ class LampTopics:
     @property
     def state(self) -> str:
         return f"{self.base}/state"
+
+    @property
+    def read_request(self) -> str:
+        return f"{self.base}/read"
+
+    @property
+    def read_reply(self) -> str:
+        return f"{self.base}/readback"
 
     @property
     def availability(self) -> str:
@@ -115,6 +124,8 @@ class MqttFixtureLamp:
         self._broker_host = broker_host
         self._broker_port = broker_port
         self._pending: queue.Queue[float] = queue.Queue(maxsize=1)
+        self._reads: queue.Queue[str] = queue.Queue(maxsize=1)
+        self._last_state: AppliedLampState | None = None
         self._ready = threading.Event()
         self._last_revision = -1
         self.rejected_commands = 0
@@ -139,7 +150,7 @@ class MqttFixtureLamp:
         _properties: object,
     ) -> None:
         if reason == 0:
-            client.subscribe(self.topics.command, qos=0)
+            client.subscribe([(self.topics.command, 0), (self.topics.read_request, 0)])
 
     def _on_subscribe(
         self,
@@ -158,6 +169,14 @@ class MqttFixtureLamp:
     def _on_message(
         self, _client: mqtt.Client, _userdata: object, message: mqtt.MQTTMessage
     ) -> None:
+        if message.topic == self.topics.read_request:
+            # Read-only nonce challenges cannot be satisfied by retained state.
+            if not message.retain and re.fullmatch(rb"[a-f0-9]{32}", message.payload):
+                try:
+                    self._reads.put_nowait(message.payload.decode("ascii"))
+                except queue.Full:
+                    pass
+            return
         if message.topic != self.topics.command:
             return
         try:
@@ -207,9 +226,34 @@ class MqttFixtureLamp:
             retain=True,
         )
         self._last_revision = state.revision
+        self._last_state = state
 
-    def process_one(self, apply: Callable[[float], AppliedLampState]) -> bool:
-        """Apply one queued request in the world owner, then report its state."""
+    def process_one(
+        self,
+        apply: Callable[[float], AppliedLampState],
+        observe: Callable[[], AppliedLampState] | None = None,
+    ) -> bool:
+        """Answer bounded reads and apply at most one command in the world owner."""
+        try:
+            nonce = self._reads.get_nowait()
+        except queue.Empty:
+            pass
+        else:
+            state = observe() if observe is not None else self._last_state
+            if state is not None:
+                self._publish(
+                    self.topics.read_reply,
+                    json.dumps(
+                        {
+                            "nonce": nonce,
+                            "level": state.level,
+                            "revision": state.revision,
+                            "sim_time_s": state.sim_time_s,
+                        },
+                        allow_nan=False,
+                    ).encode(),
+                    retain=False,
+                )
         try:
             requested = self._pending.get_nowait()
         except queue.Empty:
