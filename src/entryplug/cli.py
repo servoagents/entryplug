@@ -316,13 +316,13 @@ def _test(args: argparse.Namespace) -> int:
         return 2
     suite = getattr(args, "test_suite", "core")
     if suite == "scenarios":
-        if args.scenario not in {"hybrid", "zenoh", "mqtt", "ros2-recovery"}:
+        if args.scenario not in {"hybrid", "zenoh", "mqtt", "ros2-recovery", "ros2-vision"}:
             print(
                 f"entryplug test: {args.scenario} live scenario is not packaged yet",
                 file=sys.stderr,
             )
             return 2
-        if args.scenario in {"zenoh", "mqtt", "ros2-recovery"} and (
+        if args.scenario in {"zenoh", "mqtt", "ros2-recovery", "ros2-vision"} and (
             args.fault != "none" or args.client != "direct"
         ):
             print(

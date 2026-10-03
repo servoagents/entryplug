@@ -294,3 +294,73 @@ def test_invalid_ready_record_keeps_owned_world_evidence_path(tmp_path: Path) ->
         assert run.stop_calls == 1
 
     asyncio.run(scenario())
+
+
+def test_session_reports_absent_world_then_connects_under_idle_barrier(tmp_path: Path) -> None:
+    run = FakeResident("late-world", tmp_path / "runs" / "late-world")
+    observed = []
+    starts = []
+
+    async def scenario() -> None:
+        async def before(session):
+            assert starts == []
+            observed.append(session)
+            world = await session.inspect("world")
+            assert world["available"] is False and world["run_id"] is None
+            with pytest.raises(AdmissionError) as refusal:
+                await session.act(VISUAL_REACH, {"target_y_px": 225}, request_id="missing")
+            assert refusal.value.reason_code == "WORLD_UNAVAILABLE"
+            assert (await session.observe()).operations == ()
+            assert run.requests == []
+
+        async def start(*args):
+            starts.append(args)
+            session = observed[0]
+            assert not (await session.observe()).admission_open
+            assert (await session.inspect("world"))["available"] is False
+            with pytest.raises(AdmissionError) as refusal:
+                await session.act(VISUAL_REACH, {"target_y_px": 225}, request_id="during-connect")
+            assert refusal.value.reason_code == "RECONFIGURING"
+            return run
+
+        episode = await harbor_resident_episode_factory(
+            tmp_path,
+            start_resident=start,
+            image_check=lambda _: asyncio.sleep(0, result=True),
+            before_connect=before,
+        )(101)
+        session = episode.session
+        assert session is observed[0]
+        assert (await session.inspect("world"))["available"] is True
+        assert (await session.observe()).reconfiguration_generations["world"] == 2
+        first = await session.act(VISUAL_REACH, {"target_y_px": 225}, request_id="joined")
+        second = None
+        assert (await session.wait(first, 2)).lifecycle == Lifecycle.SUCCEEDED
+        second = await session.act(VISUAL_REACH, {"target_y_px": 220}, request_id="warm")
+        assert (await session.wait(second, 2)).lifecycle == Lifecycle.SUCCEEDED
+        assert first.runtime_id == second.runtime_id and first.operation_id != second.operation_id
+        assert len(starts) == 1 and len(run.requests) == 2
+        await session.close()
+        assert run.stop_calls == 1
+
+    asyncio.run(scenario())
+
+
+def test_closed_observer_does_not_start_a_world_after_connect_hook(tmp_path: Path) -> None:
+    async def scenario():
+        async def before(session):
+            await session.close()
+
+        async def start(*args):
+            pytest.fail("closed Session must not start an owned world")
+
+        factory = harbor_resident_episode_factory(
+            tmp_path,
+            start_resident=start,
+            image_check=lambda _: asyncio.sleep(0, result=True),
+            before_connect=before,
+        )
+        with pytest.raises(RuntimeError, match="session is closed"):
+            await factory(101)
+
+    asyncio.run(scenario())

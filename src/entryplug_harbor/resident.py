@@ -222,6 +222,17 @@ async def start_owned_resident(root: Path, image: str, run_id: str) -> ResidentR
     )
     try:
         await run.initialize()
+    except asyncio.CancelledError:
+        stopped = await run.stop()
+        if not stopped.confirmed:
+            raise ResidentStartupFailure(
+                run_id,
+                run.evidence_path,
+                "canceled startup stop was not confirmed",
+                stop_confirmed=False,
+                process_exit_code=process.returncode,
+            ) from None
+        raise
     except Exception as error:
         stopped = await run.stop()
         raise ResidentStartupFailure(
@@ -240,14 +251,44 @@ StartResident = Callable[[Path, str, str], Awaitable[ResidentRun]]
 class ResidentSession(Session):
     """Closing the owning session closes its world after admitted work settles."""
 
-    def __init__(self, host: OperationHost, run: ResidentRun) -> None:
+    def __init__(
+        self,
+        host: OperationHost,
+        run: ResidentRun | None,
+        *,
+        available: Callable[[], bool] | None = None,
+    ) -> None:
         super().__init__(host, owns_runtime=True)
         self._run = run
         self._world_closed = False
+        self._available = available
+
+    async def inspect(
+        self, reference: str | OperationSnapshot, detail: str = "summary"
+    ) -> Mapping[str, JsonValue]:
+        if reference != "world":
+            return await super().inspect(reference, detail)
+        self._require_open()
+        if detail not in {"summary", "result"}:
+            raise ValueError("inspect detail must be 'summary' or 'result'")
+        available = self._available() if self._available is not None else self._run is not None
+        return json_object(
+            {
+                "runtime_id": self._host.runtime_id,
+                "run_id": self._run.run_id if self._run is not None else None,
+                "available": available and not self._world_closed,
+                "source_id": SOURCE_ID,
+                "lineage_id": SOURCE_LINEAGE,
+                "readiness_basis": "native_acquisition_and_checked_binding"
+                if available
+                else "unavailable",
+            },
+            "resident world",
+        )
 
     async def close(self) -> tuple[OperationSnapshot, ...]:
         snapshots = await super().close()
-        if not self._world_closed:
+        if not self._world_closed and self._run is not None:
             stopped = await self._run.stop()
             if not stopped.confirmed:
                 raise RuntimeError("resident world stop could not be confirmed")
@@ -263,6 +304,7 @@ def harbor_resident_episode_factory(
     image_check: ImageCheck = docker_image_available,
     evaluation_fault: str | None = None,
     evaluation_recovery_strategy: str = "checked_reuse",
+    before_connect: Callable[[ResidentSession], Awaitable[None]] | None = None,
 ) -> EpisodeFactory:
     """Create an episode whose one world serves sequential visual reach operations."""
 
@@ -288,37 +330,12 @@ def harbor_resident_episode_factory(
             raise FileNotFoundError(
                 f"container image {image!r} is unavailable; build it before reset"
             )
-        run_id = new_harbor_run_id("resident")
-        started = time.monotonic()
-        run = await start_resident(root, image, run_id)
-        startup_ms = round((time.monotonic() - started) * 1000, 3)
-        ready = run.ready
-        acquisition_value = ready.get("acquisition_ms")
-        container_startup_ms = (
-            round(max(0.0, startup_ms - float(acquisition_value)), 3)
-            if isinstance(acquisition_value, (int, float))
-            and not isinstance(acquisition_value, bool)
-            and 0 <= acquisition_value <= startup_ms
-            else None
-        )
-        if (
-            ready.get("source_id") != SOURCE_ID
-            or ready.get("lineage_id") != SOURCE_LINEAGE
-            or not isinstance(ready.get("initial_y_px"), (int, float))
-        ):
-            stopped = await run.stop()
-            raise ResidentStartupFailure(
-                run.run_id,
-                run.evidence_path,
-                "ready record has no supported visual source",
-                stop_confirmed=stopped.confirmed,
-            )
-
-        world_available = True
+        run: ResidentRun | None = None
+        world_available = False
         goal_index = 0
 
         def validate_reach(arguments: Mapping[str, JsonValue]) -> Mapping[str, object]:
-            if not world_available:
+            if not world_available or run is None:
                 raise AdmissionError("WORLD_UNAVAILABLE", "resident world is unavailable")
             return visual_reach_arguments(arguments)
 
@@ -326,6 +343,7 @@ def harbor_resident_episode_factory(
             context: OperationContext, arguments: Mapping[str, JsonValue]
         ) -> OperationResult:
             nonlocal world_available, goal_index
+            assert run is not None  # The admission validator refuses an unbound world.
             target_value = arguments["target_y_px"]
             if isinstance(target_value, bool) or not isinstance(target_value, (int, float)):
                 raise ValueError("validated target was not numeric")
@@ -456,8 +474,49 @@ def harbor_resident_episode_factory(
             ),
             runtime_id=f"harbor-resident-{uuid.uuid4().hex}",
         )
+        session = ResidentSession(host, None, available=lambda: world_available)
+        try:
+            # The caller can observe/refuse missing resources before any owned
+            # endpoint exists. Only validated native acquisition enables admission.
+            if before_connect is not None:
+                await before_connect(session)
+            session._require_open()
+            with host.reconfiguration("world", expected_runtime_id=host.runtime_id):
+                run_id = new_harbor_run_id("resident")
+                started = time.monotonic()
+                run = await start_resident(root, image, run_id)
+                startup_ms = round((time.monotonic() - started) * 1000, 3)
+                session._run = run
+                ready = run.ready
+                acquisition_value = ready.get("acquisition_ms")
+                container_startup_ms = (
+                    round(max(0.0, startup_ms - float(acquisition_value)), 3)
+                    if isinstance(acquisition_value, (int, float))
+                    and not isinstance(acquisition_value, bool)
+                    and 0 <= acquisition_value <= startup_ms
+                    else None
+                )
+                if (
+                    ready.get("source_id") != SOURCE_ID
+                    or ready.get("lineage_id") != SOURCE_LINEAGE
+                    or not isinstance(ready.get("initial_y_px"), (int, float))
+                ):
+                    stopped = await run.stop()
+                    session._world_closed = stopped.confirmed
+                    raise ResidentStartupFailure(
+                        run.run_id,
+                        run.evidence_path,
+                        "ready record has no supported visual source",
+                        stop_confirmed=stopped.confirmed,
+                    )
+                world_available = True
+                host.commit_reconfiguration("world", expected_generation=1)
+        except BaseException:
+            world_available = False
+            await session.close()
+            raise
         return EpisodeStart(
-            ResidentSession(host, run),
+            session,
             {
                 "fixture": "harbor_resident_visual_reach",
                 "run_id": run.run_id,

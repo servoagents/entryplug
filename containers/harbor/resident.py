@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import queue
@@ -607,6 +608,10 @@ def _task(
             "evaluator_only": evaluator,
             "accepted_deadline_monotonic": deadline_monotonic,
             "completed_monotonic": time.monotonic(),
+            "raw_artifacts": {
+                name: hashlib.sha256((run_dir / name).read_bytes()).hexdigest()
+                for name in (f"{prefix}-before.raw.png", f"{prefix}-after.raw.png")
+            },
         },
     )
     return result, binding

@@ -25,15 +25,9 @@ def test_scenario_suite_requires_an_explicit_lane() -> None:
         cli._parse_args(["test", "--suite", "scenarios"])
 
 
-def test_unimplemented_lane_fails_without_launching(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(cli, "source_root", lambda: Path("/unused"))
-    monkeypatch.setattr(
-        cli.subprocess,
-        "run",
-        lambda *args, **kwargs: pytest.fail("unsupported scenario must not launch"),
-    )
-    selected = cli._parse_args(["test", "--suite", "scenarios", "--scenario", "ros2-vision"])
-    assert cli._test(selected) == 2
+def test_unknown_lane_is_refused() -> None:
+    with pytest.raises(SystemExit):
+        cli._parse_args(["test", "--suite", "scenarios", "--scenario", "unknown"])
 
 
 def test_hybrid_dispatch_preserves_exit_status(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -108,7 +102,7 @@ def test_zenoh_lane_launches_its_own_native_join_runner(monkeypatch: pytest.Monk
     assert len(commands) == 1
 
 
-@pytest.mark.parametrize("lane", ["mqtt", "zenoh"])
+@pytest.mark.parametrize("lane", ["mqtt", "zenoh", "ros2-vision"])
 def test_join_lane_rejects_unimplemented_faults(monkeypatch: pytest.MonkeyPatch, lane: str) -> None:
     monkeypatch.setattr(cli, "source_root", lambda: Path("/checkout"))
     commands = []
@@ -119,7 +113,7 @@ def test_join_lane_rejects_unimplemented_faults(monkeypatch: pytest.MonkeyPatch,
     )
     args = cli._parse_args(["test", "--suite", "scenarios", "--scenario", lane])
     assert cli._test(args) == 0
-    assert commands[0][1] == f"/checkout/containers/scenarios/run_{lane}.py"
+    assert commands[0][1] == "/checkout/containers/scenarios/run_" + lane.replace("-", "_") + ".py"
     args.fault = "no-native-worker"
     assert cli._test(args) == 2
     assert len(commands) == 1
