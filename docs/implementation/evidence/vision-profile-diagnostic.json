@@ -1,0 +1,31 @@
+{
+  "native_evidence": "runs/harbor-resident-20261003T201608Z-f2d6c737/resident-acquisition.json",
+  "native_evidence_sha256": "be97f96443bf0707b52c390b569475a25a761034659c0db04c8f0f0247aa7948",
+  "gain_px_per_radian": 89.907677,
+  "noise_range_px": 1.913305,
+  "acquisition_commands_radians": [
+    0.025,
+    -0.04,
+    0.035,
+    -0.025,
+    0.05,
+    -0.045
+  ],
+  "acquisition_maximum_probe_radians": 0.05,
+  "fixed_reuse_probes_radians": [
+    0.04,
+    -0.04
+  ],
+  "required_signal_to_noise": 2.0,
+  "acquisition_signal_to_noise": 2.349538547173608,
+  "reuse_signal_to_noise": 1.8796308377388866,
+  "minimum_probe_at_stored_noise_radians": 0.042561548998757914,
+  "verdict": "The acquisition profile passing does not guarantee the smaller fixed reuse probes pass. Retained reuse refusal is numerically expected.",
+  "action": "Keep original profiles, noise evidence and failed aggregate. Qualify any future readiness/procedure change separately before a release freeze; do not raise probe amplitude or lower thresholds just to obtain green.",
+  "not_claimed": [
+    "source of image noise",
+    "native reliability fix",
+    "hardware performance",
+    "language migration benefit"
+  ]
+}

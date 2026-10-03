@@ -574,3 +574,62 @@ fault and comparison prerequisites and runs no fixtures or holdouts. The latest
 five-lane smoke gate remains open because of the vision refusal. Remaining mixed
 faults, native resident missions, installed/exported tasks, strong comparisons,
 separate release freezes and external reproduction remain unfinished.
+
+## Clean CI repair and installed product qualification (3 October 2026)
+
+Commit `ec82266` fixes both failures from
+[Mission service run 37154848926](https://github.com/servoagents/entryplug/actions/runs/37154848926)
+at `864dffd`. Service failed during dependency installation because a single pip
+invocation mixed a hash-bearing runtime lock with unhashed test/build tools.
+Core had two subprocess test failures because pytest's source-path injection did
+not propagate to child interpreters. The previous container environment masked
+that omission. Both failures were reproduced before their fixes.
+
+Tooling now installs separately from the explicitly hash-verified runtime lock,
+followed by `pip check`. The resident-output tests give children the path of the
+actual package under test. Core, service and OpenEnv were each checked in a fresh
+Python 3.12 venv with system site packages disabled and inherited `PYTHONPATH`
+removed from Python test execution. No optional dependencies were added to core.
+
+The service workflow now installs its built wheel before browser tests. A small
+shared test-runtime configuration runs both server and CLI with Python `-I` from
+`/tmp`; source development remains available. This checks shipped console assets
+and the existing browser/CLI product journey outside the checkout. Actual imports
+came from the venv's `site-packages`, and no account/model call was required.
+
+| Local workflow check | Result |
+| --- | --- |
+| Core tests and CLI help | 440 passed; help passed |
+| Hash-verified service installation and dependency consistency | Passed |
+| Generated API/contracts and TypeScript declarations | Passed, no drift |
+| Frontend unit tests and production build | 3 passed; build passed |
+| Service Python suites, including MCP/A2A/HA | 479 passed; existing Authlib warning |
+| Wheel build and exact console asset check | Passed, 7 current files |
+| Installed wheel browser journeys | 7 passed in 38.3 seconds |
+| Separate OpenEnv environment | 3 passed; dependency consistency passed |
+| Changed Python lint, browser harness types and diff checks | Passed |
+
+Local Python was 3.12.3 versus the failed hosted runner's 3.12.14. Node 22.23.3 was
+checksum-verified from its official distribution; Playwright 1.63.0 used Chromium
+153.0.8010.12. Browser dependencies were installed only inside a disposable owned
+container, and tests ran as UID 1000. The container was removed. No runtime SDK
+pins or native acceptance thresholds changed. No push or remote rerun was made;
+these are passing local equivalents of every workflow step, not a claim about a
+new GitHub run. See [structured evidence](evidence/ci-repair.json) and
+[validation output](evidence/ci-repair-validation.txt).
+
+The vision investigation also narrowed the remaining native refusal. Acquisition
+includes a 0.05-radian validation probe; the fixed reuse profile uses ±0.04.
+At the retained gain of 89.907677 px/radian and noise range of 1.913305 px, the
+predicted ratios are 2.349539 and 1.879631 respectively. Thus acquisition passing
+does not establish that those smaller reuse probes meet the unchanged minimum 2.
+[Exact inputs and calculation](evidence/vision-profile-diagnostic.json) remain
+linked to the original failed evidence. This explains the refusal, not the
+underlying image noise. No probes were enlarged, thresholds lowered, holdouts
+used or native runs repeated to seek green.
+
+The installed simulation journey is now an automated CI gate. Native fixture
+bundles, Borrowed Light mission integration, remaining real protocol faults and
+both release qualifications are still open. No measured bottleneck justifies a
+Rust/Go migration at this point; the fixes preserve the current task authority
+and keep the test harness small.

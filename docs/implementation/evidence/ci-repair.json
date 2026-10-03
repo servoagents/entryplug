@@ -1,0 +1,100 @@
+{
+  "implementation_commit": "ec82266",
+  "failed_workflow": {
+    "url": "https://github.com/servoagents/entryplug/actions/runs/37154848926",
+    "head": "864dffd4d24feb201eab44c84b620c122efaee50",
+    "service": "failed during installation: runtime hash lock and unhashed tools shared one pip invocation",
+    "core": "2 failed, 438 passed; child interpreters lacked the checkout source path",
+    "openenv": "passed remotely"
+  },
+  "fixes": [
+    "Separate pinned tooling installation from explicit --require-hashes runtime installation; verify pip check",
+    "Pass the tested source package path explicitly to resident-output child interpreters",
+    "Install built wheel in service CI; use Python isolated mode and temporary cwd for browser server and CLI parity check"
+  ],
+  "environment": {
+    "local_python": "3.12.3",
+    "remote_failed_python": "3.12.14",
+    "system_site_packages": false,
+    "ambient_pythonpath_for_python_tests": "removed",
+    "node": {
+      "version": "v22.23.3",
+      "sha256": "df450af89261115ef9f9e3830c3eeb2cc9213b63c720b1af623cb5dcbe2e02de",
+      "source": "https://nodejs.org/dist/v22.23.3/node-v22.23.3-linux-x64.tar.xz"
+    },
+    "playwright": "1.63.0",
+    "chromium": "153.0.8010.12",
+    "pytest": "9.1.1",
+    "pytest_asyncio": "1.4.0",
+    "build": "1.6.1",
+    "setuptools": "84.0.0",
+    "wheel": "0.48.0",
+    "separate_venvs": [
+      "core",
+      "service",
+      "openenv"
+    ]
+  },
+  "results": {
+    "core": {
+      "passed": 440,
+      "command": "env -u PYTHONPATH /ci-env/core/bin/python -m pytest -q -p no:cacheprovider tests",
+      "help": "passed"
+    },
+    "service": {
+      "passed": 479,
+      "warnings": 1,
+      "command": "env -u PYTHONPATH python -m pytest -q -p no:cacheprovider tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant",
+      "runtime_hashes": "verified",
+      "pip_check": "passed",
+      "contracts": "regenerated with no diff",
+      "ui_unit_passed": 3,
+      "ui_build": "passed",
+      "wheel_assets": 7
+    },
+    "openenv": {
+      "passed": 3,
+      "command": "env -u PYTHONPATH /ci-env/openenv/bin/python -m pytest -q -p no:cacheprovider optional_tests/openenv",
+      "pip_check": "passed"
+    },
+    "installed_browser": {
+      "passed": 7,
+      "elapsed_s": 38.3,
+      "command": "ENTRYPLUG_TEST_BROWSER='' ENTRYPLUG_TEST_INSTALLED=1 ENTRYPLUG_TEST_PYTHON=/ci-env/service/bin/python npm run test:browser",
+      "working_directory": "ui",
+      "server_and_cli_cwd": "/tmp",
+      "python_isolated": true,
+      "test_user": "1000:1000",
+      "owner_container": "removed"
+    },
+    "ruff": "passed for changed Python test",
+    "browser_harness_types": "passed",
+    "git_diff_check": "passed"
+  },
+  "artifact": {
+    "path": "dist/entryplug-0.0.1-py3-none-any.whl",
+    "sha256": "10584f6758eaeec9d08238bd8903a4e8162dbb1203ecf724c1031b6736699b2d",
+    "source_imports": "/ci-env/service/lib/python3.12/site-packages",
+    "installed_cli": "passed from /tmp with python -I"
+  },
+  "logs": {
+    "github-failed.log": "runs/implementation-oct03-ci/github-failed.log",
+    "core-before.log": "runs/implementation-oct03-ci/core-before.log",
+    "core-child-import-before.log": "runs/implementation-oct03-ci/core-child-import-before.log",
+    "service-install-before.log": "runs/implementation-oct03-ci/service-install-before.log",
+    "service-install-after.log": "runs/implementation-oct03-ci/service-install-after.log",
+    "core-after.log": "runs/implementation-oct03-ci/core-after.log",
+    "service-checks.log": "runs/implementation-oct03-ci/service-checks.log",
+    "openenv.log": "runs/implementation-oct03-ci/openenv.log",
+    "installed-wheel.log": "runs/implementation-oct03-ci/installed-wheel.log",
+    "browser-installed.log": "runs/implementation-oct03-ci/browser-installed.log",
+    "browser-types.log": "runs/implementation-oct03-ci/browser-types.log"
+  },
+  "limits": [
+    "Local CI-equivalent execution; no push or remote rerun requested. A future GitHub result is not yet available.",
+    "Local Python patch version differs from the failed hosted runner; dependency pins and all workflow steps were exercised.",
+    "Installed-wheel journey uses the product\u2019s labelled simulations; it is not native Borrowed Light or installed scenario-bundle qualification.",
+    "No language migration or performance advantage claimed; no new bottleneck measurement justifies a rewrite.",
+    "Existing Authlib/setuptools warnings remain warnings. Browser OS dependencies were installed only inside a disposable owned container."
+  ]
+}
