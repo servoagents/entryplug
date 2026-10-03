@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
@@ -34,12 +32,12 @@ def test_hybrid_dispatch_preserves_exit_status(monkeypatch: pytest.MonkeyPatch) 
     calls: list[list[str]] = []
     monkeypatch.setattr(cli, "source_root", lambda: root)
 
-    def run(command: list[str], **kwargs: object) -> SimpleNamespace:
+    def run(command: list[str], **kwargs: object) -> int:
         calls.append(command)
         assert kwargs["cwd"] == root
-        return SimpleNamespace(returncode=1)
+        return 1
 
-    monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(cli, "_run_scenario_command", run)
     selected = cli._parse_args(["test", "--suite", "scenarios", "--scenario", "hybrid", "--build"])
     assert cli._test(selected) == 1
     assert calls == [
@@ -56,11 +54,11 @@ def test_hybrid_fault_is_forwarded(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[list[str]] = []
     monkeypatch.setattr(cli, "source_root", lambda: root)
 
-    def run(command: list[str], **kwargs: object) -> SimpleNamespace:
+    def run(command: list[str], **kwargs: object) -> int:
         calls.append(command)
-        return SimpleNamespace(returncode=0)
+        return 0
 
-    monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(cli, "_run_scenario_command", run)
     selected = cli._parse_args(
         ["test", "--suite", "scenarios", "--scenario", "hybrid", "--fault", "no-native-worker"]
     )
@@ -73,11 +71,11 @@ def test_hybrid_session_client_is_explicit(monkeypatch: pytest.MonkeyPatch) -> N
     calls: list[list[str]] = []
     monkeypatch.setattr(cli, "source_root", lambda: root)
 
-    def run(command: list[str], **kwargs: object) -> SimpleNamespace:
+    def run(command: list[str], **kwargs: object) -> int:
         calls.append(command)
-        return SimpleNamespace(returncode=0)
+        return 0
 
-    monkeypatch.setattr(subprocess, "run", run)
+    monkeypatch.setattr(cli, "_run_scenario_command", run)
     selected = cli._parse_args(
         ["test", "--suite", "scenarios", "--scenario", "hybrid", "--client", "session"]
     )
@@ -89,9 +87,9 @@ def test_zenoh_lane_launches_its_own_native_join_runner(monkeypatch: pytest.Monk
     monkeypatch.setattr(cli, "source_root", lambda: Path("/checkout"))
     commands = []
     monkeypatch.setattr(
-        cli.subprocess,
-        "run",
-        lambda cmd, **kwargs: (commands.append(cmd) or SimpleNamespace(returncode=0)),
+        cli,
+        "_run_scenario_command",
+        lambda cmd, **kwargs: (commands.append(cmd) or 0),
     )
     args = cli._parse_args(["test", "--suite", "scenarios", "--scenario", "zenoh", "--build"])
     assert cli._test(args) == 0
@@ -106,9 +104,9 @@ def test_join_lane_rejects_unimplemented_faults(monkeypatch: pytest.MonkeyPatch,
     monkeypatch.setattr(cli, "source_root", lambda: Path("/checkout"))
     commands = []
     monkeypatch.setattr(
-        cli.subprocess,
-        "run",
-        lambda cmd, **kw: (commands.append(cmd) or SimpleNamespace(returncode=0)),
+        cli,
+        "_run_scenario_command",
+        lambda cmd, **kw: (commands.append(cmd) or 0),
     )
     args = cli._parse_args(["test", "--suite", "scenarios", "--scenario", lane])
     assert cli._test(args) == 0
@@ -122,9 +120,9 @@ def test_ros_recovery_dispatch_and_option_refusal(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(cli, "source_root", lambda: Path("/checkout"))
     commands = []
     monkeypatch.setattr(
-        cli.subprocess,
-        "run",
-        lambda cmd, **kw: (commands.append(cmd) or SimpleNamespace(returncode=1)),
+        cli,
+        "_run_scenario_command",
+        lambda cmd, **kw: (commands.append(cmd) or 1),
     )
     args = cli._parse_args(
         ["test", "--suite", "scenarios", "--scenario", "ros2-recovery", "--build"]
@@ -143,9 +141,9 @@ def test_suite_dispatch_preserves_options(monkeypatch, options):
     monkeypatch.setattr(cli, "source_root", lambda: Path("/checkout"))
     commands = []
     monkeypatch.setattr(
-        cli.subprocess,
-        "run",
-        lambda cmd, **kw: commands.append(cmd) or SimpleNamespace(returncode=2),
+        cli,
+        "_run_scenario_command",
+        lambda cmd, **kw: commands.append(cmd) or 2,
     )
     args = cli._parse_args(["test", "--suite", "scenarios", *options])
     assert cli._test(args) == 2
@@ -158,5 +156,5 @@ def test_suite_dispatch_preserves_options(monkeypatch, options):
 )
 def test_invalid_suite_options_do_not_launch(monkeypatch, options):
     monkeypatch.setattr(cli, "source_root", lambda: Path("/checkout"))
-    monkeypatch.setattr(cli.subprocess, "run", lambda *a, **kw: pytest.fail("launched"))
+    monkeypatch.setattr(cli, "_run_scenario_command", lambda *a, **kw: pytest.fail("launched"))
     assert cli._test(cli._parse_args(["test", "--suite", "scenarios", *options])) == 2

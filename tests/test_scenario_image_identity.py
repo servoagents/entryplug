@@ -123,3 +123,29 @@ def test_ros_scenario_prepares_only_harbor(monkeypatch: pytest.MonkeyPatch) -> N
         runner._prepare_images(build=False, mixed=False, native_worker=False)["image_ids"]
     ) == {"entryplug-harbor:jazzy"}
     assert len(calls) == 2
+
+
+def test_failed_build_retains_private_diagnostics(monkeypatch, tmp_path, capsys):
+    runner = _runner()
+    monkeypatch.setattr(runner, "RUNS", tmp_path)
+    monkeypatch.setattr(
+        runner.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(
+            returncode=1, stdout="private-out", stderr="compiler failed"
+        ),
+    )
+    with pytest.raises(runner.ScenarioFailure, match="private diagnostic"):
+        runner._command(["docker", "build", "."], "building source-current fixture")
+    path = next(tmp_path.glob("build-failure-*/diagnostic.private.json"))
+    assert path.stat().st_mode & 0o777 == 0o600
+    assert path.parent.stat().st_mode & 0o777 == 0o700
+    assert json.loads(path.read_text()) == {
+        "command": ["docker", "build", "."],
+        "returncode": 1,
+        "stdout": "private-out",
+        "stderr": "compiler failed",
+    }
+    captured = capsys.readouterr()
+    assert "private-out" not in captured.out + captured.err
+    assert "compiler failed" not in captured.out + captured.err

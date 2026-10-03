@@ -158,3 +158,67 @@ def test_visual_evaluator_rejects_incomplete_or_contradictory_evidence(
     module = runner(monkeypatch)
     with pytest.raises(sys.modules["run_hybrid"].ScenarioFailure):
         module.check_session(report, tmp_path)
+
+
+@pytest.mark.asyncio
+async def test_connection_preserves_task_failure_before_secondary_validation(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    module = runner(monkeypatch)
+    joined = False
+    closed = False
+    native = tmp_path / "native"
+    native.mkdir()
+
+    class Client:
+        async def inspect(self, item, *args):
+            if item == "world":
+                return {"runtime_id": "same", "available": joined}
+            return {
+                "operation_id": "1" * 32,
+                "lifecycle": "failed",
+                "reason_code": "TARGET_REFUSED",
+            }
+
+        async def observe(self):
+            return SimpleNamespace(runtime_id="same", operations=[])
+
+        async def act(self, capability, arguments, *, request_id):
+            if request_id == "missing-world":
+                raise module.AdmissionError("WORLD_UNAVAILABLE", "absent")
+            return "operation"
+
+        async def wait(self, *args):
+            return SimpleNamespace(lifecycle=module.Lifecycle.FAILED)
+
+        async def close(self):
+            nonlocal closed
+            closed = True
+
+    client = Client()
+
+    async def start(*args):
+        return SimpleNamespace(evidence_path=native)
+
+    def factory(root, *, before_connect, start_resident):
+        async def episode(seed):
+            nonlocal joined
+            await before_connect(client)
+            await start_resident()
+            joined = True
+            return SimpleNamespace(session=client, public_metadata={"initial_y_px": 240})
+
+        return episode
+
+    monkeypatch.setattr(module, "harbor_resident_episode_factory", factory)
+    monkeypatch.setattr(module, "start_owned_resident", start)
+    monkeypatch.setattr(module, "check_world_removed", lambda path: None)
+    report = await module.run_connection(tmp_path)
+    assert report["status"] == "failed"
+    assert report["detail"] == "joined ROS visual goal did not succeed"
+    assert (
+        report["validation_failure"]["detail"]
+        == "ROS runtime identity evidence is missing or changed"
+    )
+    assert report["world_removed"] is True
+    assert closed

@@ -7,6 +7,7 @@ import asyncio
 import importlib.metadata
 import json
 import os
+import signal
 import subprocess
 import sys
 from collections.abc import Sequence
@@ -314,6 +315,18 @@ def _doctor(args: argparse.Namespace) -> int:
     return 0 if report.overall == "green" else 1
 
 
+def _run_scenario_command(command: list[str], *, cwd: Path) -> int:
+    """Let the owned scenario finish cleanup after a terminal interrupt."""
+    with subprocess.Popen(command, cwd=cwd, start_new_session=True) as runner:
+        try:
+            return runner.wait()
+        except KeyboardInterrupt:
+            runner.send_signal(signal.SIGINT)
+            print("entryplug test: waiting for owned scenario cleanup", file=sys.stderr)
+            runner.wait()
+            return 130
+
+
 def _test(args: argparse.Namespace) -> int:
     root = source_root()
     if root is None:
@@ -340,7 +353,7 @@ def _test(args: argparse.Namespace) -> int:
                 command.extend(("--client", args.client))
             if args.fault != "none":
                 command.extend(("--fault", args.fault))
-            return subprocess.run(command, cwd=root, check=False).returncode
+            return _run_scenario_command(command, cwd=root)
         if args.scenario not in {"hybrid", "zenoh", "mqtt", "ros2-recovery", "ros2-vision"}:
             print(
                 f"entryplug test: {args.scenario} live scenario is not packaged yet",
@@ -363,7 +376,7 @@ def _test(args: argparse.Namespace) -> int:
             command.extend(("--client", args.client))
         if args.fault != "none":
             command.extend(("--fault", args.fault))
-        return subprocess.run(command, cwd=root, check=False).returncode
+        return _run_scenario_command(command, cwd=root)
     targets: list[str] = []
     if suite in {"a2a", "mcp", "openenv", "homeassistant", "zenoh", "mqtt"}:
         targets.append(str(root / "optional_tests" / suite))

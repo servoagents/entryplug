@@ -39,7 +39,7 @@ def check_session(report: dict, evidence: Path) -> None:
         isinstance(runtime, str)
         and bool(runtime)
         and all(v.get("runtime_id") == runtime for v in (before, joined, lost)),
-        "ROS connection restarted the runtime",
+        "ROS runtime identity evidence is missing or changed",
     )
     _require(
         before.get("available") is False
@@ -277,7 +277,9 @@ async def run_connection(run_dir: Path) -> dict:
             ]
             report["status"] = "passed"
         except Exception as error:
-            report.update(reason=type(error).__name__, detail=str(error))
+            report["validation_failure"] = {"reason": type(error).__name__, "detail": str(error)}
+            report.setdefault("reason", type(error).__name__)
+            report.setdefault("detail", str(error))
     return report
 
 

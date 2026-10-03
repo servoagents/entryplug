@@ -39,6 +39,28 @@ def _command(args: list[str], label: str, *, environment: dict[str, str] | None 
         timeout=600,
     )
     if result.returncode != 0:
+        if label.startswith("building source-current "):
+            # Build output can contain dependency configuration. Retain it only
+            # in a private local directory; never print it or publish it as evidence.
+            directory = RUNS / ("build-failure-" + uuid.uuid4().hex[:12])
+            directory.mkdir(parents=True, mode=0o700)
+            path = directory / "diagnostic.private.json"
+            with path.open("x", encoding="utf-8") as stream:
+                json.dump(
+                    {
+                        "command": args,
+                        "returncode": result.returncode,
+                        "stdout": result.stdout,
+                        "stderr": result.stderr,
+                    },
+                    stream,
+                    indent=2,
+                )
+                stream.write("\n")
+            path.chmod(0o600)
+            raise ScenarioFailure(
+                f"{label} returned status {result.returncode}; private diagnostic: {path}"
+            )
         if label == "enrolling fresh HA fixture":
             try:
                 failure = json.loads(result.stdout.strip())

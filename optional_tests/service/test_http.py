@@ -43,11 +43,14 @@ async def test_client_parity_idempotency_security_and_bootstrap(tmp_path):
             await client.request("POST", "demo/step", {"action": "enter_a"})
             for _ in range(100):
                 state = await client.snapshot()
-                if state["alerts"]:
+                if state["alerts"] and state["runs"][0]["active_turn_id"] is None:
                     break
                 await asyncio.sleep(0.01)
             assert state["runs"][0]["id"] == run["id"]
             assert state["alerts"][0]["run_id"] == run["id"]
+            # Alert delivery precedes turn.finished; wait for that commit before
+            # asserting which event follows the snapshot cursor.
+            assert state["runs"][0]["active_turn_id"] is None
             cursor = state["cursor"]
             await client.request("POST", f"runs/{run['id']}/stop", {})
             events = await service.store.events(cursor)
