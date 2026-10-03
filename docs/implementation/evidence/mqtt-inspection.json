@@ -1,0 +1,1430 @@
+{
+  "implementation_commit": "447d290",
+  "scope": "Development simulation, single writer; not release holdout or installed fixture bundle",
+  "tests": {
+    "python": "3.12.3",
+    "pytest": "9.1.1",
+    "pytest_asyncio": "1.4.0",
+    "passed": 432,
+    "skipped": 1,
+    "warnings": 1,
+    "test_command": "/dev-env/venv/bin/python -m pytest -q -p no:cacheprovider tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant optional_tests/zenoh optional_tests/mqtt",
+    "ruff": "0.13.3",
+    "mypy": "1.18.2",
+    "strict_type_targets": [
+      "src/entryplug_harbor/mqtt_control.py",
+      "src/entryplug_harbor/mqtt_light.py"
+    ]
+  },
+  "limitations": [
+    "MQTT detector is in-process; no native worker reuse claim",
+    "Graceful bridge stop is not a kill during a write",
+    "Nonce readback is device report, not independent proof of illumination",
+    "Normal command path is single writer; no exactly-once or atomic exclusion guarantee",
+    "ROS scenario wrappers, aggregate/acceptance/offline, remaining mixed faults, native resident mission, installed/exported task, frozen comparisons and external reproduction remain open"
+  ],
+  "runs": [
+    {
+      "command": "PYTHONPATH=src python3 -m entryplug test --suite scenarios --scenario mqtt --build",
+      "local_raw_evidence": "runs/mqtt-5243f852d871",
+      "manifest": {
+        "status": "passed",
+        "run_id": "mqtt-5243f852d871",
+        "source_sha256": "921d656bc3bc8d5a89339f73ba998dbf5f4130c49b720bcc7392b6a5b7728146",
+        "image_ids": {
+          "entryplug-harbor:jazzy": "sha256:726746dde9393f80883b415c934eba6103c3f8d187afad42adbbec931084a31d",
+          "entryplug-harbor-mixed:jazzy": "sha256:f48a5dcad43f6711a725e09a73fe612b19ba3d01b4678671cd8b990bf4cd7339"
+        },
+        "runtime_id": "mqtt-5243f852d871",
+        "operation_ids": [
+          "bc9f2f4d8042491787d420c80d8de825",
+          "18c990efd8a8419db9ed5a2b21983fe3",
+          "9042b11934aa48a0979c247e2dbf8b8b",
+          "291a2e096a524be98a890099dd138560"
+        ],
+        "task_outcomes": [
+          "failed",
+          "succeeded",
+          "succeeded",
+          "failed"
+        ],
+        "task_lighting_writes": [
+          0,
+          3,
+          0,
+          0
+        ],
+        "dependencies": [
+          "MQTT broker",
+          "MQTT/ROS applied-state bridge",
+          "ROS 2 camera",
+          "MuJoCo panel",
+          "local detector"
+        ]
+      },
+      "operations": [
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "failed",
+          "motion_state": "idle",
+          "operation_id": "bc9f2f4d8042491787d420c80d8de825",
+          "phase": "terminal",
+          "reason_code": "OBSERVATION_PROVIDER_FAILED",
+          "result": {
+            "error_type": "TimeoutError",
+            "lighting_writes": 0
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "reported",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "18c990efd8a8419db9ed5a2b21983fe3",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 1,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": 0.7490196228027344,
+            "last_sequence": 12,
+            "lighting_writes": 3,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-3-53999999",
+              "panel-3-223999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 10347.202634059,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.12155966300088039,
+                  "input_sha256": null,
+                  "job_id": null,
+                  "quality": 0.72,
+                  "received_monotonic": 10347.081074396,
+                  "sample_id": "panel-3-53999999",
+                  "sequence": 11,
+                  "worker_generation": null
+                },
+                {
+                  "age_at_acceptance_s": 0.004143141999520594,
+                  "input_sha256": null,
+                  "job_id": null,
+                  "quality": 0.72,
+                  "received_monotonic": 10347.198490917,
+                  "sample_id": "panel-3-223999999",
+                  "sequence": 12,
+                  "worker_generation": null
+                }
+              ]
+            },
+            "worker_id": "local-panel-worker-v1",
+            "worker_replacements": 0
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "9042b11934aa48a0979c247e2dbf8b8b",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 1,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": null,
+            "last_sequence": 14,
+            "lighting_writes": 0,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-3-393999999",
+              "panel-3-563999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 10347.540856935,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.17269764199954807,
+                  "input_sha256": null,
+                  "job_id": null,
+                  "quality": 0.72,
+                  "received_monotonic": 10347.368159293,
+                  "sample_id": "panel-3-393999999",
+                  "sequence": 13,
+                  "worker_generation": null
+                },
+                {
+                  "age_at_acceptance_s": 0.005651014000250143,
+                  "input_sha256": null,
+                  "job_id": null,
+                  "quality": 0.72,
+                  "received_monotonic": 10347.535205921,
+                  "sample_id": "panel-3-563999999",
+                  "sequence": 14,
+                  "worker_generation": null
+                }
+              ]
+            },
+            "worker_id": "local-panel-worker-v1",
+            "worker_replacements": 0
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "failed",
+          "motion_state": "idle",
+          "operation_id": "291a2e096a524be98a890099dd138560",
+          "phase": "terminal",
+          "reason_code": "OBSERVATION_PROVIDER_FAILED",
+          "result": {
+            "error_type": "TimeoutError",
+            "lighting_writes": 0
+          }
+        }
+      ],
+      "applied_states": [
+        {
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.3699999999999606
+        },
+        {
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278
+        },
+        {
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947
+        }
+      ],
+      "frames": [
+        {
+          "sample_id": "panel-1-352000000",
+          "sequence": 1,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 1.3519999999999999,
+          "received_monotonic": 10346.132493957,
+          "artifact": "panel-frame-0001.png",
+          "artifact_sha256": "d44dd83c8984e71ccfa151664dd9bf76dddb1e05bd2a4696d67709b5eeccb3b5",
+          "input_sha256": "ae00080388bf1abe2221710b580b54704f2cc6505724e91a147380b601d60a2b"
+        },
+        {
+          "sample_id": "panel-1-522000000",
+          "sequence": 2,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 1.522,
+          "received_monotonic": 10346.225808404,
+          "artifact": "panel-frame-0002.png",
+          "artifact_sha256": "d44dd83c8984e71ccfa151664dd9bf76dddb1e05bd2a4696d67709b5eeccb3b5",
+          "input_sha256": "ae00080388bf1abe2221710b580b54704f2cc6505724e91a147380b601d60a2b"
+        },
+        {
+          "sample_id": "panel-2-373999999",
+          "sequence": 7,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 2.373999999,
+          "received_monotonic": 10346.487446442,
+          "artifact": "panel-frame-0007.png",
+          "artifact_sha256": "033410684bc31b94e8b212d095d3a4473f738a092815065e311f9dbf4207ba2b",
+          "input_sha256": "8ac5d0b93be253dac9b191daead01a00eb4496cc38f8b27fe8514bb6dd4d1cb4"
+        },
+        {
+          "sample_id": "panel-2-543999999",
+          "sequence": 8,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 2.543999999,
+          "received_monotonic": 10346.528501142,
+          "artifact": "panel-frame-0008.png",
+          "artifact_sha256": "033410684bc31b94e8b212d095d3a4473f738a092815065e311f9dbf4207ba2b",
+          "input_sha256": "8ac5d0b93be253dac9b191daead01a00eb4496cc38f8b27fe8514bb6dd4d1cb4"
+        },
+        {
+          "sample_id": "panel-2-713999999",
+          "sequence": 9,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 2.713999999,
+          "received_monotonic": 10346.776588166,
+          "artifact": "panel-frame-0009.png",
+          "artifact_sha256": "be9f8a870f9c2ea0f23fd681488025b93af711f7ce599dc6a89668b9d7c78f66",
+          "input_sha256": "6630fa733e6f83a5906c2947ec8578262208a8e1f95489351180b97405a396f7"
+        },
+        {
+          "sample_id": "panel-2-883999999",
+          "sequence": 10,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 2.8839999990000003,
+          "received_monotonic": 10346.855656795,
+          "artifact": "panel-frame-0010.png",
+          "artifact_sha256": "be9f8a870f9c2ea0f23fd681488025b93af711f7ce599dc6a89668b9d7c78f66",
+          "input_sha256": "6630fa733e6f83a5906c2947ec8578262208a8e1f95489351180b97405a396f7"
+        },
+        {
+          "sample_id": "panel-3-53999999",
+          "sequence": 11,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 3.053999999,
+          "received_monotonic": 10347.081074396,
+          "artifact": "panel-frame-0011.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5"
+        },
+        {
+          "sample_id": "panel-3-223999999",
+          "sequence": 12,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 3.223999999,
+          "received_monotonic": 10347.198490917,
+          "artifact": "panel-frame-0012.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5"
+        },
+        {
+          "sample_id": "panel-3-393999999",
+          "sequence": 13,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 3.393999999,
+          "received_monotonic": 10347.368159293,
+          "artifact": "panel-frame-0013.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5"
+        },
+        {
+          "sample_id": "panel-3-563999999",
+          "sequence": 14,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 3.563999999,
+          "received_monotonic": 10347.535205921,
+          "artifact": "panel-frame-0014.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5"
+        }
+      ],
+      "bridge": {
+        "applied_count": 3,
+        "rejected_commands": 0,
+        "status": "stopped"
+      },
+      "world_cleanup": {
+        "status": "stopped",
+        "forced_stops": 0
+      },
+      "bridge_join": {
+        "runtime_id": "mqtt-5243f852d871",
+        "operation": {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "failed",
+          "motion_state": "idle",
+          "operation_id": "bc9f2f4d8042491787d420c80d8de825",
+          "phase": "terminal",
+          "reason_code": "OBSERVATION_PROVIDER_FAILED",
+          "result": {
+            "error_type": "TimeoutError",
+            "lighting_writes": 0
+          }
+        },
+        "commands_sent": 0,
+        "read_replies": 0,
+        "retained_state": {
+          "state": "ON",
+          "brightness": 191
+        }
+      },
+      "mqtt_reads": [
+        {
+          "nonce": "ec1f4aa83fc94c6e866bb1f18f1d6a77",
+          "level": 0.0,
+          "revision": 1,
+          "sim_time_s": 0.0,
+          "requested_monotonic": 10346.043068342,
+          "received_monotonic": 10346.074707549
+        },
+        {
+          "nonce": "5443e563863349848c3ab093790f1a43",
+          "level": 0.0,
+          "revision": 1,
+          "sim_time_s": 0.0,
+          "requested_monotonic": 10346.075211434,
+          "received_monotonic": 10346.12828914
+        },
+        {
+          "nonce": "8b11a10727a74acfbbc11fa7e442bd0f",
+          "level": 0.0,
+          "revision": 1,
+          "sim_time_s": 0.0,
+          "requested_monotonic": 10346.182600548,
+          "received_monotonic": 10346.22445912
+        },
+        {
+          "nonce": "9112462ebab64c9da62ce1fd6bb5736c",
+          "level": 0.0,
+          "revision": 1,
+          "sim_time_s": 0.0,
+          "requested_monotonic": 10346.230337868,
+          "received_monotonic": 10346.283629117
+        },
+        {
+          "nonce": "7f5bd8c7ac5d44eb963f66263522fbcf",
+          "level": 0.0,
+          "revision": 1,
+          "sim_time_s": 0.0,
+          "requested_monotonic": 10346.284145902,
+          "received_monotonic": 10346.325807992
+        },
+        {
+          "nonce": "e699a393a78946a49aa651c5f65a00b5",
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.3699999999999606,
+          "requested_monotonic": 10346.376182139,
+          "received_monotonic": 10346.428135256
+        },
+        {
+          "nonce": "a34be5a1b894439cb60322d603af4963",
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.3699999999999606,
+          "requested_monotonic": 10346.428367343,
+          "received_monotonic": 10346.480677394
+        },
+        {
+          "nonce": "b59348f6839f4d9588e130098e63a714",
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.3699999999999606,
+          "requested_monotonic": 10346.493998737,
+          "received_monotonic": 10346.525589511
+        },
+        {
+          "nonce": "480e30b34bd54473ac71c405dd8768be",
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.3699999999999606,
+          "requested_monotonic": 10346.535465239,
+          "received_monotonic": 10346.577374921
+        },
+        {
+          "nonce": "08dd35667d564d009a85672b9a643137",
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.3699999999999606,
+          "requested_monotonic": 10346.57783644,
+          "received_monotonic": 10346.629537884
+        },
+        {
+          "nonce": "4a31e6b197cc4df19371f85ac781c499",
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278,
+          "requested_monotonic": 10346.679903099,
+          "received_monotonic": 10346.732627332
+        },
+        {
+          "nonce": "b94a321cb0f442029df74625b62ba08a",
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278,
+          "requested_monotonic": 10346.732810042,
+          "received_monotonic": 10346.774703685
+        },
+        {
+          "nonce": "a55108d1faba4bc0861cf43d060022c8",
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278,
+          "requested_monotonic": 10346.783189464,
+          "received_monotonic": 10346.825186589
+        },
+        {
+          "nonce": "110bf4e731ab45c1bfe16136c7d0f4dc",
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278,
+          "requested_monotonic": 10346.861988527,
+          "received_monotonic": 10346.87249572
+        },
+        {
+          "nonce": "ee833f420b7f46ed98af6ee38912f052",
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278,
+          "requested_monotonic": 10346.87274178,
+          "received_monotonic": 10346.924298681
+        },
+        {
+          "nonce": "110307686cbf4984b38998522874a44d",
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947,
+          "requested_monotonic": 10346.974686477,
+          "received_monotonic": 10347.027358639
+        },
+        {
+          "nonce": "aa53527bb83348e598140144baa8ef9c",
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947,
+          "requested_monotonic": 10347.027520757,
+          "received_monotonic": 10347.079615993
+        },
+        {
+          "nonce": "443c5821caa44691b85ec0e48d6f0dae",
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947,
+          "requested_monotonic": 10347.087299025,
+          "received_monotonic": 10347.128858315
+        },
+        {
+          "nonce": "58f405e5a9bd43978f23adbaed4be371",
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947,
+          "requested_monotonic": 10347.20422617,
+          "received_monotonic": 10347.225079052
+        },
+        {
+          "nonce": "2172d6c7f5b4419c8541c93c7b1fccc3",
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947,
+          "requested_monotonic": 10347.372732417,
+          "received_monotonic": 10347.424505056
+        }
+      ],
+      "mqtt_commands": [
+        {
+          "payload": {
+            "state": "ON",
+            "brightness": 64
+          },
+          "prior_revision": 1,
+          "sent_monotonic": 10346.283703681,
+          "retain": false,
+          "qos": 0
+        },
+        {
+          "payload": {
+            "state": "ON",
+            "brightness": 128
+          },
+          "prior_revision": 2,
+          "sent_monotonic": 10346.577405185,
+          "retain": false,
+          "qos": 0
+        },
+        {
+          "payload": {
+            "state": "ON",
+            "brightness": 191
+          },
+          "prior_revision": 3,
+          "sent_monotonic": 10346.872519884,
+          "retain": false,
+          "qos": 0
+        }
+      ]
+    },
+    {
+      "command": "PYTHONPATH=src python3 -m entryplug test --suite scenarios --scenario mqtt",
+      "local_raw_evidence": "runs/mqtt-f83a5f46b976",
+      "manifest": {
+        "status": "passed",
+        "run_id": "mqtt-f83a5f46b976",
+        "source_sha256": "921d656bc3bc8d5a89339f73ba998dbf5f4130c49b720bcc7392b6a5b7728146",
+        "image_ids": {
+          "entryplug-harbor:jazzy": "sha256:726746dde9393f80883b415c934eba6103c3f8d187afad42adbbec931084a31d",
+          "entryplug-harbor-mixed:jazzy": "sha256:f48a5dcad43f6711a725e09a73fe612b19ba3d01b4678671cd8b990bf4cd7339"
+        },
+        "runtime_id": "mqtt-f83a5f46b976",
+        "operation_ids": [
+          "d4543aa9a51846888b93625721006879",
+          "2cc5553699194af9a846ad1e97fb1cd4",
+          "3fd5924396ca401586c41abb0011d5b1",
+          "5ae9f9554625420b89a87ea4af4e7356"
+        ],
+        "task_outcomes": [
+          "failed",
+          "succeeded",
+          "succeeded",
+          "failed"
+        ],
+        "task_lighting_writes": [
+          0,
+          3,
+          0,
+          0
+        ],
+        "dependencies": [
+          "MQTT broker",
+          "MQTT/ROS applied-state bridge",
+          "ROS 2 camera",
+          "MuJoCo panel",
+          "local detector"
+        ]
+      },
+      "operations": [
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "failed",
+          "motion_state": "idle",
+          "operation_id": "d4543aa9a51846888b93625721006879",
+          "phase": "terminal",
+          "reason_code": "OBSERVATION_PROVIDER_FAILED",
+          "result": {
+            "error_type": "TimeoutError",
+            "lighting_writes": 0
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "reported",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "2cc5553699194af9a846ad1e97fb1cd4",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 1,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": 0.7490196228027344,
+            "last_sequence": 12,
+            "lighting_writes": 3,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-3-53999999",
+              "panel-3-223999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 10386.605065382,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.12818873499963956,
+                  "input_sha256": null,
+                  "job_id": null,
+                  "quality": 0.72,
+                  "received_monotonic": 10386.476876647,
+                  "sample_id": "panel-3-53999999",
+                  "sequence": 11,
+                  "worker_generation": null
+                },
+                {
+                  "age_at_acceptance_s": 0.005033301000366919,
+                  "input_sha256": null,
+                  "job_id": null,
+                  "quality": 0.72,
+                  "received_monotonic": 10386.600032081,
+                  "sample_id": "panel-3-223999999",
+                  "sequence": 12,
+                  "worker_generation": null
+                }
+              ]
+            },
+            "worker_id": "local-panel-worker-v1",
+            "worker_replacements": 0
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "3fd5924396ca401586c41abb0011d5b1",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 1,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": null,
+            "last_sequence": 14,
+            "lighting_writes": 0,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-3-393999999",
+              "panel-3-563999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 10386.944465478,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.17475389600076596,
+                  "input_sha256": null,
+                  "job_id": null,
+                  "quality": 0.72,
+                  "received_monotonic": 10386.769711582,
+                  "sample_id": "panel-3-393999999",
+                  "sequence": 13,
+                  "worker_generation": null
+                },
+                {
+                  "age_at_acceptance_s": 0.006235467999431421,
+                  "input_sha256": null,
+                  "job_id": null,
+                  "quality": 0.72,
+                  "received_monotonic": 10386.93823001,
+                  "sample_id": "panel-3-563999999",
+                  "sequence": 14,
+                  "worker_generation": null
+                }
+              ]
+            },
+            "worker_id": "local-panel-worker-v1",
+            "worker_replacements": 0
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "failed",
+          "motion_state": "idle",
+          "operation_id": "5ae9f9554625420b89a87ea4af4e7356",
+          "phase": "terminal",
+          "reason_code": "OBSERVATION_PROVIDER_FAILED",
+          "result": {
+            "error_type": "TimeoutError",
+            "lighting_writes": 0
+          }
+        }
+      ],
+      "applied_states": [
+        {
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.2719999999999714
+        },
+        {
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278
+        },
+        {
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947
+        }
+      ],
+      "frames": [
+        {
+          "sample_id": "panel-1-352000000",
+          "sequence": 1,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 1.3519999999999999,
+          "received_monotonic": 10385.486340156,
+          "artifact": "panel-frame-0001.png",
+          "artifact_sha256": "d44dd83c8984e71ccfa151664dd9bf76dddb1e05bd2a4696d67709b5eeccb3b5",
+          "input_sha256": "ae00080388bf1abe2221710b580b54704f2cc6505724e91a147380b601d60a2b"
+        },
+        {
+          "sample_id": "panel-1-522000000",
+          "sequence": 2,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 1.522,
+          "received_monotonic": 10385.533843629,
+          "artifact": "panel-frame-0002.png",
+          "artifact_sha256": "d44dd83c8984e71ccfa151664dd9bf76dddb1e05bd2a4696d67709b5eeccb3b5",
+          "input_sha256": "ae00080388bf1abe2221710b580b54704f2cc6505724e91a147380b601d60a2b"
+        },
+        {
+          "sample_id": "panel-2-373999999",
+          "sequence": 7,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 2.373999999,
+          "received_monotonic": 10385.785784896,
+          "artifact": "panel-frame-0007.png",
+          "artifact_sha256": "033410684bc31b94e8b212d095d3a4473f738a092815065e311f9dbf4207ba2b",
+          "input_sha256": "8ac5d0b93be253dac9b191daead01a00eb4496cc38f8b27fe8514bb6dd4d1cb4"
+        },
+        {
+          "sample_id": "panel-2-543999999",
+          "sequence": 8,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 2.543999999,
+          "received_monotonic": 10385.92050028,
+          "artifact": "panel-frame-0008.png",
+          "artifact_sha256": "033410684bc31b94e8b212d095d3a4473f738a092815065e311f9dbf4207ba2b",
+          "input_sha256": "8ac5d0b93be253dac9b191daead01a00eb4496cc38f8b27fe8514bb6dd4d1cb4"
+        },
+        {
+          "sample_id": "panel-2-713999999",
+          "sequence": 9,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 2.713999999,
+          "received_monotonic": 10386.176314716,
+          "artifact": "panel-frame-0009.png",
+          "artifact_sha256": "be9f8a870f9c2ea0f23fd681488025b93af711f7ce599dc6a89668b9d7c78f66",
+          "input_sha256": "6630fa733e6f83a5906c2947ec8578262208a8e1f95489351180b97405a396f7"
+        },
+        {
+          "sample_id": "panel-2-883999999",
+          "sequence": 10,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 2.8839999990000003,
+          "received_monotonic": 10386.260707895,
+          "artifact": "panel-frame-0010.png",
+          "artifact_sha256": "be9f8a870f9c2ea0f23fd681488025b93af711f7ce599dc6a89668b9d7c78f66",
+          "input_sha256": "6630fa733e6f83a5906c2947ec8578262208a8e1f95489351180b97405a396f7"
+        },
+        {
+          "sample_id": "panel-3-53999999",
+          "sequence": 11,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 3.053999999,
+          "received_monotonic": 10386.476876647,
+          "artifact": "panel-frame-0011.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5"
+        },
+        {
+          "sample_id": "panel-3-223999999",
+          "sequence": 12,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 3.223999999,
+          "received_monotonic": 10386.600032081,
+          "artifact": "panel-frame-0012.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5"
+        },
+        {
+          "sample_id": "panel-3-393999999",
+          "sequence": 13,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 3.393999999,
+          "received_monotonic": 10386.769711582,
+          "artifact": "panel-frame-0013.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5"
+        },
+        {
+          "sample_id": "panel-3-563999999",
+          "sequence": 14,
+          "source_id": "panel-camera",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "captured_sim_time_s": 3.563999999,
+          "received_monotonic": 10386.93823001,
+          "artifact": "panel-frame-0014.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5"
+        }
+      ],
+      "bridge": {
+        "applied_count": 3,
+        "rejected_commands": 0,
+        "status": "stopped"
+      },
+      "world_cleanup": {
+        "status": "stopped",
+        "forced_stops": 0
+      },
+      "bridge_join": {
+        "runtime_id": "mqtt-f83a5f46b976",
+        "operation": {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "failed",
+          "motion_state": "idle",
+          "operation_id": "d4543aa9a51846888b93625721006879",
+          "phase": "terminal",
+          "reason_code": "OBSERVATION_PROVIDER_FAILED",
+          "result": {
+            "error_type": "TimeoutError",
+            "lighting_writes": 0
+          }
+        },
+        "commands_sent": 0,
+        "read_replies": 0,
+        "retained_state": {
+          "state": "ON",
+          "brightness": 191
+        }
+      },
+      "mqtt_reads": [
+        {
+          "nonce": "15dc5e9016e0450a9364f50f0defce78",
+          "level": 0.0,
+          "revision": 1,
+          "sim_time_s": 0.0,
+          "requested_monotonic": 10385.419626026,
+          "received_monotonic": 10385.430682427
+        },
+        {
+          "nonce": "b2eaa8d3fc8e4f68b349373f1320f484",
+          "level": 0.0,
+          "revision": 1,
+          "sim_time_s": 0.0,
+          "requested_monotonic": 10385.431262215,
+          "received_monotonic": 10385.483644768
+        },
+        {
+          "nonce": "4e45c838f07a43c7827e9b77073e4afa",
+          "level": 0.0,
+          "revision": 1,
+          "sim_time_s": 0.0,
+          "requested_monotonic": 10385.498831313,
+          "received_monotonic": 10385.531521694
+        },
+        {
+          "nonce": "8f887ebb4a27412d802f5ae830ee99a1",
+          "level": 0.0,
+          "revision": 1,
+          "sim_time_s": 0.0,
+          "requested_monotonic": 10385.540912612,
+          "received_monotonic": 10385.583512166
+        },
+        {
+          "nonce": "ecd42a201b994c5785b551d860833bd2",
+          "level": 0.0,
+          "revision": 1,
+          "sim_time_s": 0.0,
+          "requested_monotonic": 10385.583969891,
+          "received_monotonic": 10385.636718171
+        },
+        {
+          "nonce": "cc308c04b84c4ff7bef92c5cf0e06248",
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.2719999999999714,
+          "requested_monotonic": 10385.687384373,
+          "received_monotonic": 10385.739309101
+        },
+        {
+          "nonce": "8bd9f76508b845bcb4f6c4d757c92606",
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.2719999999999714,
+          "requested_monotonic": 10385.739441037,
+          "received_monotonic": 10385.780877691
+        },
+        {
+          "nonce": "41f1d55b2ab84462aa1d5e74049b413b",
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.2719999999999714,
+          "requested_monotonic": 10385.79069772,
+          "received_monotonic": 10385.833408083
+        },
+        {
+          "nonce": "c0d9ac203dfc4a58b76de6ff93e360ea",
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.2719999999999714,
+          "requested_monotonic": 10385.924349154,
+          "received_monotonic": 10385.977089708
+        },
+        {
+          "nonce": "8e215cc0681a4aacac97beb34e527f8d",
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 2.2719999999999714,
+          "requested_monotonic": 10385.977749596,
+          "received_monotonic": 10386.029839991
+        },
+        {
+          "nonce": "f02989d779344f7397ad99c021d26b08",
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278,
+          "requested_monotonic": 10386.080205671,
+          "received_monotonic": 10386.132699877
+        },
+        {
+          "nonce": "750f149e21b84f9897fa1e859d12373b",
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278,
+          "requested_monotonic": 10386.132866022,
+          "received_monotonic": 10386.174963697
+        },
+        {
+          "nonce": "b9601b7acec7427bb5405b0608b0ccb8",
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278,
+          "requested_monotonic": 10386.182764144,
+          "received_monotonic": 10386.234603078
+        },
+        {
+          "nonce": "08c47c8f93f04131b7c2d860d3dfbc8c",
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278,
+          "requested_monotonic": 10386.268491978,
+          "received_monotonic": 10386.27923134
+        },
+        {
+          "nonce": "9d52626fb9c7424e8c9bc3713925b20d",
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 2.6679999999999278,
+          "requested_monotonic": 10386.27968529,
+          "received_monotonic": 10386.331845925
+        },
+        {
+          "nonce": "7b03f6fd29d2429f92f571c57c28d134",
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947,
+          "requested_monotonic": 10386.382236003,
+          "received_monotonic": 10386.434336035
+        },
+        {
+          "nonce": "8940f85481e542bb9e096f8fdfcc86f7",
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947,
+          "requested_monotonic": 10386.434471845,
+          "received_monotonic": 10386.475951186
+        },
+        {
+          "nonce": "30050f1f5098470ebccc89207050978c",
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947,
+          "requested_monotonic": 10386.4818053,
+          "received_monotonic": 10386.533620088
+        },
+        {
+          "nonce": "343f2b85c9d14abcb7c1b584eb2aa424",
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947,
+          "requested_monotonic": 10386.607122421,
+          "received_monotonic": 10386.628064114
+        },
+        {
+          "nonce": "a71b663f6c9e47ad93d01cb78de287dd",
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 2.9679999999998947,
+          "requested_monotonic": 10386.775550026,
+          "received_monotonic": 10386.827940063
+        }
+      ],
+      "mqtt_commands": [
+        {
+          "payload": {
+            "state": "ON",
+            "brightness": 64
+          },
+          "prior_revision": 1,
+          "sent_monotonic": 10385.583564408,
+          "retain": false,
+          "qos": 0
+        },
+        {
+          "payload": {
+            "state": "ON",
+            "brightness": 128
+          },
+          "prior_revision": 2,
+          "sent_monotonic": 10385.977126197,
+          "retain": false,
+          "qos": 0
+        },
+        {
+          "payload": {
+            "state": "ON",
+            "brightness": 191
+          },
+          "prior_revision": 3,
+          "sent_monotonic": 10386.279271366,
+          "retain": false,
+          "qos": 0
+        }
+      ]
+    },
+    {
+      "command": "PYTHONPATH=src python3 -m entryplug test --suite scenarios --scenario hybrid --client session --build",
+      "local_raw_evidence": "runs/hybrid-578232e28991",
+      "manifest": {
+        "bridge_applied_count": 3,
+        "fault": "none",
+        "fresh_volume_bootstraps": [
+          {
+            "fixture": "proof",
+            "home_assistant_version": "2026.9.3",
+            "mqtt": "configured",
+            "status": "passed"
+          },
+          {
+            "fixture": "task",
+            "home_assistant_version": "2026.9.3",
+            "mqtt": "configured",
+            "status": "passed"
+          }
+        ],
+        "home_assistant_entity": "light.entryplug_hybrid_578232e28991",
+        "image_ids": {
+          "entryplug-harbor-mixed:jazzy": "sha256:30b9c6855f7310144f9e0c219cca27ee38113578e7af5661b982bd9002cf42b5",
+          "entryplug-harbor:jazzy": "sha256:f28dae49c9c516575bd45e1c64ba9a4043f3ee3fcaa4f04795cb730588e010fc",
+          "entryplug-scenario-worker:dev": "sha256:f138f187623547629953448648dcb73ff2f4dded8311c04b2777c84db63bc34e"
+        },
+        "lighting_writes": [
+          3,
+          0
+        ],
+        "operation_ids": [
+          "6e3037fa1c1042e5abab7ef1d63b6e8f",
+          "03820d20fe274f928aed80f1c9669733"
+        ],
+        "run_id": "hybrid-578232e28991",
+        "source_sha256": "921d656bc3bc8d5a89339f73ba998dbf5f4130c49b720bcc7392b6a5b7728146",
+        "status": "passed"
+      },
+      "operations": [
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "reported",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "6e3037fa1c1042e5abab7ef1d63b6e8f",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 1,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": 0.7490196078431373,
+            "last_sequence": 12,
+            "lighting_writes": 3,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-2-41999999",
+              "panel-2-211999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 10502.147616593,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.18282783999893581,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "80c0376544e546fdaeb2656eb544480f",
+                  "quality": 0.72,
+                  "received_monotonic": 10501.964788753,
+                  "sample_id": "panel-2-41999999",
+                  "sequence": 11,
+                  "worker_generation": 1
+                },
+                {
+                  "age_at_acceptance_s": 0.011632609999651322,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "6a52f8af4f014e9fbe3a1794875f234d",
+                  "quality": 0.72,
+                  "received_monotonic": 10502.135983983,
+                  "sample_id": "panel-2-211999999",
+                  "sequence": 12,
+                  "worker_generation": 1
+                }
+              ]
+            },
+            "worker_id": "worker-a",
+            "worker_replacements": 0
+          },
+          "timing": {
+            "accepted_deadline_monotonic": 10531.032620841,
+            "accepted_monotonic": 10501.032620841,
+            "completed_monotonic": 10502.147956006,
+            "final_deadline_monotonic": 10531.032620841
+          }
+        },
+        {
+          "cancel_requested": false,
+          "capability": "inspect_target",
+          "effect_state": "none",
+          "lifecycle": "succeeded",
+          "motion_state": "idle",
+          "operation_id": "03820d20fe274f928aed80f1c9669733",
+          "phase": "terminal",
+          "reason_code": null,
+          "result": {
+            "binding_revision": 1,
+            "centroid_px": [
+              159.504167,
+              118.108333
+            ],
+            "last_reported_level": null,
+            "last_sequence": 14,
+            "lighting_writes": 0,
+            "lineage_id": "panel-camera-rgb8-v1",
+            "program_id": "fixed-red-centroid-v1",
+            "quality": 0.72,
+            "sample_ids": [
+              "panel-2-381999999",
+              "panel-2-551999999"
+            ],
+            "source_id": "panel-camera",
+            "target_id": "bench-marker",
+            "verification": {
+              "accepted_monotonic": 10502.493206935,
+              "clock": "runtime_local_monotonic",
+              "maximum_frame_age_s": 0.5,
+              "minimum_quality": 0.5,
+              "samples": [
+                {
+                  "age_at_acceptance_s": 0.185541517999809,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "e31dfc294ea4443e9a30455039e07a6f",
+                  "quality": 0.72,
+                  "received_monotonic": 10502.307665417,
+                  "sample_id": "panel-2-381999999",
+                  "sequence": 13,
+                  "worker_generation": 1
+                },
+                {
+                  "age_at_acceptance_s": 0.010350419999667793,
+                  "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+                  "job_id": "288ccd0a34f14fb4a202e5f4c3167f0f",
+                  "quality": 0.72,
+                  "received_monotonic": 10502.482856515,
+                  "sample_id": "panel-2-551999999",
+                  "sequence": 14,
+                  "worker_generation": 1
+                }
+              ]
+            },
+            "worker_id": "worker-a",
+            "worker_replacements": 0
+          },
+          "timing": {
+            "accepted_deadline_monotonic": 10532.150468023,
+            "accepted_monotonic": 10502.150468023,
+            "completed_monotonic": 10502.493577141,
+            "final_deadline_monotonic": 10532.150468023
+          }
+        }
+      ],
+      "applied_states": [
+        {
+          "level": 0.250980406999588,
+          "revision": 2,
+          "sim_time_s": 1.1680000000000008
+        },
+        {
+          "level": 0.501960813999176,
+          "revision": 3,
+          "sim_time_s": 1.5720000000000012
+        },
+        {
+          "level": 0.7490196228027344,
+          "revision": 4,
+          "sim_time_s": 1.9200000000000015
+        }
+      ],
+      "frames": [
+        {
+          "artifact": "panel-frame-0001.png",
+          "artifact_sha256": "d44dd83c8984e71ccfa151664dd9bf76dddb1e05bd2a4696d67709b5eeccb3b5",
+          "captured_sim_time_s": 0.33,
+          "input_sha256": "ae00080388bf1abe2221710b580b54704f2cc6505724e91a147380b601d60a2b",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "received_monotonic": 10501.036138265,
+          "sample_id": "panel-0-330000000",
+          "sequence": 1,
+          "source_id": "panel-camera"
+        },
+        {
+          "artifact": "panel-frame-0002.png",
+          "artifact_sha256": "d44dd83c8984e71ccfa151664dd9bf76dddb1e05bd2a4696d67709b5eeccb3b5",
+          "captured_sim_time_s": 0.502,
+          "input_sha256": "ae00080388bf1abe2221710b580b54704f2cc6505724e91a147380b601d60a2b",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "received_monotonic": 10501.054152379,
+          "sample_id": "panel-0-502000000",
+          "sequence": 2,
+          "source_id": "panel-camera"
+        },
+        {
+          "artifact": "panel-frame-0007.png",
+          "artifact_sha256": "033410684bc31b94e8b212d095d3a4473f738a092815065e311f9dbf4207ba2b",
+          "captured_sim_time_s": 1.358,
+          "input_sha256": "8ac5d0b93be253dac9b191daead01a00eb4496cc38f8b27fe8514bb6dd4d1cb4",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "received_monotonic": 10501.280806895,
+          "sample_id": "panel-1-358000000",
+          "sequence": 7,
+          "source_id": "panel-camera"
+        },
+        {
+          "artifact": "panel-frame-0008.png",
+          "artifact_sha256": "033410684bc31b94e8b212d095d3a4473f738a092815065e311f9dbf4207ba2b",
+          "captured_sim_time_s": 1.53,
+          "input_sha256": "8ac5d0b93be253dac9b191daead01a00eb4496cc38f8b27fe8514bb6dd4d1cb4",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "received_monotonic": 10501.452387291,
+          "sample_id": "panel-1-530000000",
+          "sequence": 8,
+          "source_id": "panel-camera"
+        },
+        {
+          "artifact": "panel-frame-0009.png",
+          "artifact_sha256": "be9f8a870f9c2ea0f23fd681488025b93af711f7ce599dc6a89668b9d7c78f66",
+          "captured_sim_time_s": 1.7,
+          "input_sha256": "6630fa733e6f83a5906c2947ec8578262208a8e1f95489351180b97405a396f7",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "received_monotonic": 10501.622671098,
+          "sample_id": "panel-1-700000000",
+          "sequence": 9,
+          "source_id": "panel-camera"
+        },
+        {
+          "artifact": "panel-frame-0010.png",
+          "artifact_sha256": "be9f8a870f9c2ea0f23fd681488025b93af711f7ce599dc6a89668b9d7c78f66",
+          "captured_sim_time_s": 1.87,
+          "input_sha256": "6630fa733e6f83a5906c2947ec8578262208a8e1f95489351180b97405a396f7",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "received_monotonic": 10501.792096696,
+          "sample_id": "panel-1-870000000",
+          "sequence": 10,
+          "source_id": "panel-camera"
+        },
+        {
+          "artifact": "panel-frame-0011.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "captured_sim_time_s": 2.041999999,
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "received_monotonic": 10501.964788753,
+          "sample_id": "panel-2-41999999",
+          "sequence": 11,
+          "source_id": "panel-camera"
+        },
+        {
+          "artifact": "panel-frame-0012.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "captured_sim_time_s": 2.211999999,
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "received_monotonic": 10502.135983983,
+          "sample_id": "panel-2-211999999",
+          "sequence": 12,
+          "source_id": "panel-camera"
+        },
+        {
+          "artifact": "panel-frame-0013.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "captured_sim_time_s": 2.381999999,
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "received_monotonic": 10502.307665417,
+          "sample_id": "panel-2-381999999",
+          "sequence": 13,
+          "source_id": "panel-camera"
+        },
+        {
+          "artifact": "panel-frame-0014.png",
+          "artifact_sha256": "a3bc6ac1999d4c09480e5ae1bcda7d8c53cf5c68deefc88411feac43f04e66f5",
+          "captured_sim_time_s": 2.551999999,
+          "input_sha256": "63132a6a990840404eabdeaabcc16585ea670ee8caaee01d1af15b38e8a1d7c5",
+          "lineage_id": "panel-camera-rgb8-v1",
+          "received_monotonic": 10502.482856515,
+          "sample_id": "panel-2-551999999",
+          "sequence": 14,
+          "source_id": "panel-camera"
+        }
+      ],
+      "bridge": {
+        "applied_count": 3,
+        "rejected_commands": 0,
+        "status": "stopped"
+      },
+      "world_cleanup": {
+        "status": "stopped",
+        "forced_stops": 0
+      },
+      "worker_cleanup": {
+        "status": "stopped",
+        "workers": [
+          {
+            "worker_id": "worker-a",
+            "exit_code": 0
+          }
+        ]
+      }
+    }
+  ]
+}

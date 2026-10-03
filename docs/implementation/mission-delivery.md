@@ -382,3 +382,59 @@ to a resident inspection mission, the remaining scenario lanes and native faults
 installed fixture packaging, exported native-task qualification, strong comparisons
 and freeze/release gates remain open. No hardware, second-host, model-token or
 live account claim follows from these development runs.
+
+## MQTT inspection lifecycle — 3 October 2026
+
+Implementation commit: `447d290`. Three scenario selectors now have live
+qualification: `hybrid`, `zenoh`, and `mqtt`. The two ROS selectors remain
+explicitly unsupported; aggregate, acceptance and offline modes remain open.
+
+```bash
+./entryplug test --suite scenarios --scenario mqtt --build
+./entryplug test --suite scenarios --scenario mqtt
+```
+
+The MQTT lane uses the same `inspect_target`, OperationHost and Session. It starts
+with no bridge and a retained bright MQTT state: inspection refuses with zero
+writes. After the bridge joins, the same Session succeeds using three absolute
+light commands, MQTT readbacks of applied ROS revisions, and checked rendered
+frames. A warm request succeeds with fresh frames and zero writes. Following a
+graceful bridge stop, retained bright state cannot make another request succeed.
+The four outcomes are failed/succeeded/succeeded/failed; writes are `[0, 3, 0, 0]`.
+
+The fixture control port requires a new nonce-bound, non-retained response from
+the bridge. The world owner answers only with a recently received ROS state.
+This is a fixture protocol extension; standard HA JSON-light commands and states
+remain compatible. Physical commands are bounded absolute settings, sent once
+at QoS 0 without retention; read-only challenges may repeat. Unconfirmed writes
+remain uncertain under the existing task policy. This is a single-writer profile,
+not an exactly-once or atomic shared-control guarantee.
+
+Compute is explicitly the approved **local** detector. No HA or native detector
+process starts in this lane, and its selected image preparation excludes the
+native worker image. The camera has no bound direct ROS lamp publisher; task
+writes use MQTT. Readback remains device-reported evidence; the acceptance check
+separately requires fresh rendered frames after the application boundary.
+
+[Structured evidence](evidence/mqtt-inspection.json) includes both MQTT runs and
+a subsequent hybrid compatibility run, actual image/source identities, native
+MQTT readbacks and commands, operation results, camera hashes and cleanup. Raw
+PNGs/logs remain in `runs/mqtt-5243f852d871/`, `runs/mqtt-f83a5f46b976/`, and
+`runs/hybrid-578232e28991/`. The unchanged MQTT rerun performed no build or pull.
+The hybrid run retained two fresh HA enrollments, native worker exit 0 and writes
+`[3, 0]`. Every owned fixture was removed. These are development cases; bridge
+loss during a write and interrupted startup are still unqualified.
+
+Validation: **432 passed, 1 skipped**, with the existing Authlib warning, using
+CPython 3.12.3, pytest 9.1.1 and pytest-asyncio 1.4.0; [log](evidence/mqtt-python-tests.txt).
+The skip is the optional standalone broker test without an explicit port, not the
+live MQTT lane. Strict mypy 1.18.2 passed for both fixture MQTT modules; Ruff
+0.13.3, shell syntax, Compose configuration and diff whitespace passed. Mutation
+tests refuse missing raw frames/readbacks, reused nonces, retained/replayed
+commands, false readiness, fabricated native-worker identity and forced cleanup.
+No browser, wheel/bundle, OpenEnv, old arm-release or held-out suite was rerun.
+
+Remaining work is in the existing plan: ROS scenario wrappers and remaining
+faults, then the real Borrowed Light resident mission, installed/exported task
+qualification and separate freeze/comparison/release gates. This slice does not
+complete Slice B, Slice C or M3 and adds no physical-hardware or live-account claim.
