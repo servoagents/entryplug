@@ -107,3 +107,19 @@ def test_mqtt_does_not_prepare_native_worker_image(monkeypatch: pytest.MonkeyPat
     result = runner._prepare_images(build=False, native_worker=False)
     assert set(result["image_ids"]) == {"entryplug-harbor:jazzy", "entryplug-harbor-mixed:jazzy"}
     assert all("entryplug-scenario-worker:dev" not in args for args in calls)
+
+
+def test_ros_scenario_prepares_only_harbor(monkeypatch: pytest.MonkeyPatch) -> None:
+    runner = _runner()
+    calls = []
+    monkeypatch.setattr(runner, "_source_digest", lambda: "current")
+
+    def command(args, label):
+        calls.append(args)
+        return "sha256:image" if "{{.Id}}" in args else "current"
+
+    monkeypatch.setattr(runner, "_command", command)
+    assert set(
+        runner._prepare_images(build=False, mixed=False, native_worker=False)["image_ids"]
+    ) == {"entryplug-harbor:jazzy"}
+    assert len(calls) == 2

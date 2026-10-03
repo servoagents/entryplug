@@ -141,13 +141,18 @@ def _source_digest() -> str:
     return digest.hexdigest()
 
 
-def _prepare_images(*, build: bool, native_worker: bool = True) -> dict[str, object]:
+def _prepare_images(
+    *, build: bool, native_worker: bool = True, mixed: bool = True
+) -> dict[str, object]:
     source_sha256 = _source_digest()
     images: dict[str, str] = {}
     selected_images = [
         ("containers/harbor/Dockerfile", "entryplug-harbor:jazzy"),
-        ("containers/mixed/Dockerfile.harbor", "entryplug-harbor-mixed:jazzy"),
     ]
+    if mixed:
+        selected_images.append(
+            ("containers/mixed/Dockerfile.harbor", "entryplug-harbor-mixed:jazzy")
+        )
     if native_worker:
         selected_images.append(
             ("containers/scenarios/Dockerfile.worker", "entryplug-scenario-worker:dev")

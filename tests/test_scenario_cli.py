@@ -123,3 +123,21 @@ def test_join_lane_rejects_unimplemented_faults(monkeypatch: pytest.MonkeyPatch,
     args.fault = "no-native-worker"
     assert cli._test(args) == 2
     assert len(commands) == 1
+
+
+def test_ros_recovery_dispatch_and_option_refusal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "source_root", lambda: Path("/checkout"))
+    commands = []
+    monkeypatch.setattr(
+        cli.subprocess,
+        "run",
+        lambda cmd, **kw: (commands.append(cmd) or SimpleNamespace(returncode=1)),
+    )
+    args = cli._parse_args(
+        ["test", "--suite", "scenarios", "--scenario", "ros2-recovery", "--build"]
+    )
+    assert cli._test(args) == 1
+    assert commands[0][1:] == ["/checkout/containers/scenarios/run_ros2_recovery.py", "--build"]
+    args.fault = "no-native-worker"
+    assert cli._test(args) == 2
+    assert len(commands) == 1

@@ -605,6 +605,8 @@ def _task(
             "recovery": recovery,
             "fault_evaluator_only": fault_event,
             "evaluator_only": evaluator,
+            "accepted_deadline_monotonic": deadline_monotonic,
+            "completed_monotonic": time.monotonic(),
         },
     )
     return result, binding

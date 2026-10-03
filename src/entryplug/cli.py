@@ -316,19 +316,22 @@ def _test(args: argparse.Namespace) -> int:
         return 2
     suite = getattr(args, "test_suite", "core")
     if suite == "scenarios":
-        if args.scenario not in {"hybrid", "zenoh", "mqtt"}:
+        if args.scenario not in {"hybrid", "zenoh", "mqtt", "ros2-recovery"}:
             print(
                 f"entryplug test: {args.scenario} live scenario is not packaged yet",
                 file=sys.stderr,
             )
             return 2
-        if args.scenario in {"zenoh", "mqtt"} and (args.fault != "none" or args.client != "direct"):
+        if args.scenario in {"zenoh", "mqtt", "ros2-recovery"} and (
+            args.fault != "none" or args.client != "direct"
+        ):
             print(
-                f"entryplug test: {args.scenario} includes its own Session join/identity cases",
+                f"entryplug test: {args.scenario} includes its own Session lifecycle cases",
                 file=sys.stderr,
             )
             return 2
-        command = [sys.executable, str(root / f"containers/scenarios/run_{args.scenario}.py")]
+        runner = args.scenario.replace("-", "_")
+        command = [sys.executable, str(root / f"containers/scenarios/run_{runner}.py")]
         if args.build:
             command.append("--build")
         if args.client != "direct":
