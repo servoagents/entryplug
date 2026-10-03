@@ -509,3 +509,68 @@ admission acknowledgement, aggregate/offline modes, remaining mixed faults, nati
 Borrowed Light missions, installed/exported use and separate freeze/comparison
 work remain open. Current native-result loss proves client exit **after** native
 acceptance; it does not establish network packet loss or admission ambiguity.
+
+## Aggregate/offline scenarios and interruption fixes (3 October 2026)
+
+Commits `6f51210`, `fa8e3a2`, and `885c5d8` add the sequential five-lane
+source-checkout suite, offline preflight and retained per-lane results; preserve
+owned cleanup and primary failure diagnostics; and inhibit further HA writes
+when cancellation or deadline expiry interrupts an uncertain native command.
+See the [scenario operating guide](../scenarios.md).
+
+```sh
+./entryplug test --suite scenarios --build --json
+./entryplug test --suite scenarios --offline --json
+./entryplug test --suite scenarios --tier acceptance --offline --json
+```
+
+The first build command returned **blocked** before launching fixtures: the native
+worker image build failed. The old helper discarded its detailed output, so its
+cause remains unknown. A diagnostic rebuild of that image at the identical source
+succeeded. Failed future builds retain a private mode-0600 diagnostic in a
+mode-0700 local directory; dependency output is not printed or published.
+
+The subsequent offline aggregate, `runs/scenarios-32c03d061373/`, returned
+**failed, 4/5 lanes passed** at source commit `6f51210`. Zenoh, MQTT, hybrid and
+ROS recovery passed; recovery passed all eight cases. ROS vision passed actual
+startup interruption and Hall of Mirrors but refused its first connected visual
+goal: measured noise was 1.913305 px and reuse signal-to-noise was 1.879631,
+below the unchanged minimum 2. The existing safe refusal remains a failure.
+No threshold changes or retries seeking a pass were made. All normal-run owned
+containers, networks and volumes were removed. Sequential lane execution took
+981.45 seconds; this is elapsed development work, not a performance comparison.
+
+The original vision summary misleadingly overwrote this failure with “runtime
+restarted,” although the retained runtime IDs match. A regression now preserves
+the primary execution failure and records subsequent validation failure separately.
+A disposable-process regression also showed that the CLI's subprocess helper
+killed the runner before Ctrl-C cleanup finished. The CLI now forwards SIGINT to
+its owned runner and waits for cleanup. Whole native-suite interruption remains
+separate from this process-level regression and the already-qualified interrupted
+ROS startup case.
+
+Four HA protocol regressions reproduced a cancellation/deadline gap at service
+response and state-readback boundaries: another brightness write was allowed
+without explicit reconciliation. Cancellation now marks the native effect
+uncertain, drops the connection and propagates cancellation. Further writes are
+inhibited until explicit reconnect/reconciliation; nothing is replayed. A fifth
+control confirms cancellation before dispatch does not incorrectly inhibit an
+unsent effect. These tests use a local WebSocket server, not upstream HA fault
+qualification.
+
+Final validation: **509 passed, 1 skipped**, with the existing Authlib warning;
+[full test log](evidence/scenario-suite-python-tests.txt). Strict touched-file
+mypy and Ruff passed. The one skip remains the standalone MQTT test without an
+explicit broker port. An intermediate run exposed outdated CLI mocks and a
+pre-existing HTTP test race between alert creation and turn completion; the mocks
+and synchronization are corrected, preserving the event-order assertion.
+[Structured evidence](evidence/scenario-suite.json) retains every native attempt,
+versions, exact commands, pre-fix failures and the intermediate validation result.
+
+Native qualification predates the later cleanup/diagnostic/HA fixes; it is not a
+native pass at final HEAD. Conservative source labels correctly require a rebuild
+before another offline execution. Acceptance selection reports incomplete freeze,
+fault and comparison prerequisites and runs no fixtures or holdouts. The latest
+five-lane smoke gate remains open because of the vision refusal. Remaining mixed
+faults, native resident missions, installed/exported tasks, strong comparisons,
+separate release freezes and external reproduction remain unfinished.

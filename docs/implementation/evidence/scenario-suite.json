@@ -1,0 +1,860 @@
+{
+  "fixture_and_test_python": "3.12.3",
+  "host_orchestrator_python": "3.14.4",
+  "implementation_commits": [
+    "6f51210",
+    "fa8e3a2",
+    "885c5d8"
+  ],
+  "limitations": [
+    "Native suite ran before the later CLI/diagnostic/HA-cancellation fixes. Final source passes Python tests; full native suite was not rerun at the final code. Source identity checks require rebuilding images after these edits.",
+    "Vision first joined task refused BINDING_CHECK_FAILED: measured noise 1.913305 px; reuse signal-to-noise 1.879631 below unchanged minimum 2. Startup cancellation and Mirrors passed. No retries seeking green or numerical threshold edits.",
+    "Vision original summary incorrectly replaced the task refusal with runtime-restart wording; raw runtime IDs match. Later diagnostic fix preserves primary failure and separately records validation failure. Original native manifest is unmodified.",
+    "HA cancellation/deadline regressions use a local WebSocket protocol server and deterministic waits. They do not qualify these faults against upstream HA or physical devices.",
+    "CLI interruption test uses owned disposable processes; whole native suite interruption has not been requalified.",
+    "All normal-run owned containers, networks and volumes were removed; no external services were stopped.",
+    "Acceptance mode remains prerequisite-blocked. No release freeze, strong comparison, holdout, installed fixture bundle, native Borrowed Light mission, exported mixed-task or external reproduction claim.",
+    "No hardware, paid/model calls, live accounts or multi-host tests. CPU/PSS/energy and comparative performance were not measured."
+  ],
+  "native_elapsed_lane_seconds": 981.4456531589967,
+  "native_qualification_commit": "6f51210",
+  "native_source_sha256": "0681622f9cfdacd73286650c281c02ab4e488a44ade31dee60acb01b06b1c9f0",
+  "native_verdict": "failed: 4 of 5 lanes passed; ROS recovery 8/8 passed",
+  "retained_failures": {
+    "build_diagnostic": {
+      "failed": 1,
+      "log": "runs/implementation-oct03-suite/build-diagnostic-before.txt"
+    },
+    "cli_interrupt": {
+      "failed": 1,
+      "log": "runs/implementation-oct03-suite/cli-interrupt-before.txt"
+    },
+    "ha_cancel_deadline": {
+      "failed": 4,
+      "log": "runs/implementation-oct03-suite/ha-cancel-matrix-before.txt",
+      "passed": 1
+    },
+    "harbor_pull_policy": {
+      "failed": 3,
+      "log": "runs/implementation-oct03-suite/pull-policy-before.txt"
+    },
+    "intermediate_validation": {
+      "explanation": "12 CLI mocks returned the old subprocess namespace instead of the helper integer; the HTTP event test raced turn.finished. Mocks corrected and snapshot waits for committed turn completion; event-order assertion retained.",
+      "failed": 13,
+      "log": "runs/implementation-oct03-suite/final-python-tests.txt",
+      "passed": 496,
+      "skipped": 1
+    },
+    "isolated_test_setup": [
+      {
+        "log": "runs/implementation-oct03-suite/ha-cancel-before.txt",
+        "reason": "Base Harbor image lacked typing_extensions required by test plugin; qualified mixed image used instead"
+      },
+      {
+        "log": "runs/implementation-oct03-suite/vision-diagnostic-before.txt",
+        "reason": "Temporary copied test resolved source loader relative to /dev-env; corrected path before reproduction"
+      },
+      {
+        "log": "runs/implementation-oct03-suite/build-diagnostic-staged-fix.txt",
+        "reason": "Temporary staged module path was too shallow for parents[2]; actual-checkout regression passed in final suite"
+      }
+    ],
+    "vision_diagnostic": {
+      "failed": 1,
+      "log": "runs/implementation-oct03-suite/vision-diagnostic-before-qualified.txt"
+    }
+  },
+  "runs": [
+    {
+      "command": "./entryplug test --suite scenarios --offline --json",
+      "local_evidence": "runs/scenarios-8fbc316747b9/scenario.json",
+      "manifest": {
+        "claim_boundary": "Source-checkout development scenarios; no acceptance or holdout claim.",
+        "detail": "entryplug-harbor:jazzy is stale; rerun with --build",
+        "lanes": {
+          "hybrid": {
+            "reason": "preflight_failed",
+            "status": "not_run"
+          },
+          "mqtt": {
+            "reason": "preflight_failed",
+            "status": "not_run"
+          },
+          "ros2-recovery": {
+            "reason": "preflight_failed",
+            "status": "not_run"
+          },
+          "ros2-vision": {
+            "reason": "preflight_failed",
+            "status": "not_run"
+          },
+          "zenoh": {
+            "reason": "preflight_failed",
+            "status": "not_run"
+          }
+        },
+        "offline": true,
+        "phase": "development",
+        "reason": "ScenarioFailure",
+        "run_id": "scenarios-8fbc316747b9",
+        "selected": [
+          "zenoh",
+          "mqtt",
+          "ros2-vision",
+          "ros2-recovery",
+          "hybrid"
+        ],
+        "status": "blocked",
+        "tier": "smoke"
+      }
+    },
+    {
+      "command": "./entryplug test --suite scenarios --tier acceptance --offline --json",
+      "local_evidence": "runs/scenarios-41d5b79f8b8f/scenario.json",
+      "manifest": {
+        "claim_boundary": "Source-checkout development scenarios; no acceptance or holdout claim.",
+        "lanes": {
+          "hybrid": {
+            "reason": "acceptance_prerequisites_incomplete",
+            "status": "not_run"
+          },
+          "mqtt": {
+            "reason": "acceptance_prerequisites_incomplete",
+            "status": "not_run"
+          },
+          "ros2-recovery": {
+            "reason": "acceptance_prerequisites_incomplete",
+            "status": "not_run"
+          },
+          "ros2-vision": {
+            "reason": "acceptance_prerequisites_incomplete",
+            "status": "not_run"
+          },
+          "zenoh": {
+            "reason": "acceptance_prerequisites_incomplete",
+            "status": "not_run"
+          }
+        },
+        "offline": true,
+        "phase": "development",
+        "prerequisites": [
+          "ROS recovery authority matrix and release code/image/profile freeze are incomplete",
+          "mixed-resource required faults, development profiles and freeze are incomplete",
+          "strong direct/reuse comparisons and frozen paired evaluation are not implemented"
+        ],
+        "run_id": "scenarios-41d5b79f8b8f",
+        "selected": [
+          "zenoh",
+          "mqtt",
+          "ros2-vision",
+          "ros2-recovery",
+          "hybrid"
+        ],
+        "status": "blocked",
+        "tier": "acceptance"
+      }
+    },
+    {
+      "command": "./entryplug test --suite scenarios --build --json",
+      "local_evidence": "runs/scenarios-f6e190d56150/scenario.json",
+      "manifest": {
+        "claim_boundary": "Source-checkout development scenarios; no acceptance or holdout claim.",
+        "detail": "building source-current entryplug-scenario-worker:dev returned status 1",
+        "lanes": {
+          "hybrid": {
+            "reason": "preflight_failed",
+            "status": "not_run"
+          },
+          "mqtt": {
+            "reason": "preflight_failed",
+            "status": "not_run"
+          },
+          "ros2-recovery": {
+            "reason": "preflight_failed",
+            "status": "not_run"
+          },
+          "ros2-vision": {
+            "reason": "preflight_failed",
+            "status": "not_run"
+          },
+          "zenoh": {
+            "reason": "preflight_failed",
+            "status": "not_run"
+          }
+        },
+        "offline": false,
+        "phase": "development",
+        "reason": "ScenarioFailure",
+        "run_id": "scenarios-f6e190d56150",
+        "selected": [
+          "zenoh",
+          "mqtt",
+          "ros2-vision",
+          "ros2-recovery",
+          "hybrid"
+        ],
+        "status": "blocked",
+        "tier": "smoke"
+      }
+    },
+    {
+      "command": "./entryplug test --suite scenarios --offline --json",
+      "local_evidence": "runs/scenarios-32c03d061373/scenario.json",
+      "manifest": {
+        "architecture": "x86_64",
+        "claim_boundary": "Source-checkout development scenarios; no acceptance or holdout claim.",
+        "compose_version": "5.5.1",
+        "docker_version": "29.8.1",
+        "image_ids": {
+          "entryplug-harbor-mixed:jazzy": "sha256:a0cbb6c09d6aa5ac77930ce06b0c0e4382e55be2f6f9520b1032058c2a81ce23",
+          "entryplug-harbor:jazzy": "sha256:d46bae76cd717a9de0bfb2049bd168a792c9ae9c8918876c0c96a59e847f5975",
+          "entryplug-scenario-worker:dev": "sha256:99465bfe724014b0cd84108c896c7292325ebc2f7027d6b3ba4bf73c585f861b"
+        },
+        "lanes": {
+          "hybrid": {
+            "command": [
+              "/usr/bin/python3",
+              "/home/javi/Documents/projects/entryplug/containers/scenarios/run_hybrid.py",
+              "--client",
+              "session",
+              "--fault",
+              "none"
+            ],
+            "elapsed_s": 63.209056517000135,
+            "evidence": "runs/hybrid-97e963fe302e/scenario.json",
+            "result": {
+              "bridge_applied_count": 3,
+              "fault": "none",
+              "fresh_volume_bootstraps": [
+                {
+                  "fixture": "proof",
+                  "home_assistant_version": "2026.9.3",
+                  "mqtt": "configured",
+                  "status": "passed"
+                },
+                {
+                  "fixture": "task",
+                  "home_assistant_version": "2026.9.3",
+                  "mqtt": "configured",
+                  "status": "passed"
+                }
+              ],
+              "home_assistant_entity": "light.entryplug_hybrid_97e963fe302e",
+              "image_ids": {
+                "entryplug-harbor-mixed:jazzy": "sha256:a0cbb6c09d6aa5ac77930ce06b0c0e4382e55be2f6f9520b1032058c2a81ce23",
+                "entryplug-harbor:jazzy": "sha256:d46bae76cd717a9de0bfb2049bd168a792c9ae9c8918876c0c96a59e847f5975",
+                "entryplug-scenario-worker:dev": "sha256:99465bfe724014b0cd84108c896c7292325ebc2f7027d6b3ba4bf73c585f861b"
+              },
+              "lighting_writes": [
+                3,
+                0
+              ],
+              "operation_ids": [
+                "7d92fc759b654b2ba9bb2d6ace279d30",
+                "001e844890fc47c296118c296cbb5028"
+              ],
+              "run_id": "hybrid-97e963fe302e",
+              "source_sha256": "0681622f9cfdacd73286650c281c02ab4e488a44ade31dee60acb01b06b1c9f0",
+              "status": "passed"
+            },
+            "returncode": 0,
+            "status": "passed"
+          },
+          "mqtt": {
+            "command": [
+              "/usr/bin/python3",
+              "/home/javi/Documents/projects/entryplug/containers/scenarios/run_mqtt.py"
+            ],
+            "elapsed_s": 21.13798617499924,
+            "evidence": "runs/mqtt-0f93acb9b6da/scenario.json",
+            "result": {
+              "dependencies": [
+                "MQTT broker",
+                "MQTT/ROS applied-state bridge",
+                "ROS 2 camera",
+                "MuJoCo panel",
+                "local detector"
+              ],
+              "image_ids": {
+                "entryplug-harbor-mixed:jazzy": "sha256:a0cbb6c09d6aa5ac77930ce06b0c0e4382e55be2f6f9520b1032058c2a81ce23",
+                "entryplug-harbor:jazzy": "sha256:d46bae76cd717a9de0bfb2049bd168a792c9ae9c8918876c0c96a59e847f5975"
+              },
+              "operation_ids": [
+                "476d7dedf4f44f9084e78f8a1558cd9d",
+                "b06019831c704078b7e1a4a804b02130",
+                "d57af263f3fb4373afa2cab027d6bef6",
+                "21c7e3c798ce4b719b1e302c7b5389b7"
+              ],
+              "run_id": "mqtt-0f93acb9b6da",
+              "runtime_id": "mqtt-0f93acb9b6da",
+              "source_sha256": "0681622f9cfdacd73286650c281c02ab4e488a44ade31dee60acb01b06b1c9f0",
+              "status": "passed",
+              "task_lighting_writes": [
+                0,
+                3,
+                0,
+                0
+              ],
+              "task_outcomes": [
+                "failed",
+                "succeeded",
+                "succeeded",
+                "failed"
+              ]
+            },
+            "returncode": 0,
+            "status": "passed"
+          },
+          "ros2-recovery": {
+            "command": [
+              "/usr/bin/python3",
+              "/home/javi/Documents/projects/entryplug/containers/scenarios/run_ros2_recovery.py"
+            ],
+            "elapsed_s": 695.3973581379978,
+            "evidence": "runs/ros2-recovery-2a5097380fc1/scenario.json",
+            "result": {
+              "cases": [
+                {
+                  "case": "no_fault",
+                  "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T201852Z-2e56a95f",
+                  "fault": null,
+                  "run_id": "harbor-resident-20261003T201852Z-2e56a95f",
+                  "score": {
+                    "admitted_tasks": 4,
+                    "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T201852Z-2e56a95f",
+                    "execution_path": "session",
+                    "false_completion_count": 0,
+                    "fault": null,
+                    "fault_applied": false,
+                    "measurements": {
+                      "acquisition_ms": 30532.793039,
+                      "commanded_travel_radians": 1.042643,
+                      "completed_reacquisition_fit_probes": 0,
+                      "completed_reacquisition_validation_probes": 0,
+                      "container_startup_ms": 20469.984,
+                      "episode_wall_ms": 99914.207,
+                      "fault_to_detection_ms": null,
+                      "post_fault_trace_order_ok": null,
+                      "recovery_identification_probes": null,
+                      "repair_ms": null,
+                      "replacement_validation_probes": null,
+                      "total_validation_probes": 8
+                    },
+                    "offered_tasks": 4,
+                    "outcome": "passed",
+                    "passed_tasks": 4,
+                    "qualification_profile": {
+                      "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+                      "profile_id": "harbor-resident-recovery-v1"
+                    },
+                    "reason_code": null,
+                    "recovery_strategy": "checked_reuse",
+                    "reported_status": "passed",
+                    "run_id": "harbor-resident-20261003T201852Z-2e56a95f",
+                    "seed": 101,
+                    "structural_gates_passed": true
+                  },
+                  "seed": 101,
+                  "status": "passed",
+                  "world_removed": true
+                },
+                {
+                  "admitted_repair": {
+                    "completed_monotonic": 20182.205321456,
+                    "deadline_monotonic": 20212.175565657,
+                    "operation_id": "3a786f7f09a142909f3cb0149653f851",
+                    "runtime_id": "harbor-resident-2e6eef362c4b4bd0bfcd58dc32fdb279",
+                    "target_y_px": 245.553131
+                  },
+                  "case": "recoverable_loss",
+                  "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202036Z-4a943016",
+                  "fault": "kill-active-worker",
+                  "run_id": "harbor-resident-20261003T202036Z-4a943016",
+                  "score": {
+                    "admitted_tasks": 4,
+                    "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202036Z-4a943016",
+                    "execution_path": "session",
+                    "false_completion_count": 0,
+                    "fault": "kill-active-worker",
+                    "fault_applied": true,
+                    "measurements": {
+                      "acquisition_ms": 29845.280557,
+                      "commanded_travel_radians": 1.307815,
+                      "completed_reacquisition_fit_probes": 0,
+                      "completed_reacquisition_validation_probes": 0,
+                      "container_startup_ms": 21924.292,
+                      "episode_wall_ms": 114249.728,
+                      "fault_to_detection_ms": 990.872981,
+                      "post_fault_trace_order_ok": true,
+                      "recovery_identification_probes": null,
+                      "repair_ms": 9875.128424,
+                      "replacement_validation_probes": 2,
+                      "total_validation_probes": 8
+                    },
+                    "offered_tasks": 4,
+                    "outcome": "passed",
+                    "passed_tasks": 4,
+                    "qualification_profile": {
+                      "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+                      "profile_id": "harbor-resident-recovery-v1"
+                    },
+                    "reason_code": null,
+                    "recovery_strategy": "checked_reuse",
+                    "reported_status": "passed",
+                    "run_id": "harbor-resident-20261003T202036Z-4a943016",
+                    "seed": 101,
+                    "structural_gates_passed": true
+                  },
+                  "seed": 101,
+                  "status": "passed",
+                  "world_removed": true
+                },
+                {
+                  "case": "stale_replacement",
+                  "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202234Z-ff7289a8",
+                  "fault": "kill-active-worker-stale-alternate",
+                  "run_id": "harbor-resident-20261003T202234Z-ff7289a8",
+                  "score": {
+                    "admitted_tasks": 2,
+                    "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202234Z-ff7289a8",
+                    "execution_path": "session",
+                    "false_completion_count": 0,
+                    "fault": "kill-active-worker-stale-alternate",
+                    "fault_applied": true,
+                    "measurements": {
+                      "acquisition_ms": 29398.81572,
+                      "commanded_travel_radians": 0.492902,
+                      "completed_reacquisition_fit_probes": 0,
+                      "completed_reacquisition_validation_probes": 0,
+                      "container_startup_ms": 16363.879,
+                      "episode_wall_ms": 71775.681,
+                      "fault_to_detection_ms": 953.505431,
+                      "post_fault_trace_order_ok": true,
+                      "recovery_identification_probes": null,
+                      "repair_ms": 1765.05716,
+                      "replacement_validation_probes": null,
+                      "total_validation_probes": 4
+                    },
+                    "offered_tasks": 4,
+                    "outcome": "passed",
+                    "passed_tasks": 1,
+                    "qualification_profile": {
+                      "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+                      "profile_id": "harbor-resident-recovery-v1"
+                    },
+                    "reason_code": null,
+                    "recovery_strategy": "checked_reuse",
+                    "reported_status": "failed",
+                    "run_id": "harbor-resident-20261003T202234Z-ff7289a8",
+                    "seed": 101,
+                    "structural_gates_passed": true
+                  },
+                  "seed": 101,
+                  "status": "passed",
+                  "world_removed": true
+                },
+                {
+                  "case": "no_replacement",
+                  "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202349Z-dc1aa2d5",
+                  "fault": "kill-both-workers",
+                  "run_id": "harbor-resident-20261003T202349Z-dc1aa2d5",
+                  "score": {
+                    "admitted_tasks": 2,
+                    "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202349Z-dc1aa2d5",
+                    "execution_path": "session",
+                    "false_completion_count": 0,
+                    "fault": "kill-both-workers",
+                    "fault_applied": true,
+                    "measurements": {
+                      "acquisition_ms": 29196.642148,
+                      "commanded_travel_radians": 0.481371,
+                      "completed_reacquisition_fit_probes": 0,
+                      "completed_reacquisition_validation_probes": 0,
+                      "container_startup_ms": 15338.592,
+                      "episode_wall_ms": 67364.579,
+                      "fault_to_detection_ms": 995.058435,
+                      "post_fault_trace_order_ok": true,
+                      "recovery_identification_probes": null,
+                      "repair_ms": 91.503779,
+                      "replacement_validation_probes": null,
+                      "total_validation_probes": 4
+                    },
+                    "offered_tasks": 4,
+                    "outcome": "passed",
+                    "passed_tasks": 1,
+                    "qualification_profile": {
+                      "digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+                      "profile_id": "harbor-resident-recovery-v1"
+                    },
+                    "reason_code": null,
+                    "recovery_strategy": "checked_reuse",
+                    "reported_status": "failed",
+                    "run_id": "harbor-resident-20261003T202349Z-dc1aa2d5",
+                    "seed": 101,
+                    "structural_gates_passed": true
+                  },
+                  "seed": 101,
+                  "status": "passed",
+                  "world_removed": true
+                },
+                {
+                  "case": "private_result_loss",
+                  "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202500Z-c62f1794",
+                  "fault": "kill-active-worker-drop-repair-result",
+                  "run_id": "harbor-resident-20261003T202500Z-c62f1794",
+                  "score": {
+                    "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202500Z-c62f1794",
+                    "fault": "kill-active-worker-drop-repair-result",
+                    "fault_applied": true,
+                    "host_stop_confirmed": true,
+                    "native_action_count": 11,
+                    "no_resumed_correction": true,
+                    "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+                    "reason_code": "reply_lost_after_validated_repair",
+                    "repair_status": "validated",
+                    "replacement_checks_ordered": true,
+                    "run_id": "harbor-resident-20261003T202500Z-c62f1794",
+                    "safety_outcome": "passed",
+                    "seed": 101,
+                    "task_outcome": "failed"
+                  },
+                  "seed": 101,
+                  "status": "passed",
+                  "world_removed": true
+                },
+                {
+                  "case": "native_result_unobserved",
+                  "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202625Z-0a5510f5",
+                  "fault": "kill-active-worker-drop-native-result",
+                  "run_id": "harbor-resident-20261003T202625Z-0a5510f5",
+                  "score": {
+                    "fault": "kill-active-worker-drop-native-result",
+                    "host_stop_confirmed": true,
+                    "native_goal_accepted_before_client_exit": true,
+                    "no_task_result_or_retry": true,
+                    "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+                    "reason_code": "native_result_unobserved_world_stopped",
+                    "run_id": "harbor-resident-20261003T202625Z-0a5510f5",
+                    "safety_outcome": "passed",
+                    "seed": 101,
+                    "task_outcome": "failed"
+                  },
+                  "seed": 101,
+                  "status": "passed",
+                  "world_removed": true
+                },
+                {
+                  "case": "repair_cancel",
+                  "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202744Z-c26a64c5",
+                  "fault": "repair_cancel",
+                  "run_id": "harbor-resident-20261003T202744Z-c26a64c5",
+                  "score": {
+                    "cancel_after_detection": true,
+                    "fault_applied": true,
+                    "native_action_count": 8,
+                    "native_cancel_confirmed": true,
+                    "no_resumed_motion": true,
+                    "reason_code": "canceled_during_repair_and_held",
+                    "safety_outcome": "passed",
+                    "world_stop_confirmed": true
+                  },
+                  "seed": 101,
+                  "status": "passed",
+                  "world_removed": true
+                },
+                {
+                  "case": "quiescence_loss",
+                  "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T202906Z-639aedfc",
+                  "fault": "quiescence_loss",
+                  "run_id": "harbor-resident-20261003T202906Z-639aedfc",
+                  "score": {
+                    "host_motion_inhibited": true,
+                    "joint_feedback_lost_after_detection": true,
+                    "no_repair_motion": true,
+                    "no_third_goal": true,
+                    "reason_code": "feedback_loss_inhibited_motion",
+                    "safety_outcome": "passed",
+                    "world_stop_confirmed": true
+                  },
+                  "seed": 101,
+                  "status": "passed",
+                  "world_removed": true
+                }
+              ],
+              "claim_boundary": "One-dimensional local image-row tasks. No release freeze, admission-acknowledgement loss, physical hardware or holdout claim.",
+              "dependencies": [
+                "ROS 2 camera and trajectory controller",
+                "MuJoCo arm",
+                "local detector worker processes"
+              ],
+              "image_ids": {
+                "entryplug-harbor:jazzy": "sha256:d46bae76cd717a9de0bfb2049bd168a792c9ae9c8918876c0c96a59e847f5975"
+              },
+              "phase": "development",
+              "profile_digest": "sha256:f41f9900a7f25f13d6735b9cd1095add910bc155e3d66bd245acee6d88d7cec0",
+              "profile_id": "harbor-resident-recovery-v1",
+              "run_id": "ros2-recovery-2a5097380fc1",
+              "seed": 101,
+              "source_sha256": "0681622f9cfdacd73286650c281c02ab4e488a44ade31dee60acb01b06b1c9f0",
+              "status": "passed"
+            },
+            "returncode": 0,
+            "status": "passed"
+          },
+          "ros2-vision": {
+            "command": [
+              "/usr/bin/python3",
+              "/home/javi/Documents/projects/entryplug/containers/scenarios/run_ros2_vision.py"
+            ],
+            "detail": "lane did not pass both execution and evidence checks",
+            "elapsed_s": 179.83625665200088,
+            "evidence": "runs/ros2-vision-f976cacab3df/scenario.json",
+            "reason": "ScenarioFailure",
+            "result": {
+              "claim_boundary": "Local one-dimensional image-row alignment. Mirrors uses a separate owned world; no 3D or hardware claim.",
+              "connection": {
+                "after_connect": {
+                  "available": true,
+                  "lineage_id": "camera-color-capture-v1",
+                  "readiness_basis": "native_acquisition_and_checked_binding",
+                  "run_id": "harbor-resident-20261003T201608Z-f2d6c737",
+                  "runtime_id": "harbor-resident-0bd6c422b4434db0b066edc8e25f6d95",
+                  "source_id": "camera-color-v1"
+                },
+                "before_connect": {
+                  "available": false,
+                  "lineage_id": "camera-color-capture-v1",
+                  "readiness_basis": "unavailable",
+                  "run_id": null,
+                  "runtime_id": "harbor-resident-0bd6c422b4434db0b066edc8e25f6d95",
+                  "source_id": "camera-color-v1"
+                },
+                "detail": "ROS connection restarted the runtime",
+                "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T201608Z-f2d6c737",
+                "initial_operations": 0,
+                "initial_refusal": "WORLD_UNAVAILABLE",
+                "missing_observed_monotonic": 19825.5465206,
+                "operations": [
+                  {
+                    "cancel_requested": false,
+                    "capability": "visual_reach",
+                    "effect_state": "none",
+                    "lifecycle": "failed",
+                    "motion_state": "holding",
+                    "operation_id": "3bdc02ad7ea547f785194bb6eb645a22",
+                    "phase": "terminal",
+                    "reason_code": "TARGET_REFUSED",
+                    "result": {
+                      "action_count": 4,
+                      "binding_evidence_key": "sha256:e4253809fb87e2ce952f157f1e74d1b4e0c093cd429e709fd9ba88f98abbb3c4",
+                      "binding_ready": false,
+                      "binding_reference": "sha256:e4253809fb87e2ce952f157f1e74d1b4e0c093cd429e709fd9ba88f98abbb3c4:revision-1",
+                      "binding_revision": 1,
+                      "commanded_travel_radians": 0.159993,
+                      "detector_worker": {
+                        "detector_id": "fixed-red-centroid-v1",
+                        "frame_received_monotonic": 19882.42640478,
+                        "frame_sequence": 198,
+                        "frame_sha256": "93e8ac1cc719fd5918b76e959a1f40b4226c195dcf8f2485229b36bebe554334",
+                        "frame_stamp": {
+                          "nanosec": 938000000,
+                          "sec": 50
+                        },
+                        "interface_version": "1",
+                        "lineage_id": "camera-color-capture-v1",
+                        "source_id": "camera-color-v1",
+                        "worker_generation": 1,
+                        "worker_instance": "90d337d65bc6464cb64af187e578dd43"
+                      },
+                      "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T201608Z-f2d6c737",
+                      "final_error_px": 5.410735,
+                      "final_y_px": 250.396319,
+                      "initial_y_px": 250.446517,
+                      "lineage_id": "camera-color-capture-v1",
+                      "operation_id": "3bdc02ad7ea547f785194bb6eb645a22",
+                      "quiescence_confirmed": true,
+                      "quiescence_evidence": {
+                        "confirmed": true,
+                        "consecutive_samples": 5,
+                        "latest_velocity_radians_s": {
+                          "joint1": -2.631065063462737e-05,
+                          "joint2": 1.4887415237432012e-07
+                        },
+                        "threshold_radians_s": 0.01
+                      },
+                      "reason_code": "BINDING_CHECK_FAILED",
+                      "recovery": null,
+                      "reticle_path": "task-0001-reticle.observer.png",
+                      "run_id": "harbor-resident-20261003T201608Z-f2d6c737",
+                      "source_id": "camera-color-v1",
+                      "source_topic": "/camera/color/image_raw",
+                      "status": "refused",
+                      "target_y_px": 255.807054,
+                      "task_ms": 0,
+                      "tolerance_px": 3.0,
+                      "trace_path": "task-0001-trace.jsonl",
+                      "validation": {
+                        "assessments": [
+                          {
+                            "candidate_id": "camera-color-v1",
+                            "eligible": false,
+                            "lineage_id": "camera-color-capture-v1",
+                            "maximum_age_ms": 19.542069,
+                            "maximum_error_px": 0.183505,
+                            "reasons": [
+                              "signal_not_above_noise"
+                            ],
+                            "signal_to_noise": 1.879631,
+                            "tolerance_px": 3.82661
+                          }
+                        ],
+                        "evidence_key": "sha256:e4253809fb87e2ce952f157f1e74d1b4e0c093cd429e709fd9ba88f98abbb3c4",
+                        "matching_candidate_ids": [],
+                        "matching_independent_lineage_count": 0,
+                        "probe_count": 2,
+                        "reason_code": "cached_model_invalid",
+                        "status": "refused"
+                      },
+                      "validation_ms": 8498.170398,
+                      "validation_probe_count": 2,
+                      "visual_capability_available": true,
+                      "wall_ms": 8498.180508
+                    }
+                  }
+                ],
+                "reason": "ScenarioFailure",
+                "runtime_id": "harbor-resident-0bd6c422b4434db0b066edc8e25f6d95",
+                "status": "failed",
+                "world_removed": true,
+                "world_start_requested_monotonic": 19825.547403204,
+                "world_stop_confirmed": true
+              },
+              "dependencies": [
+                "ROS 2 camera and trajectory controller",
+                "MuJoCo arm",
+                "local detector processes"
+              ],
+              "image_ids": {
+                "entryplug-harbor:jazzy": "sha256:d46bae76cd717a9de0bfb2049bd168a792c9ae9c8918876c0c96a59e847f5975"
+              },
+              "mirrors": {
+                "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-mirrors-s101-20261003T201709Z-980999ba",
+                "metrics": {
+                  "probe_count": 6,
+                  "reacquisition_command_travel_radians": 0.35,
+                  "reacquisition_duration_ms": 49192.228666,
+                  "reuse_duration_ms": 9563.812648,
+                  "reuse_probe_count": 2,
+                  "total_duration_ms": 67975.62458,
+                  "validation_probe_count": 4,
+                  "wrapper_overhead_ms": 2981.523352
+                },
+                "outcome": "passed",
+                "reason_code": null,
+                "reported_status": "passed",
+                "returncode": 0,
+                "run_id": "harbor-mirrors-s101-20261003T201709Z-980999ba",
+                "seed": 101,
+                "selected_candidate_id": "view-ecb85980",
+                "selected_controlled_source": true,
+                "selected_role": "controlled_rendered_camera",
+                "stale_path_rejected": true,
+                "unrelated_source_rejected": true
+              },
+              "phase": "development",
+              "run_id": "ros2-vision-f976cacab3df",
+              "source_sha256": "0681622f9cfdacd73286650c281c02ab4e488a44ade31dee60acb01b06b1c9f0",
+              "startup_interruption": {
+                "cancel_requested_monotonic": 19822.043983952,
+                "cancellation_propagated": true,
+                "controllers_observed_before_ready": true,
+                "evidence_path": "/home/javi/Documents/projects/entryplug/runs/harbor-resident-20261003T201552Z-51b1f34e",
+                "run_id": "harbor-resident-20261003T201552Z-51b1f34e",
+                "status": "passed",
+                "world_removed": true
+              },
+              "status": "failed"
+            },
+            "returncode": 1,
+            "status": "failed"
+          },
+          "zenoh": {
+            "command": [
+              "/usr/bin/python3",
+              "/home/javi/Documents/projects/entryplug/containers/scenarios/run_zenoh.py"
+            ],
+            "elapsed_s": 21.86499567699866,
+            "evidence": "runs/zenoh-cb581ca47dd3/scenario.json",
+            "result": {
+              "dependencies": [
+                "ROS 2 camera",
+                "MuJoCo panel",
+                "native Zenoh router",
+                "native detector"
+              ],
+              "fixture_lighting_writes": 1,
+              "image_ids": {
+                "entryplug-harbor-mixed:jazzy": "sha256:a0cbb6c09d6aa5ac77930ce06b0c0e4382e55be2f6f9520b1032058c2a81ce23",
+                "entryplug-harbor:jazzy": "sha256:d46bae76cd717a9de0bfb2049bd168a792c9ae9c8918876c0c96a59e847f5975",
+                "entryplug-scenario-worker:dev": "sha256:99465bfe724014b0cd84108c896c7292325ebc2f7027d6b3ba4bf73c585f861b"
+              },
+              "operation_ids": [
+                "7640d44a00644f1ea78232fe24b16c0e",
+                "45f49ba635a9419e8208aa0532d25296",
+                "eeb8613ce6174fbb83fbf5ed3d194543",
+                "8051fcb3aa3846d8ac3eead9c4d66354"
+              ],
+              "run_id": "zenoh-cb581ca47dd3",
+              "runtime_id": "zenoh-cb581ca47dd3",
+              "source_sha256": "0681622f9cfdacd73286650c281c02ab4e488a44ade31dee60acb01b06b1c9f0",
+              "status": "passed",
+              "task_lighting_writes": 0,
+              "task_outcomes": [
+                "failed",
+                "succeeded",
+                "succeeded",
+                "failed"
+              ]
+            },
+            "returncode": 0,
+            "status": "passed"
+          }
+        },
+        "offline": true,
+        "phase": "development",
+        "run_id": "scenarios-32c03d061373",
+        "selected": [
+          "zenoh",
+          "mqtt",
+          "ros2-vision",
+          "ros2-recovery",
+          "hybrid"
+        ],
+        "service_image_ids": {
+          "eclipse-mosquitto@sha256:199ea8ef2e35ec2b1b37e59cfd1dbae538ed4dfa4a2251a121a52215a6248a21": "sha256:199ea8ef2e35ec2b1b37e59cfd1dbae538ed4dfa4a2251a121a52215a6248a21",
+          "ghcr.io/home-assistant/home-assistant@sha256:d8922685169707fd91e8b9729902d975f06157d005e422874d201e0261dda196": "sha256:d8922685169707fd91e8b9729902d975f06157d005e422874d201e0261dda196"
+        },
+        "source_sha256": "0681622f9cfdacd73286650c281c02ab4e488a44ade31dee60acb01b06b1c9f0",
+        "status": "failed",
+        "tier": "smoke"
+      }
+    }
+  ],
+  "validation": {
+    "command": "docker run --rm --network none --user 1000:1000 --entrypoint /bin/bash --mount type=bind,src=/tmp/entryplug-oct03-env,dst=/dev-env --mount type=bind,src=/home/javi/Documents/projects/entryplug,dst=/workspace/entryplug,readonly -e PYTHONDONTWRITEBYTECODE=1 entryplug-harbor-mixed:jazzy -c '/dev-env/venv/bin/python -m pytest -q -p no:cacheprovider tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant optional_tests/zenoh optional_tests/mqtt'",
+    "log": "docs/implementation/evidence/scenario-suite-python-tests.txt",
+    "mypy": "1.18.2",
+    "passed": 509,
+    "pytest": "9.1.1",
+    "pytest_asyncio": "1.4.0",
+    "ruff": "0.13.3",
+    "skipped": 1,
+    "typing": "strict mypy --follow-imports=silent: src/entryplug/cli.py src/entryplug_harbor/runtime.py src/entryplug_homeassistant/light.py",
+    "warnings": 1
+  },
+  "worker_build": {
+    "diagnostic_retry": "passed; no profile or Dockerfile edits; output retained at runs/implementation-oct03-suite/worker-build-diagnostic.txt",
+    "diagnostic_retry_command": "docker build --progress plain --file containers/scenarios/Dockerfile.worker --tag entryplug-scenario-worker:dev --label org.entryplug.source-sha256=0681622f9cfdacd73286650c281c02ab4e488a44ade31dee60acb01b06b1c9f0 .",
+    "initial": "blocked suite retained; original helper discarded compiler/build output, so original cause remains unknown"
+  }
+}
