@@ -9,7 +9,7 @@ const protocols = [
   ["mcp", "MCP", "Tools from a server"],
   ["a2a", "A2A", "Another Entryplug body"],
   ["ros2", "ROS 2", "Through an MCP bridge"],
-  ["zenoh", "Zenoh", "Through an MCP bridge"],
+  ["zenoh", "Zenoh", "Included read-only bridge"],
   ["mqtt", "MQTT", "Through an MCP bridge"],
 ];
 export default function AddBody(props: {
@@ -83,6 +83,8 @@ export default function AddBody(props: {
                 setName(id === "simulation" ? "My camera" : title + " body");
                 setUrl("");
                 setEnv("");
+                setTools("");
+                setSuccess("");
                 setError("");
               }}
             >
@@ -114,15 +116,90 @@ export default function AddBody(props: {
           </p>
         </Show>
         <Show when={bridge()}>
-          <div class="setup-notice">
-            <strong>An MCP bridge is required</strong>
-            <p>
-              Connect a bridge that exposes your{" "}
-              {protocols.find((p) => p[0] === kind())![1]} device as read-only
-              tools. Enter its HTTP MCP endpoint below. Direct ROS 2, Zenoh and
-              MQTT discovery is not available in this console.
-            </p>
-          </div>
+          <Show
+            when={kind() === "zenoh"}
+            fallback={
+              <div class="setup-notice">
+                <strong>External bridge required</strong>
+                <p>
+                  Entryplug does not yet include a{" "}
+                  {kind() === "ros2" ? "ROS 2" : "MQTT"} bridge for this form.
+                  Use this connection only if you already run an HTTP MCP server
+                  that exposes your device's observations as read-only tools. A
+                  native topic or broker address cannot go in the MCP URL field.
+                </p>
+                <p>
+                  The server must advertise the selected tools with readOnlyHint
+                  enabled. Ask your device integration's maintainer for its MCP
+                  endpoint and exact tool names.
+                </p>
+              </div>
+            }
+          >
+            <div class="setup-notice bridge-guide">
+              <strong>Run the included Zenoh bridge</strong>
+              <p>
+                This small process reads selected Zenoh publications and exposes
+                them to Entryplug. Run it on the same computer as the Entryplug
+                service. It cannot send device commands.
+              </p>
+              <ol>
+                <li>
+                  In your Entryplug Python environment, install the optional
+                  bridge support:
+                  <pre>
+                    python -m pip install
+                    './dist/entryplug-0.0.1-py3-none-any.whl[ui,mcp,zenoh]'
+                  </pre>
+                  Restart Entryplug after installing these extras.
+                </li>
+                <li>
+                  Get the router or peer endpoint and the exact observation key
+                  from your device configuration. Replace the example endpoint
+                  and key, then leave this command running in another terminal:
+                  <pre>
+                    python -m entryplug bridge zenoh --connect
+                    tcp/127.0.0.1:7447 --key demo/temperature
+                  </pre>
+                  Repeat <code>--key</code> for more observations. Wildcards are
+                  not accepted.
+                </li>
+                <li>
+                  Use the local bridge settings below, then choose{" "}
+                  <strong>Connect body</strong>. No credential is needed for
+                  this loopback-only bridge.
+                </li>
+              </ol>
+              <details>
+                <summary>No device yet? Try a simulated publisher</summary>
+                <p>
+                  Run this in a separate terminal before the bridge command
+                  above. It publishes labelled simulated temperatures once per
+                  second using real Zenoh transport.
+                </p>
+                <pre>python -m entryplug bridge zenoh-demo</pre>
+                <p>
+                  Ctrl-C stops the publisher. After five seconds without a new
+                  sample, reads fail as stale.
+                </p>
+              </details>
+              <p>
+                Supports UTF-8 text and JSON, up to 16 KiB per sample. Reads
+                report receive age; sensor capture age is unknown. No camera
+                decoding or automatic device discovery.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setUrl("http://127.0.0.1:8766/mcp");
+                  setTools("zenoh_observe");
+                  setEnv("");
+                }}
+              >
+                Use local bridge settings
+              </button>
+            </div>
+          </Show>
         </Show>
         <Show when={kind() === "a2a"}>
           <p>

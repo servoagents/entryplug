@@ -24,6 +24,27 @@ def register(commands: Any) -> None:
         )
         parser.add_argument("--json", action="store_true")
 
+    bridge = commands.add_parser("bridge", help="Run an explicit read-only device bridge")
+    bridges = bridge.add_subparsers(dest="verb", required=True)
+    native = bridges.add_parser("zenoh", help="Expose selected Zenoh publications over local MCP")
+    native.set_defaults(application_command=True)
+    native.add_argument(
+        "--connect", required=True, help="Zenoh router/peer endpoint, e.g. tcp/127.0.0.1:7447"
+    )
+    native.add_argument(
+        "--key",
+        action="append",
+        required=True,
+        help="Concrete observation key; repeat for more keys",
+    )
+    native.add_argument("--max-age", type=float, default=5.0, help="Maximum receive age in seconds")
+    native.add_argument("--port", type=int, default=8766, help="Loopback MCP HTTP port")
+    demo = bridges.add_parser(
+        "zenoh-demo", help="Publish labelled simulated temperature on loopback"
+    )
+    demo.set_defaults(application_command=True)
+    demo.add_argument("--port", type=int, default=7447)
+
     for name in ("serve", "ui"):
         parser = commands.add_parser(
             name, help="Run the mission service" if name == "serve" else "Open the mission console"
@@ -362,7 +383,19 @@ def _systemd(args: argparse.Namespace) -> int:
 
 def run(args: argparse.Namespace) -> int:
     try:
-        if args.command == "mission" and args.verb == "template":
+        if args.command == "bridge":
+            from entryplug_bridges.zenoh import demo
+            from entryplug_bridges.zenoh import run as run_bridge
+
+            if not 1 <= args.port <= 65535:
+                raise ValueError("Port must be between 1 and 65535")
+            import zenoh
+
+            try:
+                (demo if args.verb == "zenoh-demo" else run_bridge)(args)
+            except zenoh.ZError as error:
+                raise ValueError(f"Zenoh bridge could not start: {error}") from error
+        elif args.command == "mission" and args.verb == "template":
             from entryplug_app.inspection import inspection_mission
 
             output(inspection_mission(args.body), args.json)
@@ -382,7 +415,11 @@ def run(args: argparse.Namespace) -> int:
     except ImportError as error:
         print(
             f"Optional dependency missing ({error.name}); "
-            "install entryplug[ui] for the console/service.",
+            + (
+                "install entryplug[ui,mcp,zenoh] for this bridge."
+                if args.command == "bridge"
+                else "install entryplug[ui] for the console/service."
+            ),
             file=sys.stderr,
         )
         return 2

@@ -160,10 +160,75 @@ offers simulations, Home Assistant, MCP, A2A, ROS 2, Zenoh, and MQTT. A simulate
 camera, rover, or room can be named and added immediately. Connected bodies
 show their connection status and verified capabilities after configuration.
 
-ROS 2, Zenoh, and MQTT selections currently require a user-provided **MCP bridge**
-that exports the desired read-only tools. The protocol label records the declared
-source behind that bridge. The console does not perform direct native discovery
-or create a bridge. Selecting an icon alone does not establish a connection.
+**Zenoh includes a runnable read-only MCP bridge**; its setup commands appear in
+Add body → Zenoh. ROS 2 and MQTT still require an external HTTP MCP bridge that
+exports explicitly selected tools with `readOnlyHint: true`. A native topic,
+Zenoh endpoint or MQTT broker URL is not an MCP server URL. The protocol label
+records the declared source; selecting it does not perform device discovery.
+
+### Start the included Zenoh bridge
+
+Use the same Python environment as Entryplug. From this checkout, install the
+built wheel's optional dependencies, then restart the Entryplug service:
+
+```bash
+python -m pip install './dist/entryplug-0.0.1-py3-none-any.whl[ui,mcp,zenoh]'
+```
+
+For a real device, obtain its Zenoh router/peer endpoint and exact published
+observation key from its configuration. The bridge subscribes to that key; it
+cannot discover device semantics or convert arbitrary camera bytes. Replace
+these examples and leave the process running in a separate terminal:
+
+```bash
+python -m entryplug bridge zenoh --connect tcp/127.0.0.1:7447 --key demo/temperature
+```
+
+For a local test without hardware, first start this **simulated** publisher in
+another terminal, then use the bridge command above unchanged:
+
+```bash
+python -m entryplug bridge zenoh-demo
+```
+
+It publishes labelled temperature values once per second using native Zenoh on
+loopback port 7447. It is transport qualification, not a real sensor measurement.
+Stop either owned process with Ctrl-C; the GUI does not launch or manage it.
+
+In **Add body → Zenoh**, click **Use local bridge settings**:
+
+| Field | Value |
+| --- | --- |
+| Body name | A descriptive name, e.g. Temperature sensor |
+| MCP server URL | `http://127.0.0.1:8766/mcp` |
+| Read-only capability names | `zenoh_observe` |
+| Credential environment variable | Leave blank for this local bridge |
+
+Click **Connect body**. The imported capability is `mcp.zenoh_observe`, with an
+argument such as `{"key":"demo/temperature"}`. A mission or scoped external agent
+uses the ordinary operation broker to call it and record evidence. **Connected**
+and **Test read-only** establish transport/catalog availability, not a fresh
+sensor sample. The tool reports `no_sample` until the first publication.
+
+The bridge serves HTTP only on `127.0.0.1`; run it on the Entryplug service's
+computer, even when the Zenoh device/router is remote. It uses explicit Zenoh
+client endpoints and disables multicast scouting. It declares subscribers only:
+no writes, queries or actuators are exposed. Its localhost MCP transport retains
+the SDK's Host/Origin checks. This initial route does not configure Zenoh TLS,
+credentials, camera decoding or remote HTTP hosting.
+
+Repeat `--key` for up to 32 distinct concrete keys. Each sample is limited to
+16 KiB of UTF-8 text or JSON. Reads report source key, receipt time and receive
+age; sensor capture age remains unknown. `--max-age 5` is the default freshness
+limit. Missing, stale, deleted, invalid-encoding and oversized samples return
+MCP errors without falling back to an old value. A stopped publisher becomes
+stale after that limit; this is not immediate device-liveness detection. Use
+`--port` to change the local HTTP port and update the GUI URL accordingly.
+
+Native subscriptions follow the [Zenoh Python model](https://zenoh.io/docs/getting-started/first-app/).
+For arbitrary external MCP servers, read-only annotations remain declarations
+by the server, not enforcement; see [MCP tool annotations](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations/).
+
 
 Saved connections show their observed status and last-seen time. **Retry
 connection** starts a new verification attempt for a disconnected or unverified

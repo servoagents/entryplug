@@ -1,0 +1,147 @@
+{
+  "attempts": "Initial installed smoke readiness probe used GET /mcp and timed out waiting for an SSE stream to end. Probe corrected to a finite root response; both owned processes cleaned up even on failure. Final installed native exchange passed.",
+  "base_commit": "cc49adea4817c8de54539e36ba9593f96bdfe0cf",
+  "checks": {
+    "browser_installed": {
+      "passed": 10,
+      "seconds": 32.2
+    },
+    "browser_source": {
+      "passed": 10,
+      "seconds": 34.1
+    },
+    "changed_python_lint_format": "pass",
+    "core": {
+      "isolated": true,
+      "passed": 478,
+      "python": "3.12.3",
+      "seconds": 27.35
+    },
+    "final_focused": {
+      "note": "Native CI test uses normal five-second freshness budget to avoid sub-second scheduling sensitivity.",
+      "passed": 17,
+      "seconds": 7.07
+    },
+    "pip_check": "pass",
+    "service_and_native_bridge_including_core": {
+      "passed": 528,
+      "seconds": 35.09,
+      "warning": "existing Authlib deprecation"
+    },
+    "strict_bridge_typing": "pass; one targeted ignore for untyped Zenoh Session.close, consistent with pinned SDK",
+    "typescript_build": "pass",
+    "ui_unit": {
+      "passed": 3
+    },
+    "wheel_assets": 7
+  },
+  "commands": [
+    "python -m entryplug bridge zenoh-demo --port <owned loopback port>",
+    "python -m entryplug bridge zenoh --connect tcp/127.0.0.1:<owned publisher port> --key demo/temperature --max-age 0.5 --port <owned HTTP port>",
+    "python -m pytest -q -p no:cacheprovider tests",
+    "python -m pytest -q -p no:cacheprovider tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant optional_tests/zenoh/test_mcp_bridge.py",
+    "npm --prefix ui test",
+    "npm --prefix ui run build",
+    "PATH=/tmp/entryplug-ci/node/bin:$PATH ENTRYPLUG_TEST_PYTHON=/tmp/entryplug-ui-manual-venv/bin/python ENTRYPLUG_TEST_INSTALLED=1 npm --prefix ui run test:browser",
+    "python -m build --wheel --no-isolation",
+    "python scripts/check_wheel_assets.py dist/entryplug-0.0.1-py3-none-any.whl"
+  ],
+  "date": "2026-10-04",
+  "environment": {
+    "chrome": "154.0.8037.57",
+    "ci_python": "3.12.3",
+    "installed_python": "3.14.4",
+    "mcp": "2.2.0",
+    "node": "22.23.3",
+    "playwright": "1.63.0",
+    "user_environment": "/tmp/entryplug-ui-manual-venv",
+    "zenoh": "1.10.1"
+  },
+  "installed_qualification_script_sha256": "3a65149b627a6b637234fd58fdc1a4261a27fac9934ab3f3eab8a192d13662f7",
+  "limits": [
+    "Device values are labelled simulated; middleware and separate installed publisher/bridge processes are native.",
+    "No actual device endpoint/key supplied or hardware contacted.",
+    "Subscriptions only, no writes or arbitrary queries, no binary camera decoding or source capture-age guarantee.",
+    "Loopback HTTP only; explicit native endpoint; no Zenoh TLS/credential setup in this command.",
+    "ROS 2 and MQTT GUI paths still require external bridges.",
+    "No push or hosted GitHub CI run. OpenEnv and previous native task fixtures unchanged and not rerun."
+  ],
+  "local_logs_sha256": {
+    "runs/implementation-oct04-zenoh-bridge/before.txt": "b8f6d3ba7950070e908f6e3351888a3307a537febc37082feec9a1cffc90f70b",
+    "runs/implementation-oct04-zenoh-bridge/browser-installed.txt": "105d9f88b13a669d207e1e9bcc9609d2ebf0b1160bc671d296a6bcf00b0f82b0",
+    "runs/implementation-oct04-zenoh-bridge/browser-source.txt": "2d4e47a973b8a36f8bd0fa53eb8b5697151cb8608b3641f6641bd4b2bd53a246",
+    "runs/implementation-oct04-zenoh-bridge/build.txt": "3e5e1980ed8a8eb8eef0f0ff56a0e3daa8ad5ff2a943e940dec3bcc948cad68b",
+    "runs/implementation-oct04-zenoh-bridge/ci.txt": "40d8048b9584e60ba7ec987e935115fe6cb3e5cd3797dbb02a7a4ffb079f6cd0",
+    "runs/implementation-oct04-zenoh-bridge/final-package.txt": "9b52853866079bd225a59481d294d3d8a508dbd78d378ee057ca877346bedb87",
+    "runs/implementation-oct04-zenoh-bridge/focused.txt": "b149f124832304ce37df79fa819fcbc281efa66444c9f3a743d50bfb446831a6",
+    "runs/implementation-oct04-zenoh-bridge/install-final.txt": "cb3bc3dbc0890f92b772dc16fa38eb8816b08cb3fa1008dc89d156d5748372d1",
+    "runs/implementation-oct04-zenoh-bridge/install.txt": "cb3bc3dbc0890f92b772dc16fa38eb8816b08cb3fa1008dc89d156d5748372d1",
+    "runs/implementation-oct04-zenoh-bridge/installed-bridge.txt": "46822310502cf1149886ae1fd386344dacf625d8a24d7bde647e8b61eac14746",
+    "runs/implementation-oct04-zenoh-bridge/installed-help.txt": "b3ebc7e0726aff240307e5263644cb1518fb076fe801a020684985a2aa5d1155",
+    "runs/implementation-oct04-zenoh-bridge/installed-native-probe-failed.txt": "e189cb98f80f93b628113846abef89fc0db09ed5ad0e6c443c5efa1a6e3382e9",
+    "runs/implementation-oct04-zenoh-bridge/installed-native.json": "807946a359a87059715ad2d98a7f09f9ab9db366f004f4e15588bc9a03371569",
+    "runs/implementation-oct04-zenoh-bridge/installed-native.txt": "3984e28ec22f2bca23a8c88b6d874bc2b22a341ba327df53b49915eeb4651c8f",
+    "runs/implementation-oct04-zenoh-bridge/installed-publisher.txt": "529cae15ba7528c25df2cdf708c2ca59fbd0f51f570a12a7560236b7d6fc00b5",
+    "runs/implementation-oct04-zenoh-bridge/typing.txt": "8c4b94df07799d18d90e689d82c95e6a7bc5197437b8afb241bb7f785fcfc370",
+    "runs/implementation-oct04-zenoh-bridge/ui-unit.txt": "cbcbfeeccb8ec7347dee250139093ba1ef12627240fe4bb801478a799356d811",
+    "runs/implementation-oct04-zenoh-bridge/wheel.txt": "1ca5f36a66a0df9aa703d3474c0827f9c60bb11c7b994406719c3bdf3ae9e9a8"
+  },
+  "native_installed": {
+    "after_publisher_stop": {
+      "encoding": "json",
+      "key": "demo/temperature",
+      "max_receive_age_s": 0.5,
+      "provenance": "zenoh_publication",
+      "receive_age_s": 0.8051313719988684,
+      "received_at": "2026-10-04T19:40:23.618789+00:00",
+      "source_age_s": null,
+      "source_timestamp": null,
+      "status": "stale",
+      "value": null
+    },
+    "fresh": {
+      "encoding": "json",
+      "key": "demo/temperature",
+      "max_receive_age_s": 0.5,
+      "provenance": "zenoh_publication",
+      "receive_age_s": 0.03255602200079011,
+      "received_at": "2026-10-04T19:40:23.618789+00:00",
+      "source_age_s": null,
+      "source_timestamp": null,
+      "status": "ok",
+      "value": {
+        "sequence": 2,
+        "simulated": true,
+        "temperature_c": 22
+      }
+    },
+    "installed": true,
+    "owned_process_exit_codes": [
+      0,
+      0
+    ],
+    "python": "3.14.4",
+    "status": "passed",
+    "tools": [
+      "zenoh_observe"
+    ]
+  },
+  "references": [
+    "https://zenoh.io/docs/getting-started/first-app/",
+    "https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations/"
+  ],
+  "regression": "New GUI journey failed against old screen because included-bridge instructions and preset were missing; now passes. Native protocol test verifies read-only schema, exact keys, publication-to-journal evidence and stale failure.",
+  "scope": "Runnable read-only Zenoh-to-MCP bridge and actionable GUI setup",
+  "source_sha256": {
+    ".github/workflows/mission-service.yml": "4ffaf6e6a1a47b5c93fc736544a912f648d9531d68cad2473d0e82474575cdba",
+    "deps/zenoh-bridge.lock": "ab81043f233b6d382692a2f7bed0710903e5983bcb280b45156639e2f0c3fd27",
+    "optional_tests/zenoh/test_mcp_bridge.py": "66e489678faf58132515303822660d60d875e42c669bbbe93cd3ca188a76f8bf",
+    "src/entryplug_app/cli.py": "5ce541ac9c8f7ed7c652dc740d0b1d3a94d359975da47a5cd606afd52413de13",
+    "src/entryplug_bridges/__init__.py": "d5865817b2d93a96e6e27c7932572f0dcff545a5f504de4f1239fdb256cb6d8c",
+    "src/entryplug_bridges/zenoh.py": "e47108f6d9ad22de32b10dd94f768e4065a2e8dd363b66374b6b558a3173fc80",
+    "tests/app/test_zenoh_observations.py": "1b27c4d95100cf3edbf8367b3b65bf8ac51ea1669aa9565cf6a61e37c80d9d2a",
+    "ui/src/AddBody.tsx": "a3d6cbf636002300960ad2a55e9e1a85a6540f393928893b4fe47de4fc5ecd25",
+    "ui/tests/browser/simulations.spec.ts": "021d486a6c9b733c7a06d3ca23f4e6df50025b82bf05ba719df243011eb1a916"
+  },
+  "wheel_sha256": "59b29204c24b9fb495ebcf004a8beefb9c459c70a4b7f6a5b3004df0f16438b5"
+}

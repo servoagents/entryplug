@@ -847,3 +847,43 @@ rerun. Physical reconciliation, other native fault gates, installed native
 attachment and release qualification remain open. Next GUI qualification is one
 real local tool-capable model completing the room/rover tasks with recorded
 responses, failures and timings on the user's hardware.
+
+
+## Included read-only Zenoh bridge (4 October 2026)
+
+The Add body wizard previously requested an MCP endpoint without supplying a
+Zenoh bridge or a way to run one. `entryplug bridge zenoh` now subscribes to
+explicit native observation keys and exposes one local HTTP tool,
+`zenoh_observe`. Its schema enumerates permitted keys; calls only read a bounded
+cache. Missing, stale, deleted, oversized and invalid-encoding observations are
+MCP errors rather than successful old values. Receive age is reported separately
+from unknown sensor capture age. No write or arbitrary query route is exposed.
+
+`entryplug bridge zenoh-demo` supplies a separate labelled simulated temperature
+publisher over real Zenoh. The GUI provides installation/startup commands,
+local demo instructions and a settings preset. ROS 2/MQTT honestly state that
+an external bridge is still required. [The operating guide](../mission-service.md)
+contains endpoint, capability, credential and lifecycle instructions.
+
+Native qualification covers Zenoh publication → HTTP MCP → Entryplug imported
+operation → durable evidence, plus stale-read failure and scope refusal.
+Installed Python 3.14 commands ran from outside the checkout as two owned
+processes; a fresh simulated reading was returned, stopping the publisher made
+reads stale with no value, and both processes exited 0. The initial smoke
+readiness probe incorrectly waited for an SSE GET to finish; that test probe
+was corrected, with owned cleanup preserved. No hardware was contacted.
+
+Checks: isolated Python 3.12 core 478 pass; service including core and native
+bridge 528 pass (existing Authlib warning); final focused 17 pass; browser source
+10 pass; installed GUI 10 pass; UI unit 3 pass; TypeScript build, strict bridge
+typing, changed lint/format, pip check and exact 7-file wheel asset check pass.
+The final wheel and MCP/Zenoh extras are installed in the existing user GUI venv.
+CI now runs the native bridge regression with the existing Zenoh 1.10.1 version
+hash-pinned for Linux x86_64. No existing dependency version was upgraded.
+Evidence: [zenoh-mcp-bridge.json](evidence/zenoh-mcp-bridge.json).
+
+This adds an explicit read-only publication bridge, not automatic native device
+discovery, camera decoding, actuator admission or remote authenticated hosting.
+Actual device attachment awaits its endpoint/key. Physical reconciliation,
+remaining native fault gates and release qualification stay open. No remote
+push or hosted CI run was performed.

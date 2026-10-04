@@ -222,7 +222,7 @@ test("room occupancy drives its light and protocol choices explain their bridge"
   for (const protocol of ["ROS 2", "Zenoh", "MQTT"]) {
     await page
       .getByRole("button", {
-        name: `${protocol} Through an MCP bridge`,
+        name: `${protocol} ${protocol === "Zenoh" ? "Included read-only bridge" : "Through an MCP bridge"}`,
         exact: true,
       })
       .click();
@@ -230,7 +230,12 @@ test("room occupancy drives its light and protocol choices explain their bridge"
       page.getByRole("heading", { name: `${protocol} via MCP`, exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("An MCP bridge is required", { exact: true }),
+      page.getByText(
+        protocol === "Zenoh"
+          ? "Run the included Zenoh bridge"
+          : "External bridge required",
+        { exact: true },
+      ),
     ).toBeVisible();
   }
   await page.screenshot({
@@ -406,4 +411,44 @@ test("local model setup works without OpenAI libraries and explains missing Olla
     path: "/tmp/entryplug-local-model-setup.png",
     fullPage: true,
   });
+});
+
+test("Zenoh setup explains how to run the included bridge before asking for its URL", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: /Body & topology/ }).click();
+  await page
+    .getByRole("button", { name: /Add body/ })
+    .first()
+    .click();
+  await page.getByRole("button", { name: /Zenoh/ }).click();
+  await expect(
+    page.getByText("Run the included Zenoh bridge", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/python -m entryplug bridge zenoh --connect/),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Use local bridge settings", exact: true })
+    .click();
+  await expect(page.getByLabel("MCP server URL", { exact: true })).toHaveValue(
+    "http://127.0.0.1:8766/mcp",
+  );
+  await expect(
+    page.getByLabel("Read-only capability names", { exact: true }),
+  ).toHaveValue("zenoh_observe");
+  await expect(
+    page.getByLabel("Credential environment variable", { exact: true }),
+  ).toHaveValue("");
+  await page.screenshot({
+    path: "/tmp/entryplug-zenoh-bridge-setup.png",
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: /ROS 2/ }).click();
+  await expect(
+    page.getByText("External bridge required", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Run the included Zenoh bridge", { exact: true }),
+  ).not.toBeVisible();
 });
