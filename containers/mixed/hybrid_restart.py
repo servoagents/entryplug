@@ -28,7 +28,15 @@ async def recover(root: Path, run_id: str, token_file: Path) -> dict[str, object
         view = await runtime.session.observe()
         service = ApplicationService(
             Workspace.resolve(str(root / "before/mission-workspace")),
-            ports=[EmbodimentPort("borrowed-light", "Borrowed Light", runtime.session)],
+            ports=[
+                EmbodimentPort(
+                    "borrowed-light",
+                    "Borrowed Light",
+                    runtime.session,
+                    simulated=True,
+                    provenance="native_protocols_simulated_devices",
+                )
+            ],
             demo=False,
         )
         await service.open()
