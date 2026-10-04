@@ -1,0 +1,212 @@
+{
+  "cleanup": {
+    "bridge": {
+      "applied_count": 1,
+      "rejected_commands": 0,
+      "status": "stopped"
+    },
+    "worker-cleanup": {
+      "status": "stopped",
+      "workers": [
+        {
+          "exit_code": 0,
+          "worker_id": "worker-a"
+        }
+      ]
+    },
+    "world-cleanup": {
+      "forced_stops": 0,
+      "status": "stopped"
+    }
+  },
+  "commands": [
+    "python3 containers/scenarios/run_hybrid.py --build --client mission --fault owner-restart",
+    "docker run --rm --network none --user 1000:1000 --entrypoint /bin/bash --mount type=bind,src=/tmp/entryplug-ci,dst=/ci-env --mount type=bind,src=/home/javi/Documents/projects/entryplug,dst=/workspace/entryplug,readonly -w /workspace/entryplug -e PYTHONDONTWRITEBYTECODE=1 entryplug-harbor:jazzy -c 'set -e\n/ci-env/core/bin/python -m pytest -q -p no:cacheprovider tests\n/ci-env/service/bin/python -m pytest -q -p no:cacheprovider tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant'",
+    "python -m pytest -q -p no:cacheprovider tests/app/test_process_recovery.py tests/test_hybrid_session_acceptance.py"
+  ],
+  "environment": {
+    "ambient_site_packages": false,
+    "dependency_pins": "unchanged",
+    "pytest": "9.1.1",
+    "pytest_asyncio": "1.4.0",
+    "python": "3.12.3",
+    "ruff": "0.13.3"
+  },
+  "fault_evidence": {
+    "applied": {
+      "level": 0.250980406999588,
+      "prior_revision": 1,
+      "revision": 2,
+      "sim_time_s": 3.1339999999998764
+    },
+    "brightness": 64,
+    "command_id": 5,
+    "dropped_results": 1,
+    "entity_id": "light.entryplug_hybrid_c0cc29abd24b",
+    "service_calls": 1,
+    "upstream_success": true
+  },
+  "final_code_commit": "b3ce4f1",
+  "final_native_run": {
+    "bridge_applied_count": 1,
+    "client": "mission",
+    "effect_state": "unknown",
+    "fault": "owner-restart",
+    "fresh_runtime_operations": 0,
+    "fresh_volume_bootstraps": [
+      {
+        "fixture": "proof",
+        "home_assistant_version": "2026.9.3",
+        "mqtt": "configured",
+        "status": "passed"
+      },
+      {
+        "fixture": "task",
+        "home_assistant_version": "2026.9.3",
+        "mqtt": "configured",
+        "status": "passed"
+      }
+    ],
+    "image_ids": {
+      "entryplug-harbor-mixed:jazzy": "sha256:f60e04be326235d5c46ea532f8e1a0d8fd09a372ac901086aaa07d51fe3f3f77",
+      "entryplug-harbor:jazzy": "sha256:db5fac063be587cecc12ed5345653afaa27722bdae3fde2cbea5334113bae913",
+      "entryplug-scenario-worker:dev": "sha256:ce4707edd4d2c2957acb72f561393f4f9c019f4ef2f2cbd918ecc2f7004475ca"
+    },
+    "mission_health": "blocked",
+    "operation_ids": [
+      "0951776aa654412e9bad868a83ca7768"
+    ],
+    "recovery_refusal": "resource_indeterminate",
+    "run_id": "hybrid-c0cc29abd24b",
+    "source_sha256": "02911283ddac78f2042969ca5d794526dfdea541eb7161fb380367ab40412126",
+    "status": "passed"
+  },
+  "fix": "Physical mission start, resume and source revalidation share the durable uncertainty guard; read-only work remains usable.",
+  "fix_commit": "2beeb62",
+  "initial_native_run": {
+    "bridge_applied_count": 1,
+    "client": "mission",
+    "effect_state": "unknown",
+    "fault": "owner-restart",
+    "fresh_runtime_operations": 0,
+    "fresh_volume_bootstraps": [
+      {
+        "fixture": "proof",
+        "home_assistant_version": "2026.9.3",
+        "mqtt": "configured",
+        "status": "passed"
+      },
+      {
+        "fixture": "task",
+        "home_assistant_version": "2026.9.3",
+        "mqtt": "configured",
+        "status": "passed"
+      }
+    ],
+    "image_ids": {
+      "entryplug-harbor-mixed:jazzy": "sha256:d07a467c68de89b6426f0de430867d649c9c361e45b3fea302286071f9b7baef",
+      "entryplug-harbor:jazzy": "sha256:608db12d6ad0c4a32ce99771c0d6a79354f3100dde23cfed673e51632b2ee0aa",
+      "entryplug-scenario-worker:dev": "sha256:33f96a781003b25c7e681798530a1e3d96cb25383772d5b9539ac95de0af3c3d"
+    },
+    "mission_health": "blocked",
+    "operation_ids": [
+      "d7d558f648c94dac9c017d1d0229ad18"
+    ],
+    "recovery_refusal": "resource_indeterminate",
+    "run_id": "hybrid-50191e15c043",
+    "source_sha256": "ac76bbe90b20941c82bbb19924a4f9f9c15b0379c3fbff768057d2d2d7a9aed7",
+    "status": "passed"
+  },
+  "interrupted_turns": [
+    {
+      "id": "turn_47df107db6144abe89d479a002cdea6d",
+      "model_calls": 0,
+      "status": "interrupted",
+      "tool_calls": 0
+    }
+  ],
+  "limits": [
+    "One application workspace with a stable explicitly bound body identity. A standalone fresh Session does not provide durable recovery.",
+    "No supported device reconciliation or safe re-enablement is added. Source reconnection cannot establish an earlier effect.",
+    "The old turn was interrupted before its counters committed; one durable operation proves one tool dispatch despite zero completed-turn tool counters.",
+    "Native middleware and simulated camera/light devices on one host; no hardware, multi-host, speed or token-saving claim.",
+    "Two native attempts, each with a fresh enrollment-proof stack and a task stack; zero model calls.",
+    "UI, wheel/browser and OpenEnv were unchanged and not rerun. No dependency or schema changes.",
+    "No push or hosted CI rerun. Remaining native faults, installed attachment/fixture packaging, aggregate and release gates stay open.",
+    "Final source digest identifies b3ce4f1 before this documentation/evidence record."
+  ],
+  "logs": "runs/implementation-oct04-restart",
+  "original_owner_pid": 173,
+  "qualification_commit": "6bdad03",
+  "raw_evidence": [
+    {
+      "path": "runs/hybrid-c0cc29abd24b/hybrid.json",
+      "sha256": "c9926d2398ebb7760be6d92510730bf13539b83670fd12d852e3d64365b71ede"
+    },
+    {
+      "path": "runs/hybrid-c0cc29abd24b/before/crash.json",
+      "sha256": "077b9ab821cec35ff566a7a22ad45277e43cebc9c95d79d23b077d9eabd62edb"
+    },
+    {
+      "path": "runs/hybrid-c0cc29abd24b/scenario.json",
+      "sha256": "ed70d1a6e7b3182b2f1ab961c5120a787a2bdc15ed8b04169d0b190e557de558"
+    }
+  ],
+  "recovered_mission": {
+    "active_turn_id": null,
+    "health": "blocked",
+    "id": "run_c677a29d0ef74295b28e3e900c608839",
+    "lifecycle": "active",
+    "model_calls": 0,
+    "pending": [],
+    "reason_code": "resource_indeterminate",
+    "tool_calls": 0
+  },
+  "recovered_operation": {
+    "dispatch": "sent",
+    "effect_state": "unknown",
+    "evidence_ids": [],
+    "id": "op_53191d34aa3449fd9bfdd0c3ca96118b",
+    "lifecycle": "indeterminate",
+    "native_operation_id": "0951776aa654412e9bad868a83ca7768",
+    "physical_effects": true,
+    "reason_code": "RESTART_UNCONFIRMED",
+    "request_id": "request_f504e4ae76fe4284b6aeb567dc0853d3",
+    "run_id": "run_c677a29d0ef74295b28e3e900c608839",
+    "session_runtime_id": "hybrid-c0cc29abd24b",
+    "turn_id": "turn_47df107db6144abe89d479a002cdea6d"
+  },
+  "recovery": {
+    "duplicate_application_id": "op_53191d34aa3449fd9bfdd0c3ca96118b",
+    "final_runtime_operations": 0,
+    "fresh_runtime_id": "hybrid-c0cc29abd24b-recovered",
+    "fresh_runtime_inhibition": null,
+    "fresh_runtime_operations": 0,
+    "home_assistant_entity": "light.entryplug_hybrid_c0cc29abd24b",
+    "owner_exit_code": -9,
+    "recovery_pid": 49,
+    "refusals": {
+      "resume": "resource_indeterminate",
+      "start": "resource_indeterminate",
+      "write": "resource_indeterminate"
+    }
+  },
+  "regression": {
+    "after": "9 process-boundary/admission combinations pass; each completes a read-only operation on a fresh host",
+    "before": "6 failed, 3 passed: uncertain writer missions incorrectly admitted or marked healthy",
+    "before_log": "runs/implementation-oct04-restart/before.txt",
+    "focused_log": "runs/implementation-oct04-restart/focused.txt",
+    "focused_passed": 40
+  },
+  "validation": {
+    "changed_python_lint_and_format": "passed",
+    "core_elapsed_s": 24.72,
+    "core_passed": 457,
+    "diff_check": "passed",
+    "service_elapsed_s": 33.71,
+    "service_including_core_passed": 498,
+    "shell_syntax": "passed",
+    "warning": "existing Authlib deprecation",
+    "warnings": 1
+  }
+}

@@ -385,8 +385,21 @@ bounded timeout. The evaluator requires the cancellation flag, terminal physical
 uncertainty, stable repeated cancellation and refusal of further writes. A task
 cancellation does not undo a light change.
 
+`--fault owner-restart` kills the disposable owner after the light applies but
+before it receives the HA reply, then reopens the same workspace with a fresh
+runtime. The evaluator requires one total applied command, an interrupted turn,
+a durable unknown outcome and refusal of new physical work. It does not return
+evaluator observations to the task or automatically reconcile the device.
+
+After an uncertain physical operation, starting or resuming a mission with write
+access returns `resource_indeterminate`. Source reconnection also leaves it
+blocked; read-only missions can continue. This protection belongs to the same
+application workspace and body identity. A new runtime alone is not evidence
+that an earlier effect is known. A supported reconciliation procedure for
+re-enabling physical writes remains future work.
+
 This is checkout-based development qualification. Native fixture packaging,
-turnkey `serve` attachment, native browser journeys, mission fault qualification
+turnkey `serve` attachment, native browser journeys, remaining mission fault qualification
 and installed native fixture bundles remain open. The service's existing Python
 composition seam is `ApplicationService(..., ports=[EmbodimentPort(..., session)])`;
 use the same task Session rather than constructing a second operation authority.

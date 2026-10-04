@@ -758,3 +758,50 @@ rerun. No remote push or hosted CI rerun was performed.
 This qualifies cancellation while waiting for the service result. Native deadline
 expiry, state-readback cancellation, restart reconciliation and external light
 interference remain open, as do native attachment/packaging and release gates.
+
+## Physical mission recovery after owner death (4 October 2026)
+
+`2beeb62` fixes misleading mission recovery after an uncertain physical write.
+Operation admission already consulted the durable journal, but mission start,
+resume and source revalidation could claim healthy coverage with that same write
+unresolved. The process regression reproduced six failures across those paths.
+They now share the physical-operation uncertainty check. Read-only missions and
+operations remain usable on the same body. Requests that never reached dispatch
+remain failed/NOT_DISPATCHED and do not inhibit later physical mission admission.
+
+`6bdad03` adds `--client mission --fault owner-restart`. The fixture kills only
+its own child owner with SIGKILL after a real HA command applies in the ROS/MuJoCo
+world, while the service reply is withheld. A distinct process reopens the same
+workspace and attaches a new OperationHost to the same native resources. The new
+host starts with an empty ledger and no in-memory inhibition. The evaluator
+requires the journal to retain the original identities and an indeterminate,
+unknown effect with RESTART_UNCONFIRMED; it must not fabricate a native result.
+`b3ce4f1` preserves the simulated-device provenance on the recovered fixture body.
+
+The initial native run `hybrid-50191e15c043` passed. Final code passed again as
+`hybrid-c0cc29abd24b`.
+Both runs applied one command, preserved the duplicate application ID, interrupted
+the old turn, kept the mission blocked after revalidation and refused resume,
+a new physical mission and an attachment write as resource_indeterminate. The
+fresh host admitted zero operations. All owned worlds/workers stopped cleanly.
+The process tests also execute a successful read-only operation after recovery.
+A killed turn has not committed its tool counters: the one persisted operation
+is evidence of the attempted tool use, not a claim of zero calls.
+
+Final isolated checks: core 457 passed (24.72 s); service/protocol including core
+498 passed (33.71 s, one existing Authlib warning); 40 focused checks passed;
+changed Python lint/format, shell syntax and diff checks passed.
+No numerical profiles, dependency pins, public schemas or UI assets changed.
+UI, installed wheel/browser and OpenEnv checks were not rerun in this slice.
+No push or hosted CI rerun was performed. Each native attempt used separate
+fresh enrollment-proof and task stacks; model calls were zero. Exact source/image
+identities, commands, raw evidence hashes and limits are in
+[the evidence record](evidence/owner-restart.json).
+
+This qualifies application-owned recovery for one explicitly bound body and
+workspace, with native middleware and simulated devices. A fresh standalone
+Session has no durable cross-process ledger; callers must use the application
+owner. Device reconciliation and safe re-enablement remain unimplemented; a
+reconnect alone cannot clear unknown effects. Native deadline/readback cancellation,
+external interference, installed native attachment/packaging, hardware and release
+gates remain open. The older failed aggregate is unchanged.
