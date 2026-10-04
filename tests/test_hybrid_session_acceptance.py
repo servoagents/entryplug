@@ -446,3 +446,116 @@ def test_lost_reply_requires_native_application_uncertainty_and_no_retry(tmp_pat
         (root / "hybrid.json").write_text(json.dumps(changed))
         with pytest.raises(runner.ScenarioFailure, match="cancellation"):
             runner._check_lost_ha_result(root, token, canceled=True)
+
+
+def test_owner_restart_requires_applied_command_and_fresh_host_refusal(tmp_path):
+    import copy
+
+    runner = _runner()
+    token = tmp_path / "token"
+    token.write_text("fixture-secret")
+    root = tmp_path / "evidence"
+    root.mkdir()
+    prior = {
+        "id": "app",
+        "request_id": "request",
+        "native_operation_id": "native",
+        "session_runtime_id": "old",
+        "run_id": "run",
+        "turn_id": "turn",
+        "dispatch": "sent",
+        "lifecycle": "running",
+        "physical_effects": True,
+    }
+    report = {
+        "status": "completed",
+        "owner_exit_code": -9,
+        "recovery_pid": 2,
+        "checkpoint": {
+            "pid": 1,
+            "operation": prior,
+            "native": {"operation_id": "native", "lifecycle": "running"},
+            "run": {"active_turn_id": "turn"},
+            "home_assistant_entity": "light.fixture",
+            "fault": {
+                "service_calls": 1,
+                "dropped_results": 1,
+                "upstream_success": True,
+                "entity_id": "light.fixture",
+                "brightness": 64,
+                "command_id": 5,
+                "applied": {
+                    "level": 64 / 255,
+                    "sim_time_s": 2.0,
+                    "revision": 1,
+                    "prior_revision": 0,
+                },
+            },
+        },
+        "application_operations": [
+            {
+                **prior,
+                "lifecycle": "indeterminate",
+                "effect_state": "unknown",
+                "reason_code": "RESTART_UNCONFIRMED",
+            }
+        ],
+        "fresh_runtime_id": "new",
+        "fresh_runtime_operations": 0,
+        "fresh_runtime_inhibition": None,
+        "final_runtime_operations": 0,
+        "home_assistant_entity": "light.fixture",
+        "duplicate_application_id": "app",
+        "refusals": dict.fromkeys(("resume", "start", "write"), "resource_indeterminate"),
+        "mission_run": {
+            "id": "run",
+            "health": "blocked",
+            "reason_code": "resource_indeterminate",
+            "lifecycle": "active",
+            "active_turn_id": None,
+            "pending": [],
+            "model_calls": 0,
+            "tool_calls": 0,
+        },
+        "turns": [{"id": "turn", "status": "interrupted"}],
+    }
+    bridge = {"status": "stopped", "applied_count": 1}
+    (root / "bridge.json").write_text(json.dumps(bridge))
+    (root / "worker-cleanup.json").write_text(
+        json.dumps({"status": "stopped", "workers": [{"worker_id": "worker-a", "exit_code": 0}]})
+    )
+    (root / "world-cleanup.json").write_text(json.dumps({"status": "stopped", "forced_stops": 0}))
+    (root / "hybrid.json").write_text(json.dumps(report))
+    assert runner._check_owner_restart(root, token)["status"] == "passed"
+    for path, value in [
+        (("owner_exit_code",), 0),
+        (("recovery_pid",), 1),
+        (("fresh_runtime_id",), "old"),
+        (("fresh_runtime_inhibition",), "old-inhibition"),
+        (("final_runtime_operations",), 1),
+        (("duplicate_application_id",), "another"),
+        (("home_assistant_entity",), "light.different"),
+        (("refusals", "write"), None),
+        (("refusals", "resume"), None),
+        (("mission_run", "health"), "ok"),
+        (("turns", 0, "status"), "running"),
+        (("checkpoint", "operation", "dispatch"), "pending"),
+        (("checkpoint", "fault", "dropped_results"), 0),
+        (("checkpoint", "fault", "applied", "revision"), 0),
+        (("application_operations", 0, "effect_state"), "reported"),
+        (("application_operations", 0, "reason_code"), "SHUTDOWN_UNCONFIRMED"),
+        (("application_operations", 0, "native_operation_id"), "another"),
+        (("application_operations", 0, "result"), {"invented": True}),
+    ]:
+        changed = copy.deepcopy(report)
+        item = changed
+        for key in path[:-1]:
+            item = item[key]
+        item[path[-1]] = value
+        (root / "hybrid.json").write_text(json.dumps(changed))
+        with pytest.raises(runner.ScenarioFailure):
+            runner._check_owner_restart(root, token)
+    (root / "hybrid.json").write_text(json.dumps(report))
+    (root / "bridge.json").write_text(json.dumps({**bridge, "applied_count": 2}))
+    with pytest.raises(runner.ScenarioFailure, match="exactly one"):
+        runner._check_owner_restart(root, token)

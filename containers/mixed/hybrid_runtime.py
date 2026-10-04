@@ -29,7 +29,12 @@ class HybridRuntime:
 
 @asynccontextmanager
 async def open_hybrid_runtime(
-    run_dir: Path, run_id: str, token_file: Path, *, home_assistant_url: str = HA_URL
+    run_dir: Path,
+    run_id: str,
+    token_file: Path,
+    *,
+    home_assistant_url: str = HA_URL,
+    runtime_id: str | None = None,
 ) -> AsyncIterator[HybridRuntime]:
     """Keep ROS, HA, native compute and the operation ledger alive together."""
 
@@ -59,7 +64,7 @@ async def open_hybrid_runtime(
                         light=AppliedHAPanelLight(camera, light),
                     ),
                 ),
-                runtime_id=run_id,
+                runtime_id=runtime_id or run_id,
             )
             session = Session(host, owns_runtime=True)
             try:

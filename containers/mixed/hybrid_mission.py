@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
+import signal
 import time
 from contextlib import AsyncExitStack
 from pathlib import Path
@@ -29,6 +31,7 @@ async def run(
     *,
     lost_reply: bool = False,
     cancel_write: bool = False,
+    crash_after_apply: bool = False,
 ) -> dict[str, object]:
     async with AsyncExitStack() as stack:
         fault: dict[str, object] = {}
@@ -72,13 +75,42 @@ async def run(
             # bounded timeout closes the socket; relay teardown cancels this wait.
             await runtime.session.wait(native_id, 10)
 
+        async def crash_owner() -> None:
+            pending = await service.store.list("operations")
+            if len(pending) != 1 or not pending[0].get("native_operation_id"):
+                raise RuntimeError("expected one admitted operation before owner crash")
+            op = pending[0]
+            checkpoint = {
+                "pid": os.getpid(),
+                "fault": fault,
+                "operation": op,
+                "native": json_object(
+                    await runtime.session.inspect(op["native_operation_id"], "result"),
+                    "operation at crash",
+                ),
+                "run": await service.store.get("runs", op["run_id"]),
+                "home_assistant_entity": runtime.light.entity_id,
+            }
+            with (output.parent / "crash.json").open("x", encoding="utf-8") as stream:
+                json.dump(checkpoint, stream, indent=2, sort_keys=True, allow_nan=False)
+                stream.flush()
+                os.fsync(stream.fileno())
+            # Only this explicitly spawned disposable fixture owner is terminated.
+            os.kill(os.getpid(), signal.SIGKILL)
+
         url = HA_URL
-        if lost_reply or cancel_write:
+        if lost_reply or cancel_write or crash_after_apply:
             url, fault = await stack.enter_async_context(
                 lose_service_reply(
                     HA_URL,
                     observe_applied,
-                    after_applied=cancel_pending_write if cancel_write else None,
+                    after_applied=(
+                        crash_owner
+                        if crash_after_apply
+                        else cancel_pending_write
+                        if cancel_write
+                        else None
+                    ),
                 )
             )
         runtime = await stack.enter_async_context(
@@ -198,6 +230,7 @@ def main() -> None:
     parser.add_argument("--token-file", type=Path, default=Path("/run/secrets/ha-token"))
     parser.add_argument("--lost-reply", action="store_true")
     parser.add_argument("--cancel-write", action="store_true")
+    parser.add_argument("--crash-after-apply", action="store_true")
     args = parser.parse_args()
     report = asyncio.run(
         run(
@@ -206,6 +239,7 @@ def main() -> None:
             args.token_file,
             lost_reply=args.lost_reply,
             cancel_write=args.cancel_write,
+            crash_after_apply=args.crash_after_apply,
         )
     )
     with args.output.open("x", encoding="utf-8") as stream:

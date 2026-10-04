@@ -253,7 +253,7 @@ def _check_secret(run_dir: Path, token_file: Path) -> None:
     secret = token_file.read_bytes().strip()
     if not secret:
         raise ScenarioFailure("fixture token is empty")
-    for artifact in run_dir.iterdir():
+    for artifact in run_dir.rglob("*"):
         if artifact.is_file() and secret in artifact.read_bytes():
             raise ScenarioFailure("fixture token leaked into task evidence")
 
@@ -495,6 +495,120 @@ def _check_mission_evidence(report: dict[str, object]) -> None:
         )
 
 
+def _check_applied_light_command(report: dict, fault: dict, bridge: dict) -> None:
+    applied = fault.get("applied", {})
+    _require(
+        fault.get("service_calls") == fault.get("dropped_results") == 1
+        and fault.get("upstream_success") is True
+        and fault.get("entity_id") == report.get("home_assistant_entity")
+        and fault.get("brightness") == 64
+        and type(fault.get("command_id")) is int
+        and _number(applied.get("level"))
+        and abs(applied["level"] - 64 / 255) < 0.01
+        and _number(applied.get("sim_time_s"))
+        and type(applied.get("prior_revision")) is int
+        and type(applied.get("revision")) is int
+        and applied["revision"] > applied["prior_revision"]
+        and bridge.get("status") == "stopped"
+        and bridge.get("applied_count") == 1,
+        "fault was not tied to exactly one real applied light command",
+    )
+
+
+def _check_owned_cleanup(run_dir: Path) -> None:
+    _require(
+        json.loads((run_dir / "worker-cleanup.json").read_text())
+        == {"status": "stopped", "workers": [{"worker_id": "worker-a", "exit_code": 0}]},
+        "worker did not stop cleanly",
+    )
+    _require(
+        json.loads((run_dir / "world-cleanup.json").read_text())
+        == {"status": "stopped", "forced_stops": 0},
+        "world did not stop cleanly",
+    )
+
+
+def _check_owner_restart(run_dir: Path, token_file: Path) -> dict[str, object]:
+    report = json.loads((run_dir / "hybrid.json").read_text())
+    checkpoint = report.get("checkpoint", {})
+    bridge = json.loads((run_dir / "bridge.json").read_text())
+    _check_applied_light_command(checkpoint, checkpoint.get("fault", {}), bridge)
+    _check_owned_cleanup(run_dir)
+    operations = report.get("application_operations", [])
+    _require(len(operations) == 1, "restart did not preserve exactly one intent")
+    op, prior, native = operations[0], checkpoint.get("operation", {}), checkpoint.get("native", {})
+    _require(
+        report.get("status") == "completed"
+        and report.get("owner_exit_code") == -9
+        and type(checkpoint.get("pid")) is int
+        and type(report.get("recovery_pid")) is int
+        and checkpoint["pid"] != report["recovery_pid"]
+        and prior.get("dispatch") == "sent"
+        and prior.get("lifecycle") == native.get("lifecycle") == "running"
+        and prior.get("native_operation_id") == native.get("operation_id")
+        and bool(native.get("operation_id"))
+        and checkpoint.get("run", {}).get("active_turn_id") == prior.get("turn_id")
+        and bool(prior.get("turn_id")),
+        "owner did not die during an admitted physical command",
+    )
+    _require(
+        all(
+            bool(op.get(key)) and op.get(key) == prior.get(key)
+            for key in (
+                "id",
+                "request_id",
+                "native_operation_id",
+                "session_runtime_id",
+                "run_id",
+                "turn_id",
+            )
+        )
+        and op.get("physical_effects") is True
+        and op.get("lifecycle") == "indeterminate"
+        and op.get("effect_state") == "unknown"
+        and op.get("reason_code") == "RESTART_UNCONFIRMED"
+        and not op.get("result")
+        and not op.get("evidence_ids"),
+        "recovery did not retain uncertainty without inventing a native result",
+    )
+    run = report.get("mission_run", {})
+    turns = report.get("turns", [])
+    _require(
+        report.get("fresh_runtime_id") != op.get("session_runtime_id")
+        and bool(report.get("fresh_runtime_id"))
+        and report.get("fresh_runtime_operations") == 0
+        and "fresh_runtime_inhibition" in report
+        and report["fresh_runtime_inhibition"] is None
+        and report.get("final_runtime_operations") == 0
+        and report.get("home_assistant_entity") == checkpoint.get("home_assistant_entity")
+        and report.get("duplicate_application_id") == op.get("id")
+        and report.get("refusals")
+        == dict.fromkeys(("resume", "start", "write"), "resource_indeterminate")
+        and run.get("id") == op.get("run_id")
+        and run.get("health") == "blocked"
+        and run.get("reason_code") == "resource_indeterminate"
+        and run.get("lifecycle") == "active"
+        and run.get("active_turn_id") is None
+        and run.get("pending") == []
+        and run.get("model_calls") == 0
+        and run.get("tool_calls") == 0  # Counters commit only when the turn finishes.
+        and len(turns) == 1
+        and turns[0].get("id") == op.get("turn_id")
+        and turns[0].get("status") == "interrupted",
+        "fresh owner did not fence writes and interrupted mission recovery",
+    )
+    _check_secret(run_dir, token_file)
+    return {
+        "status": "passed",
+        "operation_ids": [op["native_operation_id"]],
+        "effect_state": "unknown",
+        "bridge_applied_count": 1,
+        "mission_health": "blocked",
+        "recovery_refusal": "resource_indeterminate",
+        "fresh_runtime_operations": 0,
+    }
+
+
 def _check_lost_ha_result(
     run_dir: Path, token_file: Path, *, canceled: bool = False
 ) -> dict[str, object]:
@@ -521,23 +635,7 @@ def _check_lost_ha_result(
         and native.get("result", {}).get("lighting_writes") == 1,
         "mission did not retain native physical uncertainty",
     )
-    applied = fault.get("applied", {})
-    _require(
-        fault.get("service_calls") == fault.get("dropped_results") == 1
-        and fault.get("upstream_success") is True
-        and fault.get("entity_id") == report.get("home_assistant_entity")
-        and fault.get("brightness") == 64
-        and type(fault.get("command_id")) is int
-        and _number(applied.get("level"))
-        and abs(applied["level"] - 64 / 255) < 0.01
-        and _number(applied.get("sim_time_s"))
-        and type(applied.get("prior_revision")) is int
-        and type(applied.get("revision")) is int
-        and applied["revision"] > applied["prior_revision"]
-        and bridge.get("status") == "stopped"
-        and bridge.get("applied_count") == 1,
-        "lost reply was not tied to exactly one real applied light command",
-    )
+    _check_applied_light_command(report, fault, bridge)
     _require(
         fault.get("duplicate_application_id") == op.get("id")
         and fault.get("duplicate_native_id") == native.get("operation_id")
@@ -557,16 +655,7 @@ def _check_lost_ha_result(
         ),
         "uncertain operation is missing durable evidence",
     )
-    _require(
-        json.loads((run_dir / "worker-cleanup.json").read_text())
-        == {"status": "stopped", "workers": [{"worker_id": "worker-a", "exit_code": 0}]},
-        "worker did not stop cleanly",
-    )
-    _require(
-        json.loads((run_dir / "world-cleanup.json").read_text())
-        == {"status": "stopped", "forced_stops": 0},
-        "world did not stop cleanly",
-    )
+    _check_owned_cleanup(run_dir)
     if canceled:
         requested = fault.get("cancel_requested_monotonic")
         terminal = fault.get("terminal_observed_monotonic")
@@ -771,15 +860,17 @@ def main() -> int:
             "kill-active-worker",
             "ha-result-loss",
             "ha-cancel-write",
+            "owner-restart",
         ),
         default="none",
     )
     parser.add_argument("--client", choices=("direct", "session", "mission"), default="direct")
     args = parser.parse_args()
-    if args.client == "mission" and args.fault not in {"none", "ha-result-loss", "ha-cancel-write"}:
-        parser.error("mission mode supports no-fault, HA result loss and HA write cancellation")
-    if args.fault in {"ha-result-loss", "ha-cancel-write"} and args.client != "mission":
-        parser.error("HA faults require --client mission")
+    mission_faults = {"ha-result-loss", "ha-cancel-write", "owner-restart"}
+    if args.client == "mission" and args.fault not in {"none", *mission_faults}:
+        parser.error("mission mode supports HA result loss, write cancellation and owner restart")
+    if args.fault in mission_faults and args.client != "mission":
+        parser.error("mission faults require --client mission")
     if args.fault == "kill-active-worker" and args.client != "session":
         parser.error("active-worker loss requires --client session")
     RUNS.mkdir(exist_ok=True)
@@ -850,7 +941,9 @@ def main() -> int:
                         "/workspace/entryplug/containers/mixed/hybrid_inspection.sh",
                         f"/workspace/entryplug/runs/{run_id}",
                         run_id,
-                        "mission-cancel-write"
+                        "mission-restart"
+                        if args.fault == "owner-restart"
+                        else "mission-cancel-write"
                         if args.fault == "ha-cancel-write"
                         else "mission-lost-reply"
                         if args.fault == "ha-result-loss"
@@ -866,6 +959,9 @@ def main() -> int:
                     if not command_failed:
                         raise ScenarioFailure("task unexpectedly succeeded without native worker")
                     outcome.update(_check_unavailable_result(run_dir, stack.private / "ha-token"))
+                elif args.fault == "owner-restart":
+                    _stop_native_worker(stack, run_dir)
+                    outcome.update(_check_owner_restart(run_dir, stack.private / "ha-token"))
                 elif args.fault in {"ha-result-loss", "ha-cancel-write"}:
                     _stop_native_worker(stack, run_dir)
                     outcome.update(
