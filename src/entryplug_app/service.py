@@ -226,12 +226,31 @@ class ApplicationService:
         port = self.ports.get(definition.body.selector)
         if not port or not port.available:
             raise AppError("source_lost", "The selected body is not connected and validated", 409)
-        names = {c["name"] for c in (await port.describe())["capabilities"]}
+        capabilities = (await port.describe())["capabilities"]
+        names = {c["name"] for c in capabilities}
         if not set(definition.body.required_capabilities) <= names:
             raise AppError(
                 "capability_unavailable", "Required body capabilities are unavailable", 409
             )
+        if any(
+            c["physical_effects"] and c["name"] in definition.access.allow for c in capabilities
+        ):
+            await self._require_effects_known(port.body_id)
         return port
+
+    async def _require_effects_known(self, body_id: str) -> None:
+        # A fresh Session cannot resolve effects left uncertain by an earlier owner.
+        if any(
+            op["body_id"] == body_id
+            and op["physical_effects"]
+            and op["lifecycle"] == "indeterminate"
+            for op in await self.store.list("operations")
+        ):
+            raise AppError(
+                "resource_indeterminate",
+                "Reconcile the previous physical effect before new writes",
+                409,
+            )
 
     async def command(
         self,
@@ -594,19 +613,7 @@ class ApplicationService:
         if not spec:
             raise AppError("capability_unavailable", "Capability is not exposed by this body", 409)
         if spec["physical_effects"]:
-            uncertain = [
-                o
-                for o in await self.store.list("operations")
-                if o["body_id"] == body_id
-                and o["physical_effects"]
-                and o["lifecycle"] == "indeterminate"
-            ]
-            if uncertain:
-                raise AppError(
-                    "resource_indeterminate",
-                    "Reconcile the previous physical effect before new writes",
-                    409,
-                )
+            await self._require_effects_known(body_id)
         return {
             "id": new_id("op"),
             "request_id": new_id("request"),
@@ -813,13 +820,19 @@ class ApplicationService:
                         self.turn_tasks[run["id"]].cancel()
                     event_type = "mission.coverage_lost"
                 elif event["type"] == "source.revalidated":
+                    event_type = "mission.revalidated"
                     if definition.recovery.resume_after_revalidation and run.get("reason_code") in {
                         "source_lost",
                         "stale_observation",
                         "revalidation_required",
                     }:
-                        run.update(health="ok", reason_code=None, activity="waiting_event")
-                    event_type = "mission.revalidated"
+                        try:
+                            await self._require_body(definition)
+                        except AppError as error:
+                            run.update(health="blocked", reason_code=error.code, pending=[])
+                            event_type = "mission.coverage_lost"
+                        else:
+                            run.update(health="ok", reason_code=None, activity="waiting_event")
                 else:
                     event_type = "mission.observed"
                     if (
