@@ -684,3 +684,40 @@ console attachment, native browser/observer behavior, native mission faults or
 installed fixture packaging. Those remain next, together with mixed uncertainty
 qualification. The physical devices remain simulated; no hardware, multi-host,
 performance advantage or release acceptance is inferred.
+
+## Applied light command with lost HA reply (4 October 2026)
+
+Implementation `ae2c58a` adds a targeted native fault qualification, with no
+production-runtime change. A fixture-only loopback WebSocket relay forwards the
+ordinary authentication and commands to actual Home Assistant, waits for public
+ROS applied-state feedback after the real service succeeds, then closes without
+forwarding that service result. It records identifiers and applied-state evidence,
+never tokens or full authentication messages. The task receives no evaluator state.
+
+`python3 containers/scenarios/run_hybrid.py --build --client mission --fault
+ha-result-loss` passed as `hybrid-bc230f425fec`. One command applied brightness
+64/255 (observed level 0.250980407), advancing revision 1 to 2. The service reply
+was dropped once. The operation stayed `indeterminate` with `effect_state=unknown`
+and `LIGHT_COMMAND_UNCONFIRMED`; its mission became blocked. Duplicate application
+and native requests returned the original identities. A fresh mission request was
+refused as `admission_closed`; a fresh native request was `EFFECT_INHIBITED`.
+The bridge recorded exactly one applied command, proving the retry checks did
+not produce an additional native effect. Durable mission evidence matched the
+native uncertain result.
+
+The no-fault control, `python3 containers/scenarios/run_hybrid.py --client mission`,
+passed as `hybrid-bac4d7b663c5` using the same source digest and images. It completed
+first/warm missions with lighting writes [3, 0]. Workers and worlds stopped cleanly;
+owned networks and volumes were removed. No numerical thresholds changed.
+
+Local isolated checks: core 449 passed (15.21 s); service/protocol suite including
+core 489 passed (25.00 s, one existing Authlib warning); targeted adapter/evaluator
+46 passed; changed Python lint and diff checks passed. UI, wheel and OpenEnv were
+unchanged and not rerun. No new hosted CI result is claimed. Exact commands, source
+and image identities, observations and limits are in
+[the evidence record](evidence/ha-result-loss.json).
+
+This closes the native lost-service-reply case for this single-owner fixture.
+Restart recovery, reconnect reconciliation, cancellation during native writes,
+external light interference and standalone native packaging remain open. The
+existing uncertainty fences held, so no speculative runtime refactor was added.
