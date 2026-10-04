@@ -271,6 +271,7 @@ class Simulations:
             "index": 0,
             "started": 0.0,
             "generation": 0,
+            "last_event": None,
         }
 
     async def restore(self) -> None:
@@ -319,6 +320,12 @@ class Simulations:
             "position_s": min(14.24, position),
             "duration_s": 14.24,
             "scenario": player["scenario"],
+            "last_event": player["last_event"],
+            "timeline": [
+                {"at_s": at, "event": cue, "emitted": index < player["index"]}
+                for index, (at, cue) in enumerate(self.timeline(identifier))
+            ],
+            "remaining_events": len(self.timeline(identifier)) - player["index"],
             "sampled_at": utc_now(),
             "state": body.observation(),
             "scenarios": list(CAMERA_SCENARIOS) if player["kind"] == "camera" else ["tour"],
@@ -333,8 +340,8 @@ class Simulations:
         if p["kind"] == "camera":
             return CAMERA_SCENARIOS[p["scenario"]]
         if p["kind"] == "rover":
-            return [(0, "tick"), (3, "tick"), (6, "obstacle"), (9, "clear"), (12, "tick")]
-        return [(0, "leave"), (3, "arrive"), (8, "leave"), (11, "arrive")]
+            return [(0, "tick"), (3, "obstacle"), (6, "clear"), (9, "tick")]
+        return [(0, "leave"), (3, "arrive"), (8, "leave")]
 
     async def control(self, identifier: str, payload: dict[str, Any]) -> dict[str, Any]:
         async with self.lock:
@@ -354,7 +361,7 @@ class Simulations:
             p["playing"] = False
             p["generation"] += 1
             if action in {"reset", "scenario"} or (action == "play" and p["position_s"] >= 14.24):
-                p.update(position_s=0.0, index=0)
+                p.update(position_s=0.0, index=0, last_event=None)
                 await self.service.ingest(
                     body.step("recover" if p["kind"] == "camera" else "reset")
                 )
@@ -367,10 +374,12 @@ class Simulations:
                 timeline = self.timeline(identifier)
                 if p["index"] < len(timeline):
                     at, cue = timeline[p["index"]]
-                    p.update(index=p["index"] + 1, position_s=float(at))
+                    p.update(index=p["index"] + 1, position_s=float(at), last_event=cue)
                     await self.service.ingest(body.step(cue))
             elif action == "inject":
-                await self.service.ingest(body.step(payload.get("event", "")))
+                event = payload.get("event", "")
+                await self.service.ingest(body.step(event))
+                p["last_event"] = event
             result = self.describe(identifier)
             await self.service.store.commit([], "simulation.controlled", result)
             return result
@@ -387,6 +396,7 @@ class Simulations:
                     while p["index"] < len(timeline) and timeline[p["index"]][0] <= position:
                         cue = timeline[p["index"]][1]
                         p["index"] += 1
+                        p["last_event"] = cue
                         await self.service.ingest(self.bodies[identifier].step(cue))
                     if position >= 14.24:
                         p.update(playing=False, position_s=14.24)

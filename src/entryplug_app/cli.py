@@ -42,7 +42,7 @@ def register(commands: Any) -> None:
         if name == "login":
             child.add_argument("provider", choices=["chatgpt"])
         if name == "configure":
-            child.add_argument("--provider", choices=["chatgpt", "openai"], required=True)
+            child.add_argument("--provider", choices=["chatgpt", "openai", "ollama"], required=True)
             child.add_argument("--model", required=True)
             child.add_argument("--api-key-env", default="OPENAI_API_KEY")
     parser = commands.add_parser("mission", help="Validate and control resident missions")

@@ -15,6 +15,7 @@ import "./style.css";
 import "./workbench.css";
 import ProtocolIcon from "./ProtocolIcon";
 import SimulationView from "./SimulationView";
+import SimulationWorkbench from "./SimulationWorkbench";
 import ProviderSetup from "./ProviderSetup";
 import AddBody from "./AddBody";
 
@@ -250,18 +251,67 @@ function App() {
       api(`simulations/${id}/control`, "POST", { action, ...fields }),
     );
   }
-  async function runDemo(id: string) {
+  function simulationRun(id: string) {
+    return [...(snapshot()?.runs ?? [])]
+      .reverse()
+      .find((r) => r.body_id === id && !terminal.has(r.lifecycle));
+  }
+  function runDefinition(run?: RecordData) {
+    return snapshot()?.missions.find((m) => m.id === run?.mission_id)
+      ?.definition;
+  }
+  async function manageDemo(
+    id: string,
+    action: "pause" | "resume" | "stop" | "replay",
+  ) {
+    const run = simulationRun(id);
+    if (!run) return;
+    const agent = runDefinition(run)?.agent;
     await act(async () => {
+      await api(`simulations/${id}/control`, "POST", { action: "pause" });
+      await api(
+        `runs/${run.id}/${action === "replay" ? "stop" : action}`,
+        "POST",
+        {},
+      );
+      if (action === "resume" && agent?.driver !== "native")
+        await api(`simulations/${id}/control`, "POST", { action: "play" });
+    });
+    if (action === "replay" && !error())
+      await act(async () => {
+        await api(`simulations/${id}/control`, "POST", { action: "reset" });
+        const next = await api(`missions/${run.mission_id}/runs`, "POST", {});
+        setSelected(next.id);
+        await api(`simulations/${id}/control`, "POST", {
+          action: agent?.driver === "native" ? "step" : "play",
+        });
+      });
+  }
+  async function runDemo(id: string, profile = "") {
+    await act(async () => {
+      if (simulationRun(id))
+        throw new Error(
+          "Stop the current mission before starting another controller for this body.",
+        );
       const body = snapshot()!.bodies.find((b) => b.id === id)!;
+      await api(`simulations/${id}/control`, "POST", { action: "reset" });
       const demo: Definition = {
         ...initialDefinition(),
-        name: `${body.name.replace(" · SIMULATED", "")} demo`,
+        name: `${body.name.replace(" · SIMULATED", "")} ${profile ? "model test" : "demo"}`,
+        agent: profile
+          ? { driver: "native", decision_mode: "assisted", profile }
+          : initialDefinition().agent,
+        limits: {
+          max_model_calls_per_turn: 6,
+          max_tool_calls_per_turn: 6,
+          turn_timeout_s: 120,
+        },
         instructions:
           body.body_type === "camera"
             ? "Observe labelled entries and save camera evidence with an alert."
             : body.body_type === "rover"
-              ? "Patrol dock, aisle and station. Stop at an obstacle and report it."
-              : "Read occupancy, turn the simulated light on when occupied, and turn it off when empty.",
+              ? "For each event, read robot.observe. If there is an obstacle, stay put and report it. Otherwise move exactly one waypoint along dock → aisle → station → dock, verify the result, and report. Do not loop or move more than once per event."
+              : "Read occupancy, turn the simulated light on when occupied, and turn it off when empty. Verify the tool result. Never claim success without a successful operation.",
         body: {
           selector: id,
           required_capabilities: [body.capabilities[0].name],
@@ -285,9 +335,11 @@ function App() {
       const created = await api("missions", "POST", demo);
       const run = await api(`missions/${created.id}/runs`, "POST", {});
       setSelected(run.id);
-      go("mission");
-      await api(`simulations/${id}/control`, "POST", { action: "reset" });
-      await api(`simulations/${id}/control`, "POST", { action: "play" });
+      setSelectedSimulation(id);
+      go("simulations");
+      await api(`simulations/${id}/control`, "POST", {
+        action: profile ? "step" : "play",
+      });
     });
   }
   async function showEvidence(id: string) {
@@ -581,7 +633,9 @@ function App() {
                   <span class="eyebrow">LOCAL / NO ACCOUNT</span>
                   <h1>Simulations</h1>
                   <p>
-                    Explore a body, play its events, and watch an agent respond.
+                    Choose a task. Start its demo to run the world and
+                    controller together, or connect a model to choose the
+                    actions.
                   </p>
                 </div>
                 <button onClick={() => addBody("simulations")}>
@@ -600,13 +654,13 @@ function App() {
                       <h2>{sim.name.replace(" · SIMULATED", "")}</h2>
                       <p>
                         {sim.kind === "camera"
-                          ? "A recorded street scene, entry events, and camera failures."
+                          ? "Record new entries once and handle disconnected or stale observations."
                           : sim.kind === "rover"
-                            ? "A warehouse route, battery state, and obstacles."
-                            : "Occupancy, a controllable light, and device readback."}
+                            ? "Patrol to a station, wait at an obstacle, and return to the dock."
+                            : "Turn lighting on for an occupant and off when the room empties."}
                       </p>
                       <span class="simulation-card-status">
-                        {sim.playing ? "● Playing" : "○ Ready to explore"}
+                        {sim.playing ? "● World playing" : "○ World paused"}
                       </span>
                     </button>
                   )}
@@ -618,40 +672,36 @@ function App() {
                 )}
               >
                 {(sim) => (
-                  <div class="simulation-detail">
-                    <SimulationView
-                      simulation={sim()}
-                      control={simulationControl}
-                      busy={busy()}
-                    />
-                    <aside class="panel simulation-guide">
-                      <ProtocolIcon kind="agent" large />
-                      <h2>Simulated agent</h2>
-                      <p>
-                        A deterministic demo agent observes the body, calls its
-                        tools, and saves evidence. Its activity is visible in
-                        the mission.
-                      </p>
-                      <ol>
-                        <li>Read the latest observation</li>
-                        <li>Choose the scripted response</li>
-                        <li>Run a tool and inspect its result</li>
-                        <li>Save an alert with evidence</li>
-                      </ol>
-                      <button
-                        class="primary"
-                        disabled={busy()}
-                        onClick={() => runDemo(sim().id)}
-                      >
-                        Run with simulated agent →
-                      </button>
-                      <p class="notice">
-                        No LLM, no account, no physical hardware. Your own
-                        instructions are saved, but this demo follows a fixed
-                        policy.
-                      </p>
-                    </aside>
-                  </div>
+                  <SimulationWorkbench
+                    simulation={sim()}
+                    run={simulationRun(sim().id)}
+                    native={
+                      runDefinition(simulationRun(sim().id))?.agent.driver ===
+                      "native"
+                    }
+                    agentLabel={
+                      runDefinition(simulationRun(sim().id))?.agent.driver ===
+                      "native"
+                        ? `Model: ${runDefinition(simulationRun(sim().id))?.agent.profile}`
+                        : runDefinition(simulationRun(sim().id))?.agent
+                              .driver === "rules"
+                          ? "Local rule · no model"
+                          : "Built-in demo · no model"
+                    }
+                    profiles={profiles()}
+                    busy={busy()}
+                    liveText={
+                      liveText()[simulationRun(sim().id)?.active_turn_id || ""]
+                    }
+                    control={simulationControl}
+                    start={(profile) => runDemo(sim().id, profile)}
+                    manage={(action) => manageDemo(sim().id, action)}
+                    inspect={() => {
+                      setSelected(simulationRun(sim().id)!.id);
+                      go("mission");
+                    }}
+                    connect={() => go("connections")}
+                  />
                 )}
               </Show>
             </Show>
@@ -769,7 +819,7 @@ function App() {
                       <span>◇</span>
                       <h3>Entryplug agent</h3>
                       <p>
-                        Use a real model through ChatGPT sign-in or an OpenAI
+                        Use a local Ollama model, ChatGPT sign-in, or an OpenAI
                         API key. Set it up here.
                       </p>
                       <small>
@@ -996,7 +1046,9 @@ function App() {
                             trigger: {
                               ...definition().trigger,
                               kind: e.currentTarget.value as
-                                "event" | "manual" | "interval",
+                                | "event"
+                                | "manual"
+                                | "interval",
                             },
                           })
                         }
@@ -1313,8 +1365,8 @@ function App() {
                           : mission()?.definition.agent.driver === "inspection"
                             ? "INSPECTION · NO LLM"
                             : mission()?.definition.agent.driver === "rules"
-                            ? "LOCAL RULE · NO LLM"
-                            : "LIVE MODEL"}
+                              ? "LOCAL RULE · NO LLM"
+                              : "LIVE MODEL"}
                       </span>
                       <span>
                         {snapshot()!.bodies.find((b) => b.id === run().body_id)

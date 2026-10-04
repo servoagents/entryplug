@@ -66,6 +66,7 @@ def openapi() -> dict[str, Any]:
     for route in (
         "health",
         "providers",
+        "providers/ollama/models",
         "simulations",
         "snapshot",
         "bodies",

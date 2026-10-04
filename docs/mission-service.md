@@ -27,7 +27,7 @@ python -m entryplug ui
 sign-in. `python -m entryplug ui` also works if the script is not on PATH. If no service exists, `ui` starts one **in the foreground**.
 Closing that terminal closes its owner. Ordinary client commands never start a
 hidden process. Use `--no-demo` on `serve` to exclude all simulated bodies and their creation.
-Use `[ui]` alone if you only want the account-free simulations.
+Use `[ui]` alone for the account-free simulations and local Ollama models.
 
 The console has Workspace, New mission, Simulations, Bodies & topology,
 Connections, and a persistent inbox. Graph information also has a searchable
@@ -36,30 +36,63 @@ layers and capability groups can be hidden without changing body permissions.
 
 ## Explore simulations
 
-Open **Simulations**, select a camera, warehouse rover, or smart room, and
-choose **Run with simulated agent**. The service creates a scoped mission and
-runs a finite scenario. No account, model call, or hardware is needed.
+Open **Simulations**, choose a task, and click **Start demo**. This starts both
+the world and its built-in controller, keeps the simulation on screen, and shows
+the timeline alongside the agent's response. No account, model call, or hardware
+is needed. Each task states its purpose and expected behavior:
 
-- **Camera:** a bundled recording plays alongside scripted person events.
-  Switch between entry/reentry, disconnection/recovery, and stale observations.
-  The agent takes a simulated snapshot and emits alerts for labelled entries.
-- **Rover:** the map follows waypoint changes. The agent observes state, calls
-  `robot.move`, and stops moving when the simulated obstacle is present.
-- **Room:** occupancy changes trigger observation and `room.set_light`; the
-  illustrated room reflects the returned light state.
+| Simulation | Purpose | Expected outcome |
+| --- | --- | --- |
+| Warehouse rover | Observe → act → verify; respect an obstacle | Dock → aisle, hold at the obstacle, then station → dock |
+| Smart room | Connect occupancy to an actuator and verify state | Empty/off → occupied/on → empty/off |
+| Camera: entries | Distinguish a new entry from continued presence | Three entry alerts, including a return visit, with evidence |
+| Camera: outage | Distinguish missing data from an empty scene | Block during disconnection and recover after reconnection |
+| Camera: stale observation | Reject old information | Reject the stale event and recover with fresh observations |
 
-Play, pause, step, reset, and manual event controls belong to the service.
-Closing the browser does not stop playback or its mission. Pausing a scenario
-stops new source events; **Pause** or **Stop mission** controls the agent run.
-Playback is finite and does not loop automatically. Custom body definitions
+**Pause demo** pauses the world and mission; **Resume demo** resumes them.
+**Stop demo** stops its mission and pauses the world. A running turn stops
+cooperatively; pausing does not undo an action already applied. **Next event**
+lets you advance a quiet controller manually. After the timeline ends, the
+mission remains available for manual events until stopped; **Replay demo**
+starts the same mission definition again from the initial world state.
+A timeline checkmark means an event was sent, not that the task passed. Inspect
+the returned state and **View mission & evidence** to assess the result.
+
+**World controls & fault injection** contains advanced event-only playback,
+reset, and manual faults. **Play world only** sends observations without starting
+an agent; it does not choose rover moves or light changes. Closing the browser
+does not stop the service's world playback or mission. Custom body definitions
 survive a restart; their simulated world resets and playback remains paused.
 
-The **simulated agent** is a deterministic demonstration policy using the same
-scoped tools, operation journal, and evidence flow as missions. It cannot use
-connected hardware. The **local rule** is real automation without an LLM; it
-can process validated person-entry capabilities on either simulated or connected
-bodies. Body labels identify which source is in use. The **Entryplug agent**
-uses a configured live model profile and may incur provider usage.
+The **built-in demo** is a deterministic policy using the same scoped tools,
+operation journal, and evidence flow as missions. It cannot use connected
+hardware. These are small behavioral demonstrations: rover movement is between
+waypoints, not a physics or navigation benchmark. The **local rule** is automation
+without an LLM and can process validated person-entry capabilities on simulated
+or connected bodies. Body labels identify the source in use.
+
+### Try a real model without API charges
+
+Install [Ollama 0.13.3 or later](https://docs.ollama.com/quickstart), download a
+model supporting tool calling, and run Ollama locally on `127.0.0.1:11434`.
+In **Connections → Ollama · local**, click **Load models**, select a downloaded
+model, then **Save model profile**. Back in Simulations, select that profile
+under **Controller** and click **Start with model**. Stop an existing demo first.
+The room and rover provide small text-and-tool tasks suitable for a first test.
+
+This connection uses Ollama's stateless
+[Responses API](https://docs.ollama.com/api/openai-compatibility). It uses no API
+key and needs only Entryplug's `[ui]` dependencies. Local models consume your own
+memory and CPU/GPU; response speed and tool quality depend on the chosen model
+and hardware. Cloud model entries are rejected by this local connection.
+
+Model runs start with one event and wait for **Next event** instead of playing
+on a timer. The existing mission broker checks permissions and tool arguments,
+records operations and evidence, and limits calls per turn. This integration
+sends text observations and tool results; it does not perform camera vision.
+Profile `ready` means configuration/model metadata passed, not that inference
+quality was qualified. Protocol fixtures cover the adapter and journalled rover
+movement; a live downloaded model has not yet been qualified for these demos.
 
 The camera footage is [Big City Life, Coverr (2015)](https://commons.wikimedia.org/wiki/File:Big_City_Life.webm),
 distributed under CC0. The unmodified recording is bundled for offline use.

@@ -805,3 +805,45 @@ owner. Device reconciliation and safe re-enablement remain unimplemented; a
 reconnect alone cannot clear unknown effects. Native deadline/readback cancellation,
 external interference, installed native attachment/packaging, hardware and release
 gates remain open. The older failed aggregate is unchanged.
+
+
+## Purposeful simulation workbench and local models (4 October 2026)
+
+The reported rover confusion came from `Play scenario` advancing source events
+without a controller. Simulations now has one primary `Start demo` that starts
+both, stays on the world view, and exposes coupled pause/resume/stop. Advanced
+world-only playback and fault injection are labelled explicitly. The selected
+mission's responses, operation counters, event timeline and evidence link remain
+beside the world. Cards are more compact, and every scenario states its task,
+purpose and expected outcome. Rover ends back at its dock; the room ends empty
+with its light off. Camera scenarios retain explicit scripted-data provenance.
+
+A local Ollama adapter reuses NativeDriver and the mission broker. Setup lists
+local downloaded models and checks tool support, requires no OpenAI extra, and
+rejects cloud models. Model demos advance one event at a time. Responses tool
+call IDs and outputs survive the bounded loop; a protocol fixture executes real
+journalled rover observation/movement through ApplicationService. No live model
+was installed, downloaded or qualified. Text/tool integration does not claim
+camera vision or model reliability. Setup guidance: [mission service](../mission-service.md).
+
+Verification: isolated Python 3.12 core 462 passed; service/protocol including
+core 511 passed (one existing Authlib warning); local provider fixtures 8 passed;
+UI unit 3 passed; source browser 9 passed; installed-wheel browser 9 passed on
+Python 3.14 and Chrome 154. TypeScript build, changed Python lint/format, strict
+adapter typing, generated-contract stability, pip check, installed CLI and exact
+wheel asset checks pass. The built wheel is installed in the user's existing
+`/tmp/entryplug-ui-manual-venv`; an already running owner needs restarting.
+
+The new rover journey failed against the old UI and passes now. Initial broad
+browser checks also exposed a collapsed advanced-controls test and a model
+input whose label changed when datalist options loaded; both were corrected.
+Browser setup now stops only its own fixture's leftover controllers between tests.
+Desktop/mobile layouts and model setup were visually inspected. Evidence and
+local log hashes: [simulation-ux.json](evidence/simulation-ux.json).
+
+No runtime dependency upgrade, language migration, paid inference, hardware run,
+remote push or hosted CI rerun. OpenEnv/native fixtures were unchanged and not
+rerun. Physical reconciliation, other native fault gates, installed native
+attachment and release qualification remain open. Next GUI qualification is one
+real local tool-capable model completing the room/rover tasks with recorded
+responses, failures and timings on the user's hardware.

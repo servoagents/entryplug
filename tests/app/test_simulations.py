@@ -107,3 +107,65 @@ async def test_simulated_agent_rejects_real_body_and_disabled_simulation_creatio
         assert disabled.simulations.snapshot() == []
     finally:
         await disabled.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "kind,scenario,expected_alerts",
+    [
+        ("camera", "entries", 3),
+        ("camera", "outage", 2),
+        ("camera", "stale", 2),
+        ("rover", "tour", 4),
+        ("room", "tour", 3),
+    ],
+)
+async def test_each_scenario_has_a_complete_observable_outcome(
+    tmp_path, kind, scenario, expected_alerts
+):
+    service = ApplicationService(Workspace.resolve(str(tmp_path)))
+    await service.open()
+    identifier = "demo.access-camera" if kind == "camera" else "demo." + kind
+    body = service.ports[identifier]
+    caps = [c["name"] for c in (await body.describe())["capabilities"]]
+    try:
+        await service.simulations.control(identifier, {"action": "scenario", "scenario": scenario})
+        mission = await service.command(
+            "mission.create",
+            {
+                "name": "Purpose test",
+                "instructions": "Follow the simulation policy",
+                "agent": {"driver": "simulated", "decision_mode": "assisted"},
+                "body": {"selector": identifier, "required_capabilities": [caps[0]]},
+                "trigger": {
+                    "source": identifier,
+                    "event": "person.entered" if kind == "camera" else "simulation.changed",
+                },
+                "access": {"allow": [*caps, "alerts.emit"]},
+            },
+            "create",
+        )
+        run = await service.command("mission.start", {"mission_id": mission["id"]}, "start")
+        states = []
+        health = []
+        while service.simulations.describe(identifier)["remaining_events"]:
+            await service.simulations.control(identifier, {"action": "step"})
+            async with asyncio.timeout(5):
+                while True:
+                    current = await service.store.get("runs", run["id"])
+                    if not current["pending"] and not current["active_turn_id"]:
+                        break
+                    await asyncio.sleep(0.01)
+            states.append(service.simulations.describe(identifier)["state"])
+            health.append(current["health"])
+        assert len(await service.store.list("alerts")) == expected_alerts
+        assert all(c["emitted"] for c in service.simulations.describe(identifier)["timeline"])
+        if kind == "rover":
+            assert [s["waypoint"] for s in states] == ["aisle", "aisle", "station", "dock"]
+            assert states[-1]["battery"] == 87  # No move while blocked.
+        elif kind == "room":
+            assert [s["light"] for s in states] == [False, True, False]
+        elif scenario != "entries":
+            assert "blocked" in health and health[-1] == "ok"
+    finally:
+        await service.close()

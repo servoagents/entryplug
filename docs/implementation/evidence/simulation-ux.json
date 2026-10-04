@@ -1,0 +1,120 @@
+{
+  "base_commit": "bdee92d6a7700a465f48c17468c988a988f79048",
+  "behavior": {
+    "camera": "entry deduplication, outage recovery, stale observation rejection; scripted events, illustrative video",
+    "model_demo": "starts one event, waits for user stepping; bounded NativeDriver and mission broker unchanged",
+    "pause_demo": "pauses world and mission cooperatively",
+    "room": "empty/off, occupied/on, empty/off",
+    "rover": "aisle, hold for obstacle, station, dock",
+    "start_demo": "starts scoped controller and world together without leaving the simulation"
+  },
+  "checks": {
+    "api_generation_drift": "none",
+    "browser_installed_wheel": {
+      "passed": 9,
+      "python": "3.14.4",
+      "seconds": 31.1,
+      "source_imports": false
+    },
+    "browser_source": {
+      "passed": 9,
+      "seconds": 31.7
+    },
+    "changed_python_lint_format": "pass",
+    "core": {
+      "isolated": true,
+      "passed": 462,
+      "python": "3.12.3",
+      "seconds": 28.28
+    },
+    "ollama_protocol_and_mission": {
+      "live_model": false,
+      "passed": 8
+    },
+    "ollama_strict_typing": "pass",
+    "pip_check": "pass",
+    "service_including_core": {
+      "passed": 511,
+      "seconds": 34.12,
+      "warning": "existing Authlib deprecation"
+    },
+    "ui_unit": {
+      "passed": 3
+    },
+    "wheel_assets": 7
+  },
+  "commands": [
+    "docker run --rm --network none --user 1000:1000 --entrypoint /bin/bash --mount type=bind,src=/tmp/entryplug-ci,dst=/ci-env --mount type=bind,src=/home/javi/Documents/projects/entryplug,dst=/workspace/entryplug,readonly -w /workspace/entryplug -e PYTHONDONTWRITEBYTECODE=1 entryplug-harbor:jazzy -c \"/ci-env/service/bin/python -m pytest -p no:cacheprovider tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant\"",
+    "/ci-env/core/bin/python -m pytest -q -p no:cacheprovider tests (same isolated Docker mounts)",
+    "PATH=/tmp/entryplug-ci/node/bin:$PATH npm --prefix ui test",
+    "PATH=/tmp/entryplug-ci/node/bin:$PATH npm --prefix ui run build",
+    "/ci-env/service/bin/python -m build --wheel --no-isolation (Docker; Node 22 in PATH)",
+    "python scripts/check_wheel_assets.py dist/entryplug-0.0.1-py3-none-any.whl",
+    "/tmp/entryplug-ui-manual-venv/bin/python -m pip install --no-deps --force-reinstall dist/entryplug-0.0.1-py3-none-any.whl",
+    "PATH=/tmp/entryplug-ci/node/bin:$PATH ENTRYPLUG_TEST_PYTHON=/tmp/entryplug-ui-manual-venv/bin/python ENTRYPLUG_TEST_INSTALLED=1 npm --prefix ui run test:browser"
+  ],
+  "date": "2026-10-04",
+  "environment": {
+    "chrome": "154.0.8037.57",
+    "dependencies": "unchanged",
+    "node": "22.23.3",
+    "playwright": "1.63.0",
+    "ui_test_workspace": "/tmp/entryplug-playwright",
+    "user_install": "/tmp/entryplug-ui-manual-venv"
+  },
+  "limits": [
+    "No real model downloaded or inference performed; protocol fixtures are not model quality evidence.",
+    "No hardware, hosted CI rerun, remote push or release qualification.",
+    "OpenEnv and native middleware fixtures unchanged and not rerun.",
+    "Local UI prevents adding another controller through Start demo; separate API clients retain their existing mission semantics."
+  ],
+  "local_log_sha256": {
+    "runs/implementation-oct04-simulation-ux/after.txt": "e6759cd1f36c66027bad5e72ceaca509b554dce199e44fe54b2328d411219b70",
+    "runs/implementation-oct04-simulation-ux/before.txt": "a56cd70584fff202c6562700201756ff05d437e7037dab6f433ce241e8039071",
+    "runs/implementation-oct04-simulation-ux/browser-final.txt": "8cc937bc4651eca56978a58cf2354560c3535f9780a40f4de8e166933b15a99e",
+    "runs/implementation-oct04-simulation-ux/browser-installed.txt": "ff616eaaafafd486ec7baea5d5bc63fd69006d2afc779a19b26609ccb68f14d2",
+    "runs/implementation-oct04-simulation-ux/browser.txt": "e378c0cb83ced0dcddda3c4eaef86fdefad07ebff75271d4f15d3147a42b3917",
+    "runs/implementation-oct04-simulation-ux/build.txt": "2dd49fb492b015edf46bd07c2a0ce756db4b21857d9bd9408bfc1076546a9e19",
+    "runs/implementation-oct04-simulation-ux/ci.txt": "0859b7826f29aa59beafa5fc94786dd2a88f5f5a546b6498eedce15324b3d4e6",
+    "runs/implementation-oct04-simulation-ux/contracts.txt": "16899ca5deafaab2f3dfd37ee18f15054fe9da500e0e20bf6d911cb7a71d5aa1",
+    "runs/implementation-oct04-simulation-ux/format-final.txt": "f381fe66e0d807d21fca50189496bd9d220513516d54636b1cc22b8c1f390ac4",
+    "runs/implementation-oct04-simulation-ux/format.txt": "cca1a4ef12c79975aafff83cc4100042ba454e1f468287da0be8590a0df454dd",
+    "runs/implementation-oct04-simulation-ux/install.txt": "cb3bc3dbc0890f92b772dc16fa38eb8816b08cb3fa1008dc89d156d5748372d1",
+    "runs/implementation-oct04-simulation-ux/installed-cli.txt": "ff3890084135cae4a4b3ba758aa330ee25aea412624f48db552d136e4a138ac6",
+    "runs/implementation-oct04-simulation-ux/ollama-integration.txt": "05c991e77406a909af807ed0c83bb682e8d2b2e4cb463005463645f1bd9a2f8c",
+    "runs/implementation-oct04-simulation-ux/python-focused.txt": "4d5ac859279927a30311d551d307169513c9b043722110f89a50f179144a183b",
+    "runs/implementation-oct04-simulation-ux/service-final.txt": "62dc753df5d21ea3b9f1a8c0aea0491e936305b00e5e082c6d17d9033dc4a275",
+    "runs/implementation-oct04-simulation-ux/ui-unit.txt": "a0e3e07be16ee5caae5c40db4446628242381dd57c925155f62646343cd38d48",
+    "runs/implementation-oct04-simulation-ux/wheel.txt": "1b63071c421c59320133b228738f399bf35ac5223d831373cf5a8cfac0c6c694"
+  },
+  "provider_sources": [
+    "https://docs.ollama.com/api/openai-compatibility",
+    "https://docs.ollama.com/capabilities/tool-calling",
+    "https://ai.google.dev/gemini-api/docs/pricing"
+  ],
+  "regression": {
+    "after": "Start demo moves rover to aisle; Pause demo pauses mission and world; one active controller verified.",
+    "before": "New rover journey failed: goal/Start demo missing. Prior Play scenario only emitted world events."
+  },
+  "scope": "Purposeful GUI simulations and local Ollama Responses integration",
+  "source_sha256": {
+    "optional_tests/service/test_ollama.py": "d46465cf8cd731cee849a39541a85a208ba7c4f8a76eb86dfaf3b21bf33f61dd",
+    "src/entryplug_agents/auth.py": "43e0684836e7652c9e1a899d8bc03048ae6470f2ac5e2119827c658ca697b3b7",
+    "src/entryplug_agents/ollama_backend.py": "1ffa140ad4a6893ef10dcbdeece9a0f072f343183efc5bc260ebbba0a81bee76",
+    "src/entryplug_app/cli.py": "64851e3e875107c567479450e149da7e912b922bb45fa4812b66321c93d7130e",
+    "src/entryplug_app/simulations.py": "32f5a6711d23bd02bf000954b91804c21f5ee4461078a83ac0761bcf01787388",
+    "src/entryplug_server/app.py": "f054db2dc4c5ea95ebb7bcf5f854a0c33965622f92a59eb2125f8d0632c78bfe",
+    "src/entryplug_server/schemas.py": "e2351214026d6902b4ef2b428d020d8dd7072ceca9517fbc1f9c7a1450ec7e7c",
+    "src/entryplug_ui/static/index.html": "278448c4fba715277caafdc6ec745db72f6af4c2be860a64ccc3fe2e7303a59d",
+    "tests/app/test_simulations.py": "dcf54e6a2b2133182f4c6cc771dc3630ff81d96e7cf2ab515a3a131d47c6ee47",
+    "ui/src/ProviderSetup.tsx": "1b09869901674d597b89b8e271b1c628897841599a760ff2bec708639b39e66c",
+    "ui/src/SimulationView.tsx": "597556f893543bbda0844a168f7a138012e81753b92a07a383831341af3e0391",
+    "ui/src/SimulationWorkbench.tsx": "7a926cfcb311905a43a0e6ae9785e4332d4d667858717a94d9c1f9648131a8c1",
+    "ui/src/generated.ts": "6dd98107f6383566f99e0a355d989e62428687a7aeec61d0987a91f50a35dc00",
+    "ui/src/main.tsx": "5bd11d263df0066b7b6df9aea71c5c0ee630e74d8b3c34822726199acbbb79c5",
+    "ui/src/workbench.css": "7e4b80832e5b424894f0fd239c011a7f4ff649b2c773b891b0ba6dcc897a153b",
+    "ui/tests/browser/mission.spec.ts": "940f4e509edfa6b9e8bda152dd2f9a7983ae12debd7460e6fb5f4cc6f72c2b93",
+    "ui/tests/browser/simulations.spec.ts": "9be8c6cdd53801f4966c079b87b2d9219cdfd555ad446838cb87d1223b099196"
+  },
+  "wheel_sha256": "48e91b84e86376aeaf3952e2e91255b4cf5d700970ca318083f8f26afcc8ea28"
+}

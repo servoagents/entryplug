@@ -177,7 +177,7 @@ p,
   margin-bottom: 28px;
 }
 .simulation-cards > button {
-  padding: 24px;
+  padding: 18px;
   text-align: left;
   border-radius: 20px;
   background: #19211d;
@@ -194,11 +194,11 @@ p,
   font-size: 11px;
 }
 .simulation-cards h2 {
-  margin-top: 24px;
-  font-size: 22px;
+  margin-top: 12px;
+  font-size: 20px;
 }
 .simulation-cards p {
-  min-height: 78px;
+  min-height: 0;
   line-height: 1.55;
 }
 .simulation-card-status {
@@ -782,5 +782,86 @@ p,
   .connection-check,
   .connection-impact {
     margin-left: 0;
+  }
+}
+
+.experiment-brief {
+  display: flex;
+  gap: 24px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.experiment-brief > div {
+  flex: 1;
+}
+.experiment-brief h2 {
+  margin: 8px 0 12px;
+}
+.experiment-brief p {
+  max-width: 80ch;
+  line-height: 1.6;
+}
+.experiment-controls {
+  margin-bottom: 24px;
+}
+.experiment-controls > label {
+  max-width: 520px;
+}
+.experiment-controls p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+.experiment-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  margin-bottom: 18px;
+}
+.experiment-status span {
+  color: var(--signal);
+}
+.scenario-timeline li {
+  display: flex;
+  gap: 12px;
+}
+.scenario-timeline li span {
+  min-width: 30px;
+  font-variant-numeric: tabular-nums;
+}
+.scenario-timeline li.emitted {
+  color: var(--signal);
+}
+.timeline-key {
+  font-size: 13px;
+  color: var(--muted);
+}
+.agent-response {
+  white-space: pre-wrap;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.world-controls {
+  padding: 18px 20px;
+  border-top: 1px solid var(--line);
+}
+.world-controls > p {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.world-controls summary {
+  cursor: pointer;
+}
+.world-controls .playback-controls,
+.world-controls .fault-controls {
+  padding-left: 0;
+  padding-right: 0;
+}
+@media (max-width: 760px) {
+  .experiment-brief {
+    flex-direction: column;
+  }
+  .experiment-controls .actions {
+    flex-wrap: wrap;
   }
 }

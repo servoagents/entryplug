@@ -38,6 +38,9 @@ test("embark, observe, close browser, control by CLI, and retain alerts", async 
   await page.getByRole("button", { name: "Launch mission" }).click();
   await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   await page
+    .getByText("World controls & fault injection", { exact: true })
+    .click();
+  await page
     .getByRole("button", { name: "Person enters", exact: true })
     .click();
   await expect(
@@ -86,7 +89,11 @@ test("embark, observe, close browser, control by CLI, and retain alerts", async 
       "/tmp/entryplug-playwright",
       "--json",
     ],
-    { cwd: testRuntime.cwd, env: { ...process.env, ...testRuntime.env }, encoding: "utf8" },
+    {
+      cwd: testRuntime.cwd,
+      env: { ...process.env, ...testRuntime.env },
+      encoding: "utf8",
+    },
   );
   expect(JSON.parse(output).lifecycle).toBe("paused");
   const next = await browser.newPage({ viewport: { width: 390, height: 844 } });

@@ -9,8 +9,8 @@ export default function ProviderSetup(props: {
   selected?: (id: string) => void;
 }) {
   const [status, setStatus] = createSignal<RecordData>();
-  const [provider, setProvider] = createSignal("chatgpt");
-  const [profile, setProfile] = createSignal("personal-chatgpt");
+  const [provider, setProvider] = createSignal("ollama");
+  const [profile, setProfile] = createSignal("local-ollama");
   const [model, setModel] = createSignal("");
   const [models, setModels] = createSignal<RecordData[]>([]);
   const [busy, setBusy] = createSignal(false);
@@ -28,9 +28,17 @@ export default function ProviderSetup(props: {
     }
   }
   async function loadModels() {
-    const result = await api<RecordData[]>(`profiles/${profile()}/models`);
+    const result = await api<RecordData[]>(
+      provider() === "ollama"
+        ? "providers/ollama/models"
+        : `profiles/${profile()}/models`,
+    );
     setModels(result);
     if (result.length && !model()) setModel(result[0].id);
+    if (!result.length && provider() === "ollama")
+      setError(
+        "No local models found. Download a model in Ollama, then load models again.",
+      );
   }
   onMount(() =>
     work(async () => {
@@ -41,6 +49,7 @@ export default function ProviderSetup(props: {
           ["ready", "model_required"].includes(p.status),
       );
       if (saved) {
+        setProvider("chatgpt");
         setProfile(saved.id);
         setModel(saved.model || "");
         await loadModels();
@@ -64,8 +73,20 @@ export default function ProviderSetup(props: {
   return (
     <div class="provider-setup">
       <h3>Connect a model</h3>
-      <p>Sign in with ChatGPT, or use a separate OpenAI API key.</p>
+      <p>Use a local model without API charges, or connect a hosted account.</p>
       <div class="segmented" role="group" aria-label="Provider authentication">
+        <button
+          classList={{ selected: provider() === "ollama" }}
+          onClick={() => {
+            setProvider("ollama");
+            setProfile("local-ollama");
+            setModel("");
+            setModels([]);
+            setError("");
+          }}
+        >
+          Ollama · local
+        </button>
         <button
           classList={{ selected: provider() === "chatgpt" }}
           onClick={() => {
@@ -87,7 +108,11 @@ export default function ProviderSetup(props: {
           API key
         </button>
       </div>
-      <Show when={status() && !status()!.openai_installed}>
+      <Show
+        when={
+          provider() !== "ollama" && status() && !status()!.openai_installed
+        }
+      >
         <div class="setup-notice">
           <strong>Install OpenAI support once</strong>
           <p>
@@ -145,6 +170,28 @@ export default function ProviderSetup(props: {
           </p>
         </Show>
       </Show>
+      <Show when={provider() === "ollama"}>
+        <div class="setup-notice">
+          <strong>Run a real model on your computer</strong>
+          <p>
+            Install Ollama 0.13.3 or later, download a model with tool calling
+            support, and start Ollama on this computer. Then load your installed
+            models below. No API key or OpenAI extra is needed.
+          </p>
+          <p>
+            Local models use your memory and CPU/GPU. Start with the room or
+            rover and advance one event at a time. This connection sends text
+            observations and tool results.
+          </p>
+          <a
+            href="https://docs.ollama.com/quickstart"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Ollama setup guide ↗
+          </a>
+        </div>
+      </Show>
       <Show when={provider() === "openai"}>
         <p>
           The service reads <code>OPENAI_API_KEY</code> from its environment.
@@ -153,19 +200,22 @@ export default function ProviderSetup(props: {
       </Show>
       <Show
         when={
-          provider() === "openai" ||
+          provider() !== "chatgpt" ||
           account()?.status === "model_required" ||
           account()?.status === "ready"
         }
       >
-        <label>
-          Model
+        <label for="provider-model">Model</label>
+        <div>
           <input
+            id="provider-model"
             list="provider-models"
             placeholder={
               provider() === "chatgpt"
                 ? "Load the models available to your account"
-                : "Enter the model ID for your API account"
+                : provider() === "ollama"
+                  ? "Load a downloaded model with tool support"
+                  : "Enter the model ID for your API account"
             }
             value={model()}
             onInput={(e) => setModel(e.currentTarget.value)}
@@ -175,16 +225,20 @@ export default function ProviderSetup(props: {
               {(m) => <option value={m.id}>{m.name}</option>}
             </For>
           </datalist>
-        </label>
+        </div>
         <div class="actions">
-          <Show when={provider() === "chatgpt"}>
+          <Show when={provider() === "chatgpt" || provider() === "ollama"}>
             <button disabled={busy()} onClick={() => work(loadModels)}>
               Load models
             </button>
           </Show>
           <button
             class="primary"
-            disabled={busy() || !model() || !status()?.openai_installed}
+            disabled={
+              busy() ||
+              !model() ||
+              (provider() !== "ollama" && !status()?.openai_installed)
+            }
             onClick={() => work(save)}
           >
             Save model profile
@@ -211,7 +265,7 @@ export default function ProviderSetup(props: {
                 })
               }
             >
-              Sign out
+              {p.provider === "ollama" ? "Disconnect profile" : "Sign out"}
             </button>
           </div>
         )}

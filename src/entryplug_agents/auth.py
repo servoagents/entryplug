@@ -19,7 +19,8 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any, cast
 
-from entryplug_agents.native import ModelReply, NativeDriver
+from entryplug_agents.native import ModelBackend, ModelReply, NativeDriver
+from entryplug_agents.ollama_backend import OllamaBackend, check_model, local_models
 from entryplug_agents.openai_backend import OpenAIBackend
 from entryplug_app.contracts import AppError, text
 from entryplug_app.workspace import private_write
@@ -69,8 +70,12 @@ class ProviderProfiles:
             async def credential() -> str:
                 return await self.credential(identifier)
 
-            backend = OpenAIBackend(
-                profile["model"], credential, chatgpt=profile["provider"] == "chatgpt"
+            backend: ModelBackend = (
+                OllamaBackend(profile["model"])
+                if profile["provider"] == "ollama"
+                else OpenAIBackend(
+                    profile["model"], credential, chatgpt=profile["provider"] == "chatgpt"
+                )
             )
             profiles = self
 
@@ -113,7 +118,9 @@ class ProviderProfiles:
         return [
             {k: p.get(k) for k in ("id", "provider", "model", "status", "email", "subject")}
             | {
-                "capabilities": OpenAIBackend.capabilities,
+                "capabilities": OllamaBackend.capabilities
+                if p["provider"] == "ollama"
+                else OpenAIBackend.capabilities,
                 "data_sent": ["instructions", "selected observations", "tool results"],
                 "control": "managed",
                 "live_validation": "not_run",
@@ -133,9 +140,9 @@ class ProviderProfiles:
     async def configure(self, payload: dict[str, Any]) -> dict[str, Any]:
         identifier = profile_id(payload.get("id"))
         provider = payload.get("provider")
-        if provider not in {"openai", "chatgpt"}:
+        if provider not in {"openai", "chatgpt", "ollama"}:
             raise AppError(
-                "provider_unsupported", "Only the tested OpenAI Responses routes are enabled"
+                "provider_unsupported", "Choose Ollama, an OpenAI API profile, or ChatGPT sign-in"
             )
         self.locks.setdefault(identifier, asyncio.Lock())
         async with self.locks[identifier]:
@@ -147,7 +154,10 @@ class ProviderProfiles:
                     409,
                 )
             profile["model"] = text(payload.get("model"), "model", 120)
-            if provider == "openai":
+            if provider == "ollama":
+                await check_model(profile["model"])
+                profile["status"] = "ready"
+            elif provider == "openai":
                 env = payload.get("api_key_env", "OPENAI_API_KEY")
                 if not isinstance(env, str) or not re.fullmatch(r"[A-Z][A-Z0-9_]{0,127}", env):
                     raise AppError(
@@ -363,7 +373,10 @@ class ProviderProfiles:
     async def models(self, identifier: str) -> list[dict[str, str]]:
         import httpx
 
-        token = await self.credential(profile_id(identifier))
+        identifier = profile_id(identifier)
+        if self.profiles.get(identifier, {}).get("provider") == "ollama":
+            return await local_models()
+        token = await self.credential(identifier)
         async with httpx.AsyncClient(timeout=15, trust_env=False) as client:
             response = await client.get(
                 RESOURCE + "/models", headers={"Authorization": "Bearer " + token}

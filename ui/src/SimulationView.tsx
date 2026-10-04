@@ -199,75 +199,65 @@ export default function SimulationView(props: {
       <div class="playback-track" aria-label="Scenario progress">
         <span style={{ width: `${(position() / s().duration_s) * 100}%` }} />
       </div>
-      <div class="playback-controls">
-        <button
-          class="primary"
-          disabled={props.busy}
-          onClick={() => command(s().playing ? "pause" : "play")}
-        >
-          {s().playing ? "Ⅱ Pause scenario" : "▶ Play scenario"}
-        </button>
-        <button disabled={props.busy} onClick={() => command("step")}>
-          Next event
-        </button>
-        <button disabled={props.busy} onClick={() => command("reset")}>
-          ↺ Reset
-        </button>
-        <Show when={s().kind === "camera"}>
-          <label>
-            Scenario
-            <select
-              value={s().scenario}
-              disabled={props.busy}
-              onChange={(e) =>
-                command("scenario", { scenario: e.currentTarget.value })
-              }
-            >
-              <option value="entries">People entering & returning</option>
-              <option value="outage">Camera disconnects</option>
-              <option value="stale">Old frame returned</option>
-            </select>
-          </label>
-        </Show>
-      </div>
-      <div class="fault-controls">
-        <span>Try an event</span>
-        <For
-          each={
-            s().kind === "camera"
-              ? [
-                  ["enter_a", "Person enters"],
-                  ["exit_a", "Person leaves"],
-                  ["lost", "Disconnect"],
-                  ["recover", "Reconnect"],
-                ]
-              : s().kind === "rover"
+      <details class="world-controls">
+        <summary>World controls &amp; fault injection</summary>
+        <p>
+          These controls send sensor events only. An active agent must choose
+          the rover moves or light changes.
+        </p>
+        <div class="playback-controls">
+          <button
+            disabled={props.busy}
+            onClick={() => command(s().playing ? "pause" : "play")}
+          >
+            {s().playing ? "Pause world only" : "Play world only"}
+          </button>
+          <button disabled={props.busy} onClick={() => command("step")}>
+            Send next world event
+          </button>
+          <button disabled={props.busy} onClick={() => command("reset")}>
+            ↺ Reset
+          </button>
+        </div>
+        <div class="fault-controls">
+          <span>Try an event</span>
+          <For
+            each={
+              s().kind === "camera"
                 ? [
-                    ["tick", "Patrol step"],
-                    ["obstacle", "Add obstacle"],
-                    ["clear", "Clear route"],
+                    ["enter_a", "Person enters"],
+                    ["exit_a", "Person leaves"],
                     ["lost", "Disconnect"],
                     ["recover", "Reconnect"],
                   ]
-                : [
-                    ["arrive", "Someone arrives"],
-                    ["leave", "Everyone leaves"],
-                    ["lost", "Disconnect"],
-                    ["recover", "Reconnect"],
-                  ]
-          }
-        >
-          {([event, name]) => (
-            <button
-              class="small"
-              disabled={props.busy}
-              onClick={() => command("inject", { event })}
-            >
-              {name}
-            </button>
-          )}
-        </For>
-      </div>
+                : s().kind === "rover"
+                  ? [
+                      ["tick", "Send patrol event"],
+                      ["obstacle", "Add obstacle"],
+                      ["clear", "Clear route"],
+                      ["lost", "Disconnect"],
+                      ["recover", "Reconnect"],
+                    ]
+                  : [
+                      ["arrive", "Someone arrives"],
+                      ["leave", "Everyone leaves"],
+                      ["lost", "Disconnect"],
+                      ["recover", "Reconnect"],
+                    ]
+            }
+          >
+            {([event, name]) => (
+              <button
+                class="small"
+                disabled={props.busy}
+                onClick={() => command("inject", { event })}
+              >
+                {name}
+              </button>
+            )}
+          </For>
+        </div>
+      </details>
       <Show when={s().kind === "camera"}>
         <p class="media-credit">
           Recorded footage:{" "}

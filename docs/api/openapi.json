@@ -604,6 +604,17 @@
         }
       }
     },
+    "/v1/providers/ollama/models": {
+      "get": {
+        "operationId": "get_providers_ollama_models",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Current public state"
+          }
+        }
+      }
+    },
     "/v1/simulations": {
       "get": {
         "operationId": "get_simulations",

@@ -164,6 +164,10 @@ def create_app(
             )
         if path == "session/bootstrap" and request.method == "POST":
             return JSONResponse({"bootstrap": security.bootstrap()})
+        if path == "providers/ollama/models" and request.method == "GET":
+            from entryplug_agents.ollama_backend import local_models
+
+            return JSONResponse(await local_models())
         if path == "providers" and request.method == "GET":
             installed = all(
                 importlib.util.find_spec(name) is not None for name in ("openai", "authlib")
