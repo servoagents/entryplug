@@ -10,7 +10,7 @@ from pathlib import Path
 
 import rclpy
 import zenoh
-from hybrid_ports import AppliedHAPanelLight, connect_light, zenoh_config
+from hybrid_ports import HA_URL, AppliedHAPanelLight, connect_light, zenoh_config
 from panel_inspection import PanelFixture
 
 from entryplug.core.operation import OperationHost
@@ -29,7 +29,7 @@ class HybridRuntime:
 
 @asynccontextmanager
 async def open_hybrid_runtime(
-    run_dir: Path, run_id: str, token_file: Path
+    run_dir: Path, run_id: str, token_file: Path, *, home_assistant_url: str = HA_URL
 ) -> AsyncIterator[HybridRuntime]:
     """Keep ROS, HA, native compute and the operation ledger alive together."""
 
@@ -38,7 +38,7 @@ async def open_hybrid_runtime(
     camera = PanelFixture(run_dir, direct_lamp=False)
     light: HomeAssistantLight | None = None
     try:
-        light = await connect_light(token, run_id)
+        light = await connect_light(token, run_id, url=home_assistant_url)
         with zenoh.open(zenoh_config()) as native_session:
             worker = ZenohDetectorWorker(
                 native_session, run_id=run_id, worker_id="worker-a", generation=1

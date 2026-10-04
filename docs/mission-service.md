@@ -372,8 +372,11 @@ This provisions disposable HA/MQTT and ROS/MuJoCo/native Zenoh services using th
 existing runner. Only this owned fixture grants inspection without per-operation
 approval. Its report joins mission runs, application operations, native results
 and durable evidence. Camera/light devices remain simulated; middleware is native.
-No model account or model calls are required. `--client mission` currently accepts
-only `--fault none`; the Session fault lane remains separate.
+No model account or model calls are required. The mission route also accepts `--fault ha-result-loss`: a fixture-only relay
+withholds a real HA service response until public ROS feedback confirms the
+command applied, then drops the connection. The evaluator requires an unknown
+effect, a blocked mission, stable duplicate-request IDs and refusal of further
+writes. The normal adapter and task do not receive evaluator state.
 
 This is checkout-based development qualification. Native fixture packaging,
 turnkey `serve` attachment, native browser journeys, mission fault qualification

@@ -52,9 +52,7 @@ class AppliedHAPanelLight:
             state = camera.latest_state
             return state is not None and state[2] > prior_revision and abs(state[0] - level) <= 0.01
 
-        await asyncio.to_thread(
-            camera._spin_until, applied, "new applied lamp revision", 8.0
-        )
+        await asyncio.to_thread(camera._spin_until, applied, "new applied lamp revision", 8.0)
         assert camera.latest_state is not None
         applied_level, sim_time, revision = camera.latest_state
         camera.minimum_sim_stamp = sim_time
@@ -64,16 +62,14 @@ class AppliedHAPanelLight:
         return report
 
 
-async def connect_light(token: str, run_id: str) -> HomeAssistantLight:
+async def connect_light(token: str, run_id: str, *, url: str = HA_URL) -> HomeAssistantLight:
     unique_id = f"entryplug_fixture_{run_id}"
     deadline = time.monotonic() + 20
     last_error: Exception | None = None
     while time.monotonic() < deadline:
         try:
-            entity_id = await resolve_mqtt_light(
-                HA_URL, token, unique_id, allow_insecure_network=True
-            )
-            adapter = HomeAssistantLight(HA_URL, token, entity_id, allow_insecure_network=True)
+            entity_id = await resolve_mqtt_light(url, token, unique_id, allow_insecure_network=True)
+            adapter = HomeAssistantLight(url, token, entity_id, allow_insecure_network=True)
             ready = False
             try:
                 await adapter.connect()

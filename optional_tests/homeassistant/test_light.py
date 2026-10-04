@@ -400,3 +400,38 @@ def test_cancel_before_dispatch_does_not_inhibit_light(monkeypatch: pytest.Monke
                 await light.close()
 
     asyncio.run(scenario())
+
+
+def test_fault_relay_drops_real_upstream_result_without_replaying() -> None:
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "containers/mixed/ha_reply_loss.py"
+    spec = importlib.util.spec_from_file_location("ha_reply_loss", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    async def scenario() -> None:
+        fake = FakeHomeAssistant()
+
+        async def applied():
+            assert fake.state["attributes"]["brightness"] == 64
+            return {"revision": 1, "level": 64 / 255}
+
+        async with server(fake) as url:
+            async with module.lose_service_reply(url, applied) as (relay, evidence):
+                light = HomeAssistantLight(relay, "test-token", ENTITY)
+                try:
+                    await light.connect()
+                    with pytest.raises(HomeAssistantLightError):
+                        await light.set_brightness(0.25)
+                    with pytest.raises(HomeAssistantLightError, match="reconciliation"):
+                        await light.set_brightness(0.5)
+                    assert len(fake.commands) == 1
+                    assert evidence["dropped_results"] == evidence["service_calls"] == 1
+                    assert evidence["upstream_success"] is True
+                    assert "test-token" not in json.dumps(evidence)
+                finally:
+                    await light.close()
+
+    asyncio.run(scenario())

@@ -340,3 +340,82 @@ def test_mission_evidence_must_join_native_operations_and_completion():
         changed[section][0][key] = value
         with pytest.raises(runner.ScenarioFailure):
             runner._check_mission_evidence(changed)
+
+
+def test_lost_reply_requires_native_application_uncertainty_and_no_retry(tmp_path):
+    import copy
+
+    runner = _runner()
+    token = tmp_path / "token"
+    token.write_text("fixture-secret")
+    root = tmp_path / "evidence"
+    root.mkdir()
+    native = {
+        "operation_id": "native",
+        "lifecycle": "indeterminate",
+        "effect_state": "unknown",
+        "reason_code": "LIGHT_COMMAND_UNCONFIRMED",
+        "result": {"lighting_writes": 1},
+    }
+    report = {
+        "home_assistant_entity": "light.fixture",
+        "mission_runs": [
+            {
+                "id": "run",
+                "health": "blocked",
+                "lifecycle": "active",
+                "reason_code": "LIGHT_COMMAND_UNCONFIRMED",
+                "model_calls": 0,
+                "tool_calls": 1,
+            }
+        ],
+        "application_operations": [
+            {
+                **native,
+                "id": "app",
+                "run_id": "run",
+                "native_operation_id": "native",
+                "evidence_ids": ["ev"],
+            }
+        ],
+        "operations": [native],
+        "mission_evidence": [{"id": "ev", "operation_id": "app", "content": native}],
+        "fault": {
+            "service_calls": 1,
+            "dropped_results": 1,
+            "upstream_success": True,
+            "entity_id": "light.fixture",
+            "brightness": 64,
+            "command_id": 5,
+            "applied": {"level": 64 / 255, "sim_time_s": 2.0, "revision": 1, "prior_revision": 0},
+            "duplicate_application_id": "app",
+            "duplicate_native_id": "native",
+            "application_retry_refusal": "admission_closed",
+            "native_retry_refusal": "EFFECT_INHIBITED",
+            "effect_inhibited_reason": "LIGHT_COMMAND_UNCONFIRMED",
+        },
+    }
+    (root / "bridge.json").write_text(json.dumps({"status": "stopped", "applied_count": 1}))
+    (root / "worker-cleanup.json").write_text(
+        json.dumps({"status": "stopped", "workers": [{"worker_id": "worker-a", "exit_code": 0}]})
+    )
+    (root / "world-cleanup.json").write_text(json.dumps({"status": "stopped", "forced_stops": 0}))
+    (root / "hybrid.json").write_text(json.dumps(report))
+    assert runner._check_lost_ha_result(root, token)["status"] == "passed"
+    for key, value in [
+        ("service_calls", 2),
+        ("dropped_results", 0),
+        ("applied", {}),
+        ("duplicate_native_id", "other"),
+        ("native_retry_refusal", None),
+    ]:
+        changed = copy.deepcopy(report)
+        changed["fault"][key] = value
+        (root / "hybrid.json").write_text(json.dumps(changed))
+        with pytest.raises(runner.ScenarioFailure):
+            runner._check_lost_ha_result(root, token)
+    changed = copy.deepcopy(report)
+    changed["operations"][0]["effect_state"] = "reported"
+    (root / "hybrid.json").write_text(json.dumps(changed))
+    with pytest.raises(runner.ScenarioFailure):
+        runner._check_lost_ha_result(root, token)

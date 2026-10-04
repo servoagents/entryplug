@@ -495,6 +495,87 @@ def _check_mission_evidence(report: dict[str, object]) -> None:
         )
 
 
+def _check_lost_ha_result(run_dir: Path, token_file: Path) -> dict[str, object]:
+    report = json.loads((run_dir / "hybrid.json").read_text())
+    bridge = json.loads((run_dir / "bridge.json").read_text())
+    fault = report.get("fault", {})
+    runs = report.get("mission_runs", [])
+    application = report.get("application_operations", [])
+    operations = report.get("operations", [])
+    _require(len(runs) == len(application) == len(operations) == 1, "expected one uncertain task")
+    run, op, native = runs[0], application[0], operations[0]
+    _require(
+        run.get("health") == "blocked"
+        and run.get("lifecycle") != "completed"
+        and run.get("reason_code") == "LIGHT_COMMAND_UNCONFIRMED"
+        and run.get("model_calls") == 0
+        and run.get("tool_calls") == 1
+        and op.get("run_id") == run.get("id")
+        and op.get("native_operation_id") == native.get("operation_id")
+        and op.get("lifecycle") == native.get("lifecycle") == "indeterminate"
+        and op.get("effect_state") == native.get("effect_state") == "unknown"
+        and op.get("result") == native.get("result")
+        and native.get("reason_code") == "LIGHT_COMMAND_UNCONFIRMED"
+        and native.get("result", {}).get("lighting_writes") == 1,
+        "mission did not retain native physical uncertainty",
+    )
+    applied = fault.get("applied", {})
+    _require(
+        fault.get("service_calls") == fault.get("dropped_results") == 1
+        and fault.get("upstream_success") is True
+        and fault.get("entity_id") == report.get("home_assistant_entity")
+        and fault.get("brightness") == 64
+        and type(fault.get("command_id")) is int
+        and _number(applied.get("level"))
+        and abs(applied["level"] - 64 / 255) < 0.01
+        and _number(applied.get("sim_time_s"))
+        and type(applied.get("prior_revision")) is int
+        and type(applied.get("revision")) is int
+        and applied["revision"] > applied["prior_revision"]
+        and bridge.get("status") == "stopped"
+        and bridge.get("applied_count") == 1,
+        "lost reply was not tied to exactly one real applied light command",
+    )
+    _require(
+        fault.get("duplicate_application_id") == op.get("id")
+        and fault.get("duplicate_native_id") == native.get("operation_id")
+        and fault.get("application_retry_refusal") == "admission_closed"
+        and fault.get("native_retry_refusal") == "EFFECT_INHIBITED"
+        and fault.get("effect_inhibited_reason") == "LIGHT_COMMAND_UNCONFIRMED",
+        "uncertain physical action was not fenced against retries",
+    )
+    evidence = {item["id"]: item for item in report.get("mission_evidence", [])}
+    _require(
+        bool(op.get("evidence_ids"))
+        and all(
+            identifier in evidence
+            and evidence[identifier].get("content") == native
+            and evidence[identifier].get("operation_id") == op.get("id")
+            for identifier in op["evidence_ids"]
+        ),
+        "uncertain operation is missing durable evidence",
+    )
+    _require(
+        json.loads((run_dir / "worker-cleanup.json").read_text())
+        == {"status": "stopped", "workers": [{"worker_id": "worker-a", "exit_code": 0}]},
+        "worker did not stop cleanly",
+    )
+    _require(
+        json.loads((run_dir / "world-cleanup.json").read_text())
+        == {"status": "stopped", "forced_stops": 0},
+        "world did not stop cleanly",
+    )
+    _check_secret(run_dir, token_file)
+    return {
+        "status": "passed",
+        "operation_ids": [native["operation_id"]],
+        "effect_state": "unknown",
+        "bridge_applied_count": 1,
+        "mission_health": "blocked",
+        "native_retry_refusal": "EFFECT_INHIBITED",
+    }
+
+
 def _check_result(
     run_dir: Path, token_file: Path, *, repair: bool = False, mission: bool = False
 ) -> dict[str, object]:
@@ -666,12 +747,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true", help="build source-current images")
     parser.add_argument(
-        "--fault", choices=("none", "no-native-worker", "kill-active-worker"), default="none"
+        "--fault",
+        choices=("none", "no-native-worker", "kill-active-worker", "ha-result-loss"),
+        default="none",
     )
     parser.add_argument("--client", choices=("direct", "session", "mission"), default="direct")
     args = parser.parse_args()
-    if args.client == "mission" and args.fault != "none":
-        parser.error("mission mode currently qualifies only the no-fault native journey")
+    if args.client == "mission" and args.fault not in {"none", "ha-result-loss"}:
+        parser.error("mission mode supports no-fault and HA-result-loss qualification")
+    if args.fault == "ha-result-loss" and args.client != "mission":
+        parser.error("HA result loss requires --client mission")
     if args.fault == "kill-active-worker" and args.client != "session":
         parser.error("active-worker loss requires --client session")
     RUNS.mkdir(exist_ok=True)
@@ -742,7 +827,7 @@ def main() -> int:
                         "/workspace/entryplug/containers/mixed/hybrid_inspection.sh",
                         f"/workspace/entryplug/runs/{run_id}",
                         run_id,
-                        args.client,
+                        "mission-lost-reply" if args.fault == "ha-result-loss" else args.client,
                         hybrid=True,
                         label="running inspect_target task",
                     )
@@ -754,6 +839,9 @@ def main() -> int:
                     if not command_failed:
                         raise ScenarioFailure("task unexpectedly succeeded without native worker")
                     outcome.update(_check_unavailable_result(run_dir, stack.private / "ha-token"))
+                elif args.fault == "ha-result-loss":
+                    _stop_native_worker(stack, run_dir)
+                    outcome.update(_check_lost_ha_result(run_dir, stack.private / "ha-token"))
                 else:
                     _stop_native_worker(stack, run_dir)
                     outcome.update(
