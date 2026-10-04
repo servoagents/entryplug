@@ -1,0 +1,208 @@
+{
+  "qualification_commit": "47d731d",
+  "fix_commit": "00041d2",
+  "fix": "Interrupted observation results retain the last reported light level. A canceled task does not imply its light effect was undone.",
+  "regression": {
+    "before": "KeyError: last_reported_level; reproduced by cancel_during_light_write test",
+    "after": "70 focused task, HA and evaluator tests passed",
+    "logs": [
+      "runs/implementation-oct04-ha-cancel/last-level-before.txt",
+      "runs/implementation-oct04-ha-cancel/last-level-after.txt"
+    ]
+  },
+  "initial_native_run": {
+    "bridge_applied_count": 1,
+    "client": "mission",
+    "effect_state": "unknown",
+    "fault": "ha-cancel-write",
+    "fresh_volume_bootstraps": [
+      {
+        "fixture": "proof",
+        "home_assistant_version": "2026.9.3",
+        "mqtt": "configured",
+        "status": "passed"
+      },
+      {
+        "fixture": "task",
+        "home_assistant_version": "2026.9.3",
+        "mqtt": "configured",
+        "status": "passed"
+      }
+    ],
+    "image_ids": {
+      "entryplug-harbor-mixed:jazzy": "sha256:43bf9db7ce8bc336ce286906eccc04a46cf89dd775d6910aa9403e9306eb3801",
+      "entryplug-harbor:jazzy": "sha256:f1de0563ff3701236f0e910176ab86c58fc726e4a37e2d6165c9dd0c7efb7ba9",
+      "entryplug-scenario-worker:dev": "sha256:04824426d79fa8ab287f295a4855538ff4cb30d567fa02c6b6306ee670555e11"
+    },
+    "mission_health": "blocked",
+    "native_retry_refusal": "EFFECT_INHIBITED",
+    "operation_ids": [
+      "44c12a87e9494243b2192876c285780e"
+    ],
+    "run_id": "hybrid-b9ca80bc5e4c",
+    "source_sha256": "d105944a0373fe6434ec44bbeed116d1f8c99d8995f3b506f860c6fb64735ff1",
+    "status": "passed"
+  },
+  "final_native_run": {
+    "bridge_applied_count": 1,
+    "client": "mission",
+    "effect_state": "unknown",
+    "fault": "ha-cancel-write",
+    "fresh_volume_bootstraps": [
+      {
+        "fixture": "proof",
+        "home_assistant_version": "2026.9.3",
+        "mqtt": "configured",
+        "status": "passed"
+      },
+      {
+        "fixture": "task",
+        "home_assistant_version": "2026.9.3",
+        "mqtt": "configured",
+        "status": "passed"
+      }
+    ],
+    "image_ids": {
+      "entryplug-harbor-mixed:jazzy": "sha256:ea1be68aa8f5ce58880c01793e98a95ba512429cc7270e13f841107d8a729aaf",
+      "entryplug-harbor:jazzy": "sha256:d614b53abc82e5ad30ee2399ce7cedbb852e2e96dc4c6d0f0c7eeb34c1429a75",
+      "entryplug-scenario-worker:dev": "sha256:05af1cdda37a08ca451d33549e374428803205f780040de7d3478ae330ba306a"
+    },
+    "mission_health": "blocked",
+    "native_retry_refusal": "EFFECT_INHIBITED",
+    "operation_ids": [
+      "4477c8cdf8ff49b3951dfd2c052c8ed5"
+    ],
+    "run_id": "hybrid-879f11808358",
+    "source_sha256": "624c4d8cf16e39b640a1665dea812dd33900ac60ec113d032e6bd497992961d9",
+    "status": "passed"
+  },
+  "fault_evidence": {
+    "application_retry_refusal": "admission_closed",
+    "applied": {
+      "level": 0.250980406999588,
+      "prior_revision": 1,
+      "revision": 2,
+      "sim_time_s": 1.0200000000000007
+    },
+    "brightness": 64,
+    "cancel_before_reply_loss": true,
+    "cancel_requested_monotonic": 31040.532446926,
+    "canceled_native_id": "4477c8cdf8ff49b3951dfd2c052c8ed5",
+    "command_id": 5,
+    "dropped_results": 1,
+    "duplicate_application_id": "op_9fb17ee4fea24131aff1a2050abe272e",
+    "duplicate_native_id": "4477c8cdf8ff49b3951dfd2c052c8ed5",
+    "effect_inhibited_reason": "LIGHT_COMMAND_UNCONFIRMED",
+    "entity_id": "light.entryplug_hybrid_879f11808358",
+    "native_retry_refusal": "EFFECT_INHIBITED",
+    "service_calls": 1,
+    "terminal_after_repeated_cancel": {
+      "cancel_requested": true,
+      "capability": "inspect_target",
+      "effect_state": "unknown",
+      "lifecycle": "indeterminate",
+      "motion_state": "idle",
+      "operation_id": "4477c8cdf8ff49b3951dfd2c052c8ed5",
+      "phase": "terminal",
+      "reason_code": "LIGHT_COMMAND_UNCONFIRMED",
+      "result": {
+        "error_type": "HomeAssistantLightError",
+        "lighting_writes": 1
+      }
+    },
+    "terminal_before_repeated_cancel": {
+      "cancel_requested": true,
+      "capability": "inspect_target",
+      "effect_state": "unknown",
+      "lifecycle": "indeterminate",
+      "motion_state": "idle",
+      "operation_id": "4477c8cdf8ff49b3951dfd2c052c8ed5",
+      "phase": "terminal",
+      "reason_code": "LIGHT_COMMAND_UNCONFIRMED",
+      "result": {
+        "error_type": "HomeAssistantLightError",
+        "lighting_writes": 1
+      }
+    },
+    "terminal_observed_monotonic": 31045.441137562,
+    "upstream_success": true
+  },
+  "cancel_to_terminal_s": 4.908690635998937,
+  "operations": [
+    {
+      "cancel_requested": true,
+      "capability": "inspect_target",
+      "effect_state": "unknown",
+      "lifecycle": "indeterminate",
+      "motion_state": "idle",
+      "operation_id": "4477c8cdf8ff49b3951dfd2c052c8ed5",
+      "phase": "terminal",
+      "reason_code": "LIGHT_COMMAND_UNCONFIRMED",
+      "result": {
+        "error_type": "HomeAssistantLightError",
+        "lighting_writes": 1
+      }
+    }
+  ],
+  "cleanup": {
+    "bridge.json": {
+      "applied_count": 1,
+      "rejected_commands": 0,
+      "status": "stopped"
+    },
+    "worker-cleanup.json": {
+      "status": "stopped",
+      "workers": [
+        {
+          "worker_id": "worker-a",
+          "exit_code": 0
+        }
+      ]
+    },
+    "world-cleanup.json": {
+      "status": "stopped",
+      "forced_stops": 0
+    }
+  },
+  "raw_evidence": {
+    "path": "runs/hybrid-879f11808358/hybrid.json",
+    "sha256": "8fb40cdea45929dc2285c91ac6360880b68bc5b6ac360972036eb6125b59d76f"
+  },
+  "validation": {
+    "core_passed": 450,
+    "core_elapsed_s": 17.28,
+    "service_including_core_passed": 491,
+    "service_elapsed_s": 23.98,
+    "warnings": 1,
+    "strict_typing": "inspection.py passed",
+    "changed_python_lint": "passed",
+    "diff_check": "passed"
+  },
+  "commands": [
+    "python3 containers/scenarios/run_hybrid.py --build --client mission --fault ha-cancel-write",
+    "python -m pytest -q -p no:cacheprovider tests",
+    "python -m pytest -q -p no:cacheprovider tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant",
+    "python -m pytest -q -p no:cacheprovider tests/embodiment/test_inspection.py optional_tests/homeassistant tests/test_hybrid_session_acceptance.py",
+    "python -m mypy --strict --follow-imports=silent --cache-dir=/tmp/mypy src/entryplug/embodiment/inspection.py"
+  ],
+  "environment": {
+    "python": "3.12.3",
+    "pytest": "9.1.1",
+    "pytest_asyncio": "1.4.0",
+    "mypy": "1.18.2",
+    "ruff": "0.13.3",
+    "ci_system_site_packages": false,
+    "dependency_pins": "unchanged"
+  },
+  "logs": "runs/implementation-oct04-ha-cancel",
+  "limits": [
+    "Cancellation is cooperative. In this case it settled under the existing five-second HA response timeout, not immediately.",
+    "Real middleware with simulated camera/light devices, one host. No hardware or multi-host claim.",
+    "The late-acknowledgement brightness fix has controlled regression coverage; the native cancellation run withholds the acknowledgement and correctly remains unknown.",
+    "Native deadline expiry, cancellation during readback, restart/reconciliation and external interference remain separate gates.",
+    "The native case passed before and after the small result-detail fix; the second run requalified changed source, not changed numerical thresholds.",
+    "UI, wheel and OpenEnv were not rerun in this slice; no package, dependency or schema changes.",
+    "No push or hosted CI rerun. No old aggregate/release/holdout gate was relabelled.",
+    "Final source digest identifies 00041d2 before this evidence-only record."
+  ]
+}

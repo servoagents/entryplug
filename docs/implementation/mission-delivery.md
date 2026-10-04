@@ -721,3 +721,40 @@ This closes the native lost-service-reply case for this single-owner fixture.
 Restart recovery, reconnect reconciliation, cancellation during native writes,
 external light interference and standalone native packaging remain open. The
 existing uncertainty fences held, so no speculative runtime refactor was added.
+
+## Cancellation during an applied light write (4 October 2026)
+
+`47d731d` extends the existing HA fault relay with one cancellation case. The
+fixture confirms native application, holds the service result, then requests
+`operation.cancel` through the ordinary mission service. The evaluator checks
+that the native cancellation flag arrived before reply loss, the result settles
+within the declared test bound, uncertainty persists, repeated cancellation
+leaves the terminal result unchanged and new writes remain inhibited.
+
+The native case passed initially at `hybrid-b9ca80bc5e4c` and again at final code
+`00041d2` as `hybrid-879f11808358`. Each applied exactly one light command, ended
+`indeterminate` with an unknown effect, blocked the mission and refused a fresh
+native request as `EFFECT_INHIBITED`. Both owned stacks stopped cleanly. The
+initial measured cancellation delay was 4.935 seconds; exact final timing is in
+[the evidence record](evidence/ha-cancel-write.json). Cancellation is cooperative
+and this held response settles under the existing five-second HA timeout. No
+instant-stop or physical rollback claim is made.
+
+The new late-acknowledgement regression also exposed a small product bug: when a
+light report arrived after cancellation, the task preserved `effect_state=reported`
+but discarded its known brightness. The test failed with `KeyError:
+last_reported_level`. `00041d2` retains that field in interrupted observation
+results. Acknowledged effects remain reported; absent acknowledgements still
+remain unknown. The regression verifies no further sensing or light adaptation.
+This is an additive result detail, not a change to cancellation or admission policy.
+
+Final checks: core 450 passed (17.28 s), service/protocol including core 491 passed
+(23.98 s, existing Authlib warning), 70 focused task/HA/evaluator tests passed,
+strict task typing and changed Python lint passed. Exact commands, before/after
+regression output, native source/image identities and raw evidence hashes are
+retained in the evidence record. UI, wheel and OpenEnv were unchanged and not
+rerun. No remote push or hosted CI rerun was performed.
+
+This qualifies cancellation while waiting for the service result. Native deadline
+expiry, state-readback cancellation, restart reconciliation and external light
+interference remain open, as do native attachment/packaging and release gates.
