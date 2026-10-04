@@ -515,6 +515,7 @@ def test_cancel_during_light_write_keeps_late_report_but_stops_adaptation() -> N
             assert result.lifecycle == Lifecycle.CANCELED
             assert result.effect_state == EffectState.REPORTED
             assert result.reason_code == "CANCEL_REQUESTED"
+            assert result.result["last_reported_level"] == 0.25
             assert light.writes == [0.25]
             assert camera.captures == 2  # No post-cancel sensing or further adjustment.
             assert await session.cancel(operation) == result

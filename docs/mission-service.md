@@ -390,3 +390,8 @@ turnkey `serve` attachment, native browser journeys, mission fault qualification
 and installed native fixture bundles remain open. The service's existing Python
 composition seam is `ApplicationService(..., ports=[EmbodimentPort(..., session)])`;
 use the same task Session rather than constructing a second operation authority.
+
+If a light acknowledgement arrives after cancellation, the inspection stops
+adapting and retains `last_reported_level` with the reported effect. Cancellation
+does not mean that the lamp was restored. If the exchange remains unconfirmed,
+the effect stays unknown and further writes remain inhibited.

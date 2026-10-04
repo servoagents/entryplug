@@ -408,7 +408,7 @@ def inspection_spec(
                     if error.reason_code == "CANCEL_REQUESTED"
                     else Lifecycle.FAILED,
                     MotionState.IDLE,
-                    result={"lighting_writes": writes},
+                    result={"lighting_writes": writes, "last_reported_level": last_level},
                     reason_code=error.reason_code,
                     effect_state=effect,
                 )
