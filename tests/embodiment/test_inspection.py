@@ -488,3 +488,38 @@ def test_stop_while_compute_is_pending_prevents_late_success_and_writes(deadline
             assert (await session.wait(operation, 0)).lifecycle == result.lifecycle
 
     asyncio.run(scenario())
+
+
+def test_cancel_during_light_write_keeps_late_report_but_stops_adaptation() -> None:
+    async def scenario() -> None:
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        class HeldLight(LightFixture):
+            async def set_brightness(self, level):
+                entered.set()
+                await release.wait()
+                return await super().set_brightness(level)
+
+        camera = CameraFixture([1, 2])
+        worker = WorkerFixture([0.1, 0.2])
+        light = HeldLight()
+        session = Session(
+            OperationHost([inspection_spec(camera, worker, light=light)]), owns_runtime=True
+        )
+        try:
+            operation = await session.act("inspect_target", {"target_id": "bench-marker"})
+            await asyncio.wait_for(entered.wait(), 1)
+            await session.cancel(operation)
+            release.set()
+            result = await session.wait(operation, 1)
+            assert result.lifecycle == Lifecycle.CANCELED
+            assert result.effect_state == EffectState.REPORTED
+            assert result.reason_code == "CANCEL_REQUESTED"
+            assert light.writes == [0.25]
+            assert camera.captures == 2  # No post-cancel sensing or further adjustment.
+            assert await session.cancel(operation) == result
+        finally:
+            release.set()
+            await session.close()
+
+    asyncio.run(scenario())

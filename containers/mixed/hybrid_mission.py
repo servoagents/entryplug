@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import time
 from contextlib import AsyncExitStack
 from pathlib import Path
 
@@ -22,7 +23,12 @@ from entryplug_app.workspace import Workspace
 
 
 async def run(
-    output: Path, run_id: str, token_file: Path, *, lost_reply: bool = False
+    output: Path,
+    run_id: str,
+    token_file: Path,
+    *,
+    lost_reply: bool = False,
+    cancel_write: bool = False,
 ) -> dict[str, object]:
     async with AsyncExitStack() as stack:
         fault: dict[str, object] = {}
@@ -49,10 +55,31 @@ async def run(
                 "prior_revision": prior_revision,
             }
 
+        async def cancel_pending_write() -> None:
+            pending = await service.store.list("operations")
+            if len(pending) != 1 or not pending[0].get("native_operation_id"):
+                raise RuntimeError("expected one admitted native operation before cancellation")
+            op = pending[0]
+            native_id = op["native_operation_id"]
+            fault["cancel_requested_monotonic"] = time.monotonic()
+            await service.command("operation.cancel", {"operation_id": op["id"]}, "cancel-write")
+            async with asyncio.timeout(1):
+                while not (await runtime.session.inspect(native_id))["cancel_requested"]:
+                    await asyncio.sleep(0.01)
+            fault["cancel_before_reply_loss"] = True
+            fault["canceled_native_id"] = native_id
+            # Keep the actual HA response withheld. The native adapter's own
+            # bounded timeout closes the socket; relay teardown cancels this wait.
+            await runtime.session.wait(native_id, 10)
+
         url = HA_URL
-        if lost_reply:
+        if lost_reply or cancel_write:
             url, fault = await stack.enter_async_context(
-                lose_service_reply(HA_URL, observe_applied)
+                lose_service_reply(
+                    HA_URL,
+                    observe_applied,
+                    after_applied=cancel_pending_write if cancel_write else None,
+                )
             )
         runtime = await stack.enter_async_context(
             open_hybrid_runtime(output.parent, run_id, token_file, home_assistant_url=url)
@@ -87,7 +114,20 @@ async def run(
                 if current["lifecycle"] != "completed":
                     break
             application_operations = await service.store.list("operations")
-            if lost_reply and len(application_operations) == 1:
+            if cancel_write:
+                fault["terminal_observed_monotonic"] = time.monotonic()
+                op = application_operations[0]
+                before = json_object(
+                    await runtime.session.inspect(op["native_operation_id"], "result"), "terminal"
+                )
+                await service.command(
+                    "operation.cancel", {"operation_id": op["id"]}, "cancel-again"
+                )
+                fault["terminal_after_repeated_cancel"] = json_object(
+                    await runtime.session.inspect(op["native_operation_id"], "result"), "terminal"
+                )
+                fault["terminal_before_repeated_cancel"] = before
+            if (lost_reply or cancel_write) and len(application_operations) == 1:
                 op = application_operations[0]
                 duplicate = await service.command(
                     "operation.create",
@@ -157,8 +197,17 @@ def main() -> None:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--token-file", type=Path, default=Path("/run/secrets/ha-token"))
     parser.add_argument("--lost-reply", action="store_true")
+    parser.add_argument("--cancel-write", action="store_true")
     args = parser.parse_args()
-    report = asyncio.run(run(args.output, args.run_id, args.token_file, lost_reply=args.lost_reply))
+    report = asyncio.run(
+        run(
+            args.output,
+            args.run_id,
+            args.token_file,
+            lost_reply=args.lost_reply,
+            cancel_write=args.cancel_write,
+        )
+    )
     with args.output.open("x", encoding="utf-8") as stream:
         json.dump(report, stream, indent=2, sort_keys=True, allow_nan=False)
         stream.write("\n")

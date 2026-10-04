@@ -495,7 +495,9 @@ def _check_mission_evidence(report: dict[str, object]) -> None:
         )
 
 
-def _check_lost_ha_result(run_dir: Path, token_file: Path) -> dict[str, object]:
+def _check_lost_ha_result(
+    run_dir: Path, token_file: Path, *, canceled: bool = False
+) -> dict[str, object]:
     report = json.loads((run_dir / "hybrid.json").read_text())
     bridge = json.loads((run_dir / "bridge.json").read_text())
     fault = report.get("fault", {})
@@ -565,6 +567,21 @@ def _check_lost_ha_result(run_dir: Path, token_file: Path) -> dict[str, object]:
         == {"status": "stopped", "forced_stops": 0},
         "world did not stop cleanly",
     )
+    if canceled:
+        requested = fault.get("cancel_requested_monotonic")
+        terminal = fault.get("terminal_observed_monotonic")
+        _require(
+            fault.get("cancel_before_reply_loss") is True
+            and fault.get("canceled_native_id") == native.get("operation_id")
+            and native.get("cancel_requested") is True
+            and op.get("cancel_requested") is True
+            and _number(requested)
+            and _number(terminal)
+            and 0 <= terminal - requested < 10
+            and fault.get("terminal_before_repeated_cancel") == native
+            and fault.get("terminal_after_repeated_cancel") == native,
+            "cancellation did not preserve bounded terminal uncertainty",
+        )
     _check_secret(run_dir, token_file)
     return {
         "status": "passed",
@@ -748,15 +765,21 @@ def main() -> int:
     parser.add_argument("--build", action="store_true", help="build source-current images")
     parser.add_argument(
         "--fault",
-        choices=("none", "no-native-worker", "kill-active-worker", "ha-result-loss"),
+        choices=(
+            "none",
+            "no-native-worker",
+            "kill-active-worker",
+            "ha-result-loss",
+            "ha-cancel-write",
+        ),
         default="none",
     )
     parser.add_argument("--client", choices=("direct", "session", "mission"), default="direct")
     args = parser.parse_args()
-    if args.client == "mission" and args.fault not in {"none", "ha-result-loss"}:
-        parser.error("mission mode supports no-fault and HA-result-loss qualification")
-    if args.fault == "ha-result-loss" and args.client != "mission":
-        parser.error("HA result loss requires --client mission")
+    if args.client == "mission" and args.fault not in {"none", "ha-result-loss", "ha-cancel-write"}:
+        parser.error("mission mode supports no-fault, HA result loss and HA write cancellation")
+    if args.fault in {"ha-result-loss", "ha-cancel-write"} and args.client != "mission":
+        parser.error("HA faults require --client mission")
     if args.fault == "kill-active-worker" and args.client != "session":
         parser.error("active-worker loss requires --client session")
     RUNS.mkdir(exist_ok=True)
@@ -827,7 +850,11 @@ def main() -> int:
                         "/workspace/entryplug/containers/mixed/hybrid_inspection.sh",
                         f"/workspace/entryplug/runs/{run_id}",
                         run_id,
-                        "mission-lost-reply" if args.fault == "ha-result-loss" else args.client,
+                        "mission-cancel-write"
+                        if args.fault == "ha-cancel-write"
+                        else "mission-lost-reply"
+                        if args.fault == "ha-result-loss"
+                        else args.client,
                         hybrid=True,
                         label="running inspect_target task",
                     )
@@ -839,9 +866,15 @@ def main() -> int:
                     if not command_failed:
                         raise ScenarioFailure("task unexpectedly succeeded without native worker")
                     outcome.update(_check_unavailable_result(run_dir, stack.private / "ha-token"))
-                elif args.fault == "ha-result-loss":
+                elif args.fault in {"ha-result-loss", "ha-cancel-write"}:
                     _stop_native_worker(stack, run_dir)
-                    outcome.update(_check_lost_ha_result(run_dir, stack.private / "ha-token"))
+                    outcome.update(
+                        _check_lost_ha_result(
+                            run_dir,
+                            stack.private / "ha-token",
+                            canceled=args.fault == "ha-cancel-write",
+                        )
+                    )
                 else:
                     _stop_native_worker(stack, run_dir)
                     outcome.update(

@@ -419,3 +419,30 @@ def test_lost_reply_requires_native_application_uncertainty_and_no_retry(tmp_pat
     (root / "hybrid.json").write_text(json.dumps(changed))
     with pytest.raises(runner.ScenarioFailure):
         runner._check_lost_ha_result(root, token)
+
+    # The same uncertain result is insufficient proof of a cancellation case.
+    (root / "hybrid.json").write_text(json.dumps(report))
+    with pytest.raises(runner.ScenarioFailure, match="cancellation"):
+        runner._check_lost_ha_result(root, token, canceled=True)
+    report["operations"][0]["cancel_requested"] = True
+    report["application_operations"][0]["cancel_requested"] = True
+    report["fault"].update(
+        cancel_requested_monotonic=10.0,
+        terminal_observed_monotonic=15.0,
+        cancel_before_reply_loss=True,
+        canceled_native_id="native",
+        terminal_before_repeated_cancel=copy.deepcopy(report["operations"][0]),
+        terminal_after_repeated_cancel=copy.deepcopy(report["operations"][0]),
+    )
+    (root / "hybrid.json").write_text(json.dumps(report))
+    assert runner._check_lost_ha_result(root, token, canceled=True)["status"] == "passed"
+    for key, value in [
+        ("terminal_observed_monotonic", 21.0),
+        ("cancel_before_reply_loss", False),
+        ("terminal_after_repeated_cancel", {}),
+    ]:
+        changed = copy.deepcopy(report)
+        changed["fault"][key] = value
+        (root / "hybrid.json").write_text(json.dumps(changed))
+        with pytest.raises(runner.ScenarioFailure, match="cancellation"):
+            runner._check_lost_ha_result(root, token, canceled=True)

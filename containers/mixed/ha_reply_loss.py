@@ -15,6 +15,8 @@ from aiohttp import web
 async def lose_service_reply(
     upstream_url: str,
     observe_applied: Callable[[], Awaitable[dict[str, object]]],
+    *,
+    after_applied: Callable[[], Awaitable[None]] | None = None,
 ) -> AsyncIterator[tuple[str, dict[str, object]]]:
     # Retain only bounded native identifiers and evaluator observations, never
     # auth payloads, arbitrary messages or the access token.
@@ -51,6 +53,8 @@ async def lose_service_reply(
                             evidence["applied"] = await observe_applied()
                             evidence["upstream_success"] = True
                             evidence["dropped_results"] += 1
+                            if after_applied is not None:
+                                await after_applied()
                             return  # Close without forwarding the actual HA result.
                         await downstream.send_str(message.data)
 

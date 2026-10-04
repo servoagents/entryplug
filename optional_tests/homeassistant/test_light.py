@@ -402,7 +402,8 @@ def test_cancel_before_dispatch_does_not_inhibit_light(monkeypatch: pytest.Monke
     asyncio.run(scenario())
 
 
-def test_fault_relay_drops_real_upstream_result_without_replaying() -> None:
+@pytest.mark.parametrize("hold_result", [False, True])
+def test_fault_relay_drops_real_upstream_result_without_replaying(hold_result: bool) -> None:
     import importlib.util
     from pathlib import Path
 
@@ -418,9 +419,17 @@ def test_fault_relay_drops_real_upstream_result_without_replaying() -> None:
             assert fake.state["attributes"]["brightness"] == 64
             return {"revision": 1, "level": 64 / 255}
 
+        held = asyncio.Event()
+
+        async def hold():
+            held.set()
+            await asyncio.Event().wait()
+
         async with server(fake) as url:
-            async with module.lose_service_reply(url, applied) as (relay, evidence):
-                light = HomeAssistantLight(relay, "test-token", ENTITY)
+            async with module.lose_service_reply(
+                url, applied, after_applied=hold if hold_result else None
+            ) as (relay, evidence):
+                light = HomeAssistantLight(relay, "test-token", ENTITY, command_timeout_s=0.2)
                 try:
                     await light.connect()
                     with pytest.raises(HomeAssistantLightError):
@@ -430,6 +439,7 @@ def test_fault_relay_drops_real_upstream_result_without_replaying() -> None:
                     assert len(fake.commands) == 1
                     assert evidence["dropped_results"] == evidence["service_calls"] == 1
                     assert evidence["upstream_success"] is True
+                    assert held.is_set() is hold_result
                     assert "test-token" not in json.dumps(evidence)
                 finally:
                     await light.close()

@@ -378,6 +378,13 @@ command applied, then drops the connection. The evaluator requires an unknown
 effect, a blocked mission, stable duplicate-request IDs and refusal of further
 writes. The normal adapter and task do not receive evaluator state.
 
+`--fault ha-cancel-write` uses the same relay but requests cancellation through
+the mission service after native application, while the reply is withheld.
+Cancellation is cooperative: the pending HA exchange settles under its own
+bounded timeout. The evaluator requires the cancellation flag, terminal physical
+uncertainty, stable repeated cancellation and refusal of further writes. A task
+cancellation does not undo a light change.
+
 This is checkout-based development qualification. Native fixture packaging,
 turnkey `serve` attachment, native browser journeys, mission fault qualification
 and installed native fixture bundles remain open. The service's existing Python
