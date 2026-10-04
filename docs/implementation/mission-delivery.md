@@ -633,3 +633,54 @@ bundles, Borrowed Light mission integration, remaining real protocol faults and
 both release qualifications are still open. No measured bottleneck justifies a
 Rust/Go migration at this point; the fixes preserve the current task authority
 and keep the test harness small.
+
+## Native inspection through resident missions (4 October 2026)
+
+Implementation `1a6d3b1` connects the existing inspection Session to the resident
+application owner in the owned Borrowed Light scenario. The new deterministic
+`inspection` driver invokes one configured target through ToolBroker, with no
+model calls or second OperationHost. Its reusable mission template requires
+approval by default; denial dispatches no camera/light work. The owned disposable
+fixture explicitly grants the task. A failed or unobservable inspection blocks
+the mission and retains its operation evidence rather than reporting completion.
+`entryplug mission template --body ID --json` supplies the versioned definition.
+
+The native command `python3 containers/scenarios/run_hybrid.py --build --client
+mission` passed as `hybrid-3e3c1db2b9c7`. Both missions completed under runtime
+`hybrid-3e3c1db2b9c7`, with zero model calls and one task call each. First inspection
+made three bounded light writes; warm inspection used new verifying frames and
+zero writes. The evaluator checks mission/application/native identity and result
+joins against durable evidence. The light effect remains `reported`, not promoted
+to stronger physical certainty. Native worker exit and world cleanup passed with
+zero forced stops; both fixture stacks and the browser container were removed.
+
+Readiness reporting was corrected independently. The previous world inspection
+claimed `native_acquisition_and_checked_binding` before the first per-request
+check; its regression failed before the change. It now reports native acquisition
+and required per-request validation. Native acquisition records include a
+fixed-probe diagnostic based on stored noise, explicitly granting no readiness.
+The retained 1.879631 signal/noise case is reproduced deterministically: acquisition
+can pass while even perfectly matching ±0.04 reuse fails. No threshold, probe,
+noise measurement or physical validation procedure changed. This does not close
+the native vision reliability gate or replace the prior failed aggregate.
+
+Validation: 448 portable tests; 487 service/protocol tests including portable
+coverage (one existing Authlib warning); three OpenEnv tests in its separate
+venv; three UI tests; generated contracts/types and production build; wheel build
+and seven-asset check; isolated installed template execution from `/tmp`; seven
+installed-wheel browser journeys in 29.0 seconds. Strict typing passed for the
+two changed portable/resident readiness modules. Changed Python lint and diff
+checks passed. No new hosted CI result is claimed.
+
+Two local validation setup mistakes were retained: wheel build initially lacked
+Node on PATH, and an old development typing venv lacked an ambient dependency.
+The wheel passed with pinned Node 22.23.3; typing passed in the isolated service
+CI environment. No dependency versions changed to address either issue.
+
+See [structured evidence, identities and commands](evidence/native-mission.json)
+and [usage and limits](../mission-service.md#native-inspection-missions-development).
+This qualifies the native no-fault application integration, not turnkey native
+console attachment, native browser/observer behavior, native mission faults or
+installed fixture packaging. Those remain next, together with mixed uncertainty
+qualification. The physical devices remain simulated; no hardware, multi-host,
+performance advantage or release acceptance is inferred.

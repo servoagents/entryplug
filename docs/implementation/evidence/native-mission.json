@@ -1,0 +1,155 @@
+{
+  "implementation_commit": "1a6d3b1",
+  "native": {
+    "bridge_applied_count": 3,
+    "client": "mission",
+    "fault": "none",
+    "fresh_volume_bootstraps": [
+      {
+        "fixture": "proof",
+        "home_assistant_version": "2026.9.3",
+        "mqtt": "configured",
+        "status": "passed"
+      },
+      {
+        "fixture": "task",
+        "home_assistant_version": "2026.9.3",
+        "mqtt": "configured",
+        "status": "passed"
+      }
+    ],
+    "home_assistant_entity": "light.entryplug_hybrid_3e3c1db2b9c7",
+    "image_ids": {
+      "entryplug-harbor-mixed:jazzy": "sha256:62ac0b8d5570082101ecefed940ddf6aea3300e5fe134f1a20419048bb0e3cbd",
+      "entryplug-harbor:jazzy": "sha256:6b3dc0729cf611db6b7b95ef4414d1718dec74590f57d44dbe28532f3a2b835a",
+      "entryplug-scenario-worker:dev": "sha256:e911c456d45673b8d376e1ee73ee1afa83ef33832ee722fd99b970166afbabbc"
+    },
+    "lighting_writes": [
+      3,
+      0
+    ],
+    "operation_ids": [
+      "f444bec367874746bff37f038896e1d1",
+      "86fceba9339f4c0b875113fe4ddc889a"
+    ],
+    "run_id": "hybrid-3e3c1db2b9c7",
+    "source_sha256": "5a09359b60d6f24835973bf8247197c2c840a6021f7ca12899523e83dc9c2dd3",
+    "status": "passed"
+  },
+  "mission_runs": [
+    {
+      "id": "run_2e460d438f3e4872863c722213caedbb",
+      "mission_id": "mission_81176146a1ef4649aa6887e7637623d1",
+      "lifecycle": "completed",
+      "model_calls": 0,
+      "tool_calls": 1,
+      "session_runtime_id": "hybrid-3e3c1db2b9c7"
+    },
+    {
+      "id": "run_502bafe5f7e245228826e4b92a263539",
+      "mission_id": "mission_81176146a1ef4649aa6887e7637623d1",
+      "lifecycle": "completed",
+      "model_calls": 0,
+      "tool_calls": 1,
+      "session_runtime_id": "hybrid-3e3c1db2b9c7"
+    }
+  ],
+  "application_operations": [
+    {
+      "id": "op_e8392d13508c41e29eed362e498e8e90",
+      "native_operation_id": "f444bec367874746bff37f038896e1d1",
+      "run_id": "run_2e460d438f3e4872863c722213caedbb",
+      "effect_state": "reported",
+      "physical_effects": true,
+      "evidence_ids": [
+        "ev_82e8bfdbc238479e8c774eb0e356c72e"
+      ]
+    },
+    {
+      "id": "op_9f32b4d21c9a495bbf543c5044399646",
+      "native_operation_id": "86fceba9339f4c0b875113fe4ddc889a",
+      "run_id": "run_502bafe5f7e245228826e4b92a263539",
+      "effect_state": "none",
+      "physical_effects": true,
+      "evidence_ids": [
+        "ev_368bff984b2e4951bbc3837a0a016283"
+      ]
+    }
+  ],
+  "raw_evidence": {
+    "path": "runs/hybrid-3e3c1db2b9c7/hybrid.json",
+    "sha256": "4d09aec5f1cf04ce9f8f1dbbded4b60d983e8924f2bf784a6a2a448c4e63da0c"
+  },
+  "cleanup": {
+    "status": "stopped",
+    "forced_stops": 0
+  },
+  "worker_cleanup": {
+    "status": "stopped",
+    "workers": [
+      {
+        "worker_id": "worker-a",
+        "exit_code": 0
+      }
+    ]
+  },
+  "validation": {
+    "core": 448,
+    "service_including_core": 487,
+    "service_warnings": 1,
+    "openenv": 3,
+    "ui_unit": 3,
+    "installed_browser": 7,
+    "installed_browser_elapsed_s": 29.0,
+    "wheel_assets": 7,
+    "dependency_check": "passed",
+    "strict_typing": "association.py and resident.py passed",
+    "lint": "all changed Python files passed",
+    "generated_contracts": "updated and checked; UI build passed"
+  },
+  "wheel": {
+    "path": "dist/entryplug-0.0.1-py3-none-any.whl",
+    "sha256": "b49b93787830629b7a2cc5458a24cfdbe5937d32c51baa1c321c983618f07261",
+    "isolated_template_command": "python -I -m entryplug mission template --body borrowed-light --json",
+    "imports": "/ci-env/service/lib/python3.12/site-packages/entryplug_app/inspection.py"
+  },
+  "environment": {
+    "python": "3.12.3",
+    "node": "22.23.3",
+    "playwright": "1.63.0",
+    "pytest": "9.1.1",
+    "pytest_asyncio": "1.4.0",
+    "mypy": "1.18.2",
+    "ruff": "0.13.3",
+    "system_site_packages_for_ci": false
+  },
+  "commands": [
+    "python3 containers/scenarios/run_hybrid.py --build --client mission",
+    "python -m pytest -q -p no:cacheprovider tests",
+    "python -m pytest -q -p no:cacheprovider tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant",
+    "python -m pytest -q -p no:cacheprovider optional_tests/openenv",
+    "PYTHONPATH=src python scripts/export_contracts.py",
+    "npm --prefix ui run types",
+    "npm --prefix ui test",
+    "npm --prefix ui run build",
+    "python -m build --wheel --no-isolation",
+    "python scripts/check_wheel_assets.py dist/entryplug-0.0.1-py3-none-any.whl",
+    "python -m pip install --no-deps --force-reinstall dist/entryplug-0.0.1-py3-none-any.whl",
+    "python -m pip check",
+    "ENTRYPLUG_TEST_BROWSER= ENTRYPLUG_TEST_INSTALLED=1 ENTRYPLUG_TEST_PYTHON=/ci-env/service/bin/python PLAYWRIGHT_BROWSERS_PATH=/ci-env/browsers npm run test:browser",
+    "python -m mypy --strict --follow-imports=silent --cache-dir=/tmp/entryplug-mypy src/entryplug/embodiment/association.py src/entryplug_harbor/resident.py"
+  ],
+  "logs": "runs/implementation-oct04-mission/",
+  "environment_attempts": [
+    "First wheel invocation omitted Node from PATH and refused to build. Retained wheel-missing-node.txt; passed after selecting existing pinned Node.",
+    "First typing invocation used an older development venv whose ambient typing_extensions was missing in the base image. Retained types-incomplete-env.txt; passed in isolated CI service venv."
+  ],
+  "limits": [
+    "No push or hosted GitHub Actions rerun. These are local workflow checks.",
+    "Native mission run is checkout-based, with real protocols and simulated camera/light devices. Browser tests cover existing installed simulated journeys, not this native mission.",
+    "Native mission fault qualification, turnkey serve attachment and installed fixture bundle remain open.",
+    "Readiness changes report acquisition and fixed-probe feasibility; no native vision reliability fix, numerical profile change or new five-lane aggregate claimed.",
+    "No held-out seeds, hardware or multi-host qualification; no measured token/performance savings.",
+    "Native source hash covers implementation commit 1a6d3b1 before this evidence-only record."
+  ]
+}
