@@ -7,6 +7,7 @@ import pytest
 from entryplug.embodiment.association import (
     CandidateEvidence,
     assess_candidate,
+    assess_reuse_profile,
     load_visual_binding,
     make_visual_binding_record,
     metadata_only_selection,
@@ -233,3 +234,45 @@ def test_additional_probe_can_disambiguate_an_accidental_two_probe_match() -> No
     assert result["status"] == "reused"
     assert result["candidate_id"] == "source-a"
     assert result["probe_count"] == 3
+
+
+def test_acquisition_does_not_establish_fixed_reuse_feasibility() -> None:
+    # Retained development failure: even perfect model agreement cannot pass
+    # the smaller reuse probes at the measured acquisition noise.
+    gain, noise = 89.907677, 1.913305
+    candidate = replace(
+        _controlled(),
+        noise_range_px=noise,
+        fit_commands_radians=(0.025, -0.04, 0.035, -0.025),
+        fit_effects_px=tuple(gain * x for x in (0.025, -0.04, 0.035, -0.025)),
+        validation_commands_radians=(0.05, -0.045),
+        validation_effects_px=(gain * 0.05, gain * -0.045),
+    )
+    assert assess_candidate(candidate).eligible
+    _, binding = _binding()
+    binding = replace(binding, gain_px_per_radian=gain, noise_range_px=noise)
+    profile = assess_reuse_profile(binding, commands_radians=(0.04, -0.04))
+    assert profile["status"] == "insufficient_signal"
+    assert profile["predicted_signal_to_noise"] == pytest.approx(1.879631)
+    assert profile["grants_readiness"] is False
+    validation = validate_cached_binding(
+        binding,
+        commands_radians=(0.04, -0.04),
+        candidate_effects_px={"source-a": (gain * 0.04, -gain * 0.04)},
+        candidate_lineages={"source-a": "lineage-a"},
+        candidate_maximum_ages_ms={"source-a": 10},
+        candidate_noise_ranges_px={"source-a": noise},
+    )
+    assert validation["status"] == "refused"
+    assert validation["assessments"][0]["reasons"] == ["signal_not_above_noise"]
+
+
+def test_feasible_reuse_profile_still_requires_current_observations() -> None:
+    _, binding = _binding()
+    result = assess_reuse_profile(binding, commands_radians=(0.04, -0.04))
+    assert result["status"] == "requires_validation"
+    assert result["grants_readiness"] is False
+    with pytest.raises(ValueError, match="validity"):
+        assess_reuse_profile(binding, commands_radians=(0.06, -0.04))
+    with pytest.raises(ValueError, match="signed"):
+        assess_reuse_profile(binding, commands_radians=(0.04, 0.03))

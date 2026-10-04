@@ -375,6 +375,35 @@ def load_visual_binding(record: EvidenceRecord) -> CachedVisualBinding:
     return binding
 
 
+def assess_reuse_profile(
+    binding: CachedVisualBinding,
+    *,
+    commands_radians: Sequence[float],
+    profile: AssociationProfile = DEFAULT_ASSOCIATION_PROFILE,
+) -> dict[str, object]:
+    """Explain fixed-probe feasibility using stored noise, never current readiness."""
+    commands = _finite(commands_radians, "reuse commands")
+    if len(commands) < 2 or min(commands) >= 0 or max(commands) <= 0:
+        raise ValueError("reuse requires at least two signed probes")
+    if min(commands) < binding.validity_min_radians or max(commands) > binding.validity_max_radians:
+        raise ValueError("reuse probes exceed the cached validity region")
+    signal = max(abs(binding.gain_px_per_radian * command) for command in commands)
+    ratio = signal / max(binding.noise_range_px, 0.25)
+    return {
+        "status": "requires_validation"
+        if ratio >= profile.minimum_signal_to_noise
+        else "insufficient_signal",
+        "basis": "stored_acquisition_noise",
+        "grants_readiness": False,
+        "evidence_key": binding.evidence_key,
+        "commands_radians": list(commands),
+        "noise_range_px": binding.noise_range_px,
+        "predicted_signal_to_noise": round(ratio, 6),
+        "minimum_signal_to_noise": profile.minimum_signal_to_noise,
+        "maximum_age_ms": min(profile.maximum_age_ms, binding.maximum_age_ms),
+    }
+
+
 def validate_cached_binding(
     binding: CachedVisualBinding,
     *,

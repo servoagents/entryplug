@@ -45,6 +45,7 @@ from smoke import _current_positions, _wait_stationary, _write_create_only, _wri
 from entryplug.embodiment.association import (
     CachedVisualBinding,
     CandidateEvidence,
+    assess_reuse_profile,
     load_visual_binding,
     make_visual_binding_record,
     select_candidate,
@@ -793,6 +794,7 @@ def serve(run_dir: Path, run_id: str) -> None:
             created_at=datetime.now(UTC).isoformat(),
         )
         binding = load_visual_binding(record)
+        reuse_profile = assess_reuse_profile(binding, commands_radians=REUSE_PROBES_RADIANS)
         initial = _fresh_observation(node)
         acquisition_ms = _round((time.monotonic() - acquisition_started) * 1000)
         _write_trace(run_dir / "resident-acquisition-trace.jsonl", trace)
@@ -814,6 +816,7 @@ def serve(run_dir: Path, run_id: str) -> None:
                 "binding": record.to_dict(),
                 "initial_y_px": initial["y_px"],
                 "acquisition_ms": acquisition_ms,
+                "reuse_profile": reuse_profile,
                 "detector_worker": initial["worker"],
                 "claim_boundary": (
                     "One configured camera passed intervention-based selection. "
@@ -830,6 +833,7 @@ def serve(run_dir: Path, run_id: str) -> None:
                 "lineage_id": SOURCE_LINEAGE,
                 "initial_y_px": initial["y_px"],
                 "acquisition_ms": acquisition_ms,
+                "reuse_profile": reuse_profile,
                 "detector_worker": initial["worker"],
             }
         )

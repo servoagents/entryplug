@@ -291,9 +291,11 @@ class ResidentSession(Session):
                 "available": available and not self._world_closed,
                 "source_id": SOURCE_ID,
                 "lineage_id": SOURCE_LINEAGE,
-                "readiness_basis": "native_acquisition_and_checked_binding"
+                "readiness_basis": "native_acquisition"
                 if available
                 else "unavailable",
+                "task_readiness": "requires_per_request_validation" if available else "unavailable",
+                "reuse_profile": self._run.ready.get("reuse_profile") if self._run else None,
             },
             "resident world",
         )

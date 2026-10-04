@@ -280,3 +280,63 @@ def test_repair_requires_observed_fault_and_qualified_alternate(tmp_path: Path) 
     (root / "fault.json").write_text(json.dumps(fault))
     with pytest.raises(runner.ScenarioFailure, match="fault was not observed"):
         runner._check_result(root, token, repair=True)
+
+
+def test_mission_evidence_must_join_native_operations_and_completion():
+    import copy
+
+    runner = _runner()
+    report = {
+        "mission": {"id": "mission"},
+        "mission_runs": [
+            {
+                "id": str(i),
+                "mission_id": "mission",
+                "lifecycle": "completed",
+                "model_calls": 0,
+                "tool_calls": 1,
+            }
+            for i in range(2)
+        ],
+        "operations": [
+            {"operation_id": str(i), "lifecycle": "succeeded", "result": {"sample": i}}
+            for i in range(2)
+        ],
+        "application_operations": [
+            {
+                "id": f"app-{i}",
+                "run_id": str(i),
+                "native_operation_id": str(i),
+                "lifecycle": "succeeded",
+                "result": {"sample": i},
+                "physical_effects": True,
+                "evidence_ids": [str(i)],
+            }
+            for i in range(2)
+        ],
+        "mission_evidence": [
+            {
+                "id": str(i),
+                "operation_id": f"app-{i}",
+                "content": {
+                    "operation_id": str(i),
+                    "lifecycle": "succeeded",
+                    "result": {"sample": i},
+                },
+            }
+            for i in range(2)
+        ],
+    }
+    runner._check_mission_evidence(report)
+    for section, key, value in [
+        ("mission_runs", "lifecycle", "active"),
+        ("mission_runs", "model_calls", 1),
+        ("mission_runs", "mission_id", "other"),
+        ("application_operations", "native_operation_id", "wrong"),
+        ("application_operations", "evidence_ids", []),
+        ("mission_evidence", "content", {}),
+    ]:
+        changed = copy.deepcopy(report)
+        changed[section][0][key] = value
+        with pytest.raises(runner.ScenarioFailure):
+            runner._check_mission_evidence(changed)

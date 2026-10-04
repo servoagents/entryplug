@@ -332,6 +332,9 @@ def test_session_reports_absent_world_then_connects_under_idle_barrier(tmp_path:
         session = episode.session
         assert session is observed[0]
         assert (await session.inspect("world"))["available"] is True
+        world = await session.inspect("world")
+        assert world["readiness_basis"] == "native_acquisition"
+        assert world["task_readiness"] == "requires_per_request_validation"
         assert (await session.observe()).reconfiguration_generations["world"] == 2
         first = await session.act(VISUAL_REACH, {"target_y_px": 225}, request_id="joined")
         second = None

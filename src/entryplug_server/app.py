@@ -303,7 +303,9 @@ def create_app(
                     [
                         {
                             "id": name,
-                            "driver": "rules" if name == "rules" else "native",
+                            "driver": name
+                            if name in {"rules", "inspection", "simulated", "scripted"}
+                            else "native",
                             "status": "ready",
                             "control": "managed",
                         }

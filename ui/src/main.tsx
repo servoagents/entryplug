@@ -1310,7 +1310,9 @@ function App() {
                       >
                         {mission()?.definition.agent.driver === "simulated"
                           ? "SIMULATED AGENT · NO LLM"
-                          : mission()?.definition.agent.driver === "rules"
+                          : mission()?.definition.agent.driver === "inspection"
+                            ? "INSPECTION · NO LLM"
+                            : mission()?.definition.agent.driver === "rules"
                             ? "LOCAL RULE · NO LLM"
                             : "LIVE MODEL"}
                       </span>

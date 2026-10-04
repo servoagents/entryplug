@@ -1218,7 +1218,7 @@ export interface components {
             mode?: "once" | "watch";
             agent?: {
                 /** @enum {string} */
-                driver?: "rules" | "native" | "scripted" | "simulated";
+                driver?: "rules" | "native" | "scripted" | "simulated" | "inspection";
                 /** @enum {string} */
                 decision_mode?: "rules" | "assisted";
                 profile?: string;

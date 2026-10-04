@@ -51,8 +51,9 @@ def check_session(report: dict, evidence: Path) -> None:
     _require(
         joined.get("available") is True
         and joined.get("run_id") == evidence.name
-        and joined.get("readiness_basis") == "native_acquisition_and_checked_binding",
-        "ROS world did not supply checked readiness",
+        and joined.get("readiness_basis") == "native_acquisition"
+        and joined.get("task_readiness") == "requires_per_request_validation",
+        "ROS world did not distinguish acquisition from per-request validation",
     )
     _require(
         lost.get("available") is False and report.get("post_loss_refusal") == "WORLD_UNAVAILABLE",

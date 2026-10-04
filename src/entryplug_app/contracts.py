@@ -92,7 +92,7 @@ def text(value: Any, name: str = "text", limit: int = MAX_TEXT_BYTES) -> str:
 
 @dataclass(frozen=True)
 class AgentConfig:
-    driver: Literal["rules", "native", "scripted", "simulated"] = "rules"
+    driver: Literal["rules", "native", "scripted", "simulated", "inspection"] = "rules"
     decision_mode: Literal["rules", "assisted"] = "rules"
     profile: str = ""
 
@@ -212,17 +212,30 @@ def validate_definition(value: Any) -> MissionDefinition:
                 low, high = NUMERIC_LIMITS[field_name]
                 if not low <= number <= high:
                     raise AppError("validation_error", f"{field_name} must be within {low}..{high}")
-    if definition.agent.driver == "rules":
+    if definition.agent.driver in {"rules", "inspection"}:
         if definition.agent.profile or definition.agent.decision_mode != "rules":
             raise AppError(
                 "validation_error", "Rules do not accept a model profile or assisted mode"
             )
-        if definition.trigger.kind == "event" and definition.trigger.event != "person.entered":
+        if (
+            definition.agent.driver == "rules"
+            and definition.trigger.kind == "event"
+            and definition.trigger.event != "person.entered"
+        ):
             raise AppError(
                 "validation_error", "The entry rule requires a validated person.entered event"
             )
     elif definition.agent.decision_mode != "assisted":
         raise AppError("validation_error", "Agent drivers require assisted mode")
+    if definition.agent.driver == "inspection" and (
+        definition.mode != "once"
+        or definition.trigger.kind != "manual"
+        or definition.access.allow != ["inspect_target"]
+        or definition.body.required_capabilities != ["inspect_target"]
+    ):
+        raise AppError(
+            "validation_error", "Inspection requires a manual once mission scoped to inspect_target"
+        )
     if definition.agent.driver == "native" and not definition.agent.profile:
         raise AppError("validation_error", "Native inference requires an explicit profile")
     if "alerts.emit" in definition.access.approve:

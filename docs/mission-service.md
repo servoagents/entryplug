@@ -337,3 +337,46 @@ uses the same application contracts in two finite, isolated workspaces, with
 evaluator expectations outside the agent's observations. No unreleased harness
 API is imported. See the [delivery report](implementation/mission-delivery.md)
 for actual measurements, fixtures, and remaining live checks.
+
+## Native inspection missions (development)
+
+The `inspection` driver executes one `inspect_target` operation without a model.
+It reads the configured target from that capability's schema, uses ordinary
+mission permissions and records the native operation and its evidence. Failed,
+refused or uncertain inspection blocks the mission; it does not claim an absent
+target or a successful observation. Free-text instructions are recorded and
+versioned but do not program this deterministic driver.
+
+For a service already supplied with an inspection `EmbodimentPort`, generate
+and create the default approval-required mission:
+
+```sh
+entryplug mission template --body borrowed-light --json > inspection.json
+entryplug mission validate inspection.json
+entryplug mission create inspection.json --workspace YOUR_WORKSPACE
+```
+
+Start the returned mission ID using `entryplug mission start ID`; review the
+operation approval and evidence in the existing console. The body must expose
+`inspect_target` with a fixed `target_id`; a Home Assistant light-state connection
+alone does not provide that task or grant lighting authority.
+
+The owned Borrowed Light development fixture can now run both first and warm
+inspections through the resident application owner:
+
+```sh
+python3 containers/scenarios/run_hybrid.py --build --client mission
+```
+
+This provisions disposable HA/MQTT and ROS/MuJoCo/native Zenoh services using the
+existing runner. Only this owned fixture grants inspection without per-operation
+approval. Its report joins mission runs, application operations, native results
+and durable evidence. Camera/light devices remain simulated; middleware is native.
+No model account or model calls are required. `--client mission` currently accepts
+only `--fault none`; the Session fault lane remains separate.
+
+This is checkout-based development qualification. Native fixture packaging,
+turnkey `serve` attachment, native browser journeys, mission fault qualification
+and installed native fixture bundles remain open. The service's existing Python
+composition seam is `ApplicationService(..., ports=[EmbodimentPort(..., session)])`;
+use the same task Session rather than constructing a second operation authority.

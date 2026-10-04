@@ -68,6 +68,9 @@ if [[ "${mode}" == zenoh ]]; then
 elif [[ "${mode}" == mqtt ]]; then
   python3 /workspace/entryplug/containers/mixed/panel_mqtt_connection.py \
     --run-dir "${run_dir}" --run-id "${run_id}"
+elif [[ "${mode}" == mission ]]; then
+  python3 /workspace/entryplug/containers/mixed/hybrid_mission.py \
+    --output "${run_dir}/hybrid.json" --run-id "${run_id}"
 elif [[ "${mode}" == session ]]; then
   python3 /workspace/entryplug/containers/mixed/hybrid_session_server.py \
     --run-dir "${run_dir}" --run-id "${run_id}"

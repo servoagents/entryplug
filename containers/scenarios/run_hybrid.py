@@ -459,7 +459,45 @@ def _check_inspection_evidence(
     )
 
 
-def _check_result(run_dir: Path, token_file: Path, *, repair: bool = False) -> dict[str, object]:
+def _check_mission_evidence(report: dict[str, object]) -> None:
+    mission = report.get("mission")
+    _require(isinstance(mission, dict) and bool(mission.get("id")), "missing mission identity")
+    runs = report.get("mission_runs", [])
+    application = report.get("application_operations", [])
+    native = report.get("operations", [])
+    _require(len(runs) == len(application) == len(native) == 2, "missing mission operations")
+    _require(
+        all(
+            run.get("mission_id") == mission["id"]
+            and run.get("lifecycle") == "completed"
+            and run.get("model_calls") == 0
+            and run.get("tool_calls") == 1
+            for run in runs
+        ),
+        "mission did not complete with one no-model task call",
+    )
+    evidence = {item["id"]: item for item in report.get("mission_evidence", [])}
+    for run, op, result in zip(runs, application, native, strict=True):
+        _require(
+            op.get("run_id") == run.get("id")
+            and op.get("native_operation_id") == result.get("operation_id")
+            and op.get("lifecycle") == result.get("lifecycle") == "succeeded"
+            and op.get("result") == result.get("result")
+            and op.get("physical_effects") is True
+            and bool(op.get("evidence_ids"))
+            and all(
+                identifier in evidence
+                and evidence[identifier].get("operation_id") == op.get("id")
+                and evidence[identifier].get("content") == result
+                for identifier in op["evidence_ids"]
+            ),
+            "mission and native task evidence disagree",
+        )
+
+
+def _check_result(
+    run_dir: Path, token_file: Path, *, repair: bool = False, mission: bool = False
+) -> dict[str, object]:
     report = json.loads((run_dir / "hybrid.json").read_text(encoding="utf-8"))
     bridge = json.loads((run_dir / "bridge.json").read_text(encoding="utf-8"))
     if report.get("status") not in {"passed", "completed"} or bridge.get("status") != "stopped":
@@ -522,6 +560,8 @@ def _check_result(run_dir: Path, token_file: Path, *, repair: bool = False) -> d
             item.get("operation_id") for item in operations
         ]:
             raise ScenarioFailure("client and operation host disagree about task identity")
+    if mission or "mission" in report:
+        _check_mission_evidence(report)
     _check_secret(run_dir, token_file)
     return {
         "status": "passed",
@@ -628,8 +668,10 @@ def main() -> int:
     parser.add_argument(
         "--fault", choices=("none", "no-native-worker", "kill-active-worker"), default="none"
     )
-    parser.add_argument("--client", choices=("direct", "session"), default="direct")
+    parser.add_argument("--client", choices=("direct", "session", "mission"), default="direct")
     args = parser.parse_args()
+    if args.client == "mission" and args.fault != "none":
+        parser.error("mission mode currently qualifies only the no-fault native journey")
     if args.fault == "kill-active-worker" and args.client != "session":
         parser.error("active-worker loss requires --client session")
     RUNS.mkdir(exist_ok=True)
@@ -640,6 +682,7 @@ def main() -> int:
         "status": "failed",
         "run_id": run_id,
         "fault": args.fault,
+        "client": args.client,
         "fresh_volume_bootstraps": bootstraps,
     }
     stack: OwnedStack | None = None
@@ -699,6 +742,7 @@ def main() -> int:
                         "/workspace/entryplug/containers/mixed/hybrid_inspection.sh",
                         f"/workspace/entryplug/runs/{run_id}",
                         run_id,
+                        args.client,
                         hybrid=True,
                         label="running inspect_target task",
                     )
@@ -717,6 +761,7 @@ def main() -> int:
                             run_dir,
                             stack.private / "ha-token",
                             repair=args.fault == "kill-active-worker",
+                            mission=args.client == "mission",
                         )
                     )
             finally:

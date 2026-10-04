@@ -30,7 +30,8 @@
             "rules",
             "native",
             "scripted",
-            "simulated"
+            "simulated",
+            "inspection"
           ],
           "type": "string"
         },

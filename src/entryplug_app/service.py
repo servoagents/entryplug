@@ -24,6 +24,7 @@ from entryplug_app.contracts import (
 )
 from entryplug_app.demo import DemoCamera
 from entryplug_app.drivers import AgentDriver, RulesDriver, ScriptedDriver, TurnContext
+from entryplug_app.inspection import InspectionDriver
 from entryplug_app.media import public_content
 from entryplug_app.ports import EmbodimentPort
 from entryplug_app.simulations import SimulationDriver, Simulations
@@ -58,6 +59,7 @@ class ApplicationService:
         self.simulations = Simulations(self, self.demo)
         self.drivers: dict[str, AgentDriver] = {
             "rules": RulesDriver(),
+            "inspection": InspectionDriver(),
             "simulated": SimulationDriver(),
         }
         if allow_scripted:

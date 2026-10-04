@@ -47,6 +47,9 @@ def register(commands: Any) -> None:
             child.add_argument("--api-key-env", default="OPENAI_API_KEY")
     parser = commands.add_parser("mission", help="Validate and control resident missions")
     subs = parser.add_subparsers(dest="verb", required=True)
+    template = subs.add_parser("template", help="Print a bounded no-model inspection mission")
+    common(template)
+    template.add_argument("--body", required=True, help="Explicit connected inspection body ID")
     for name in (
         "validate",
         "create",
@@ -359,7 +362,11 @@ def _systemd(args: argparse.Namespace) -> int:
 
 def run(args: argparse.Namespace) -> int:
     try:
-        if args.command == "mission" and args.verb == "validate":
+        if args.command == "mission" and args.verb == "template":
+            from entryplug_app.inspection import inspection_mission
+
+            output(inspection_mission(args.body), args.json)
+        elif args.command == "mission" and args.verb == "validate":
             output({"valid": True, "definition": load_definition(args.file).to_dict()}, args.json)
         elif args.command in {"serve", "ui"}:
             asyncio.run(_serve(args))
