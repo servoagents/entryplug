@@ -9,8 +9,8 @@ const protocols = [
   ["mcp", "MCP", "Tools from a server"],
   ["a2a", "A2A", "Another Entryplug body"],
   ["ros2", "ROS 2", "Through an MCP bridge"],
-  ["zenoh", "Zenoh", "Included read-only bridge"],
-  ["mqtt", "MQTT", "Through an MCP bridge"],
+  ["zenoh", "Zenoh", "Native observations & actions"],
+  ["mqtt", "MQTT", "Native observations & actions"],
 ];
 export default function AddBody(props: {
   added: (body?: string) => Promise<void>;
@@ -24,10 +24,17 @@ export default function AddBody(props: {
   const [entity, setEntity] = createSignal("light.entrance");
   const [tools, setTools] = createSignal("");
   const [env, setEnv] = createSignal("");
+  const [networkMode, setNetworkMode] = createSignal("native");
+  const [profile, setProfile] = createSignal(JSON.stringify({
+    observations: [{ name: "room.temperature", key: "room/temperature",
+      description: "Room temperature in Celsius", max_age_s: 5 }],
+    actions: [],
+  }, null, 2));
+  const native = () => ["mqtt", "zenoh"].includes(kind()) && networkMode() === "native";
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [success, setSuccess] = createSignal("");
-  const bridge = () => ["ros2", "zenoh", "mqtt"].includes(kind());
+  const bridge = () => kind() === "ros2" || (["zenoh", "mqtt"].includes(kind()) && !native());
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     setBusy(true);
@@ -47,6 +54,7 @@ export default function AddBody(props: {
           url: url(),
         };
         if (kind() === "homeassistant") payload.entity_id = entity();
+        else if (native()) payload.profile = JSON.parse(profile());
         else
           payload.tools = tools()
             .split(",")
@@ -80,6 +88,7 @@ export default function AddBody(props: {
               classList={{ selected: kind() === id }}
               onClick={() => {
                 setKind(id);
+                setNetworkMode("native");
                 setName(id === "simulation" ? "My camera" : title + " body");
                 setUrl("");
                 setEnv("");
@@ -114,6 +123,47 @@ export default function AddBody(props: {
             Each body has its own state and operations. No device or account is
             needed.
           </p>
+        </Show>
+        <Show when={["mqtt", "zenoh"].includes(kind())}>
+          <label>
+            Connection method
+            <select value={networkMode()} onChange={(e) => {
+              setNetworkMode(e.currentTarget.value); setUrl(""); setTools("");
+            }}>
+              <option value="native">Native network</option>
+              <option value="bridge">Observation bridge (MCP)</option>
+            </select>
+          </label>
+        </Show>
+        <Show when={native()}>
+          <div class="setup-notice">
+            <strong>Join the network with a device profile</strong>
+            <p>
+              Connect directly to your {kind() === "mqtt" ? "MQTT 5 broker" : "Zenoh router or peer"}.
+              A device profile gives each observation and action a name, an exact destination,
+              and argument limits. Use the profile supplied for your device; topic names alone
+              do not describe what a command does.
+            </p>
+            <p>
+              Install Entryplug with the [{"ui," + kind()}] extras. Network credentials stay
+              in the service environment. Native network permissions still apply.
+            </p>
+            <p>
+              After connecting, grant an agent selected capabilities in Connections.
+              Device actions require owner approval by default. You can explicitly delegate
+              them without approval for each call.
+            </p>
+            <details>
+              <summary>Action support and device replies</summary>
+              <p>
+                Actions require a device handler for Entryplug's correlated JSON request/reply
+                contract. {kind() === "mqtt" ? "MQTT uses Response Topic and Correlation Data; configure a separate reply_key in the profile." : "Zenoh invokes one exact instance key through query/reply."}
+                An applied reply is a device report. A missing reply leaves the effect unknown
+                and blocks further writes; connecting again cannot clear it.
+              </p>
+              <p>See docs/network-embodiment.md and examples/network-*.json for profiles and native ACL setup.</p>
+            </details>
+          </div>
         </Show>
         <Show when={bridge()}>
           <Show
@@ -231,17 +281,21 @@ export default function AddBody(props: {
             fallback={
               <>
                 <label>
-                  {kind() === "homeassistant"
+                  {native()
+                    ? (kind() === "mqtt" ? "MQTT broker endpoint" : "Zenoh endpoint")
+                    : kind() === "homeassistant"
                     ? "Home Assistant WebSocket URL"
                     : kind() === "a2a"
                       ? "Agent Card URL"
                       : "MCP server URL"}
                   <input
                     required
-                    type="url"
+                    type={native() ? "text" : "url"}
                     value={url()}
                     placeholder={
-                      kind() === "homeassistant"
+                      native()
+                        ? (kind() === "mqtt" ? "mqtt://127.0.0.1:1883" : "tcp/127.0.0.1:7447")
+                        : kind() === "homeassistant"
                         ? "ws://127.0.0.1:8123/api/websocket"
                         : "http://127.0.0.1:8000/mcp"
                     }
@@ -251,6 +305,13 @@ export default function AddBody(props: {
                 <Show
                   when={kind() === "homeassistant"}
                   fallback={
+                    <Show when={!native()} fallback={
+                      <label>
+                        Device profile (JSON)
+                        <textarea required rows={14} spellcheck={false} value={profile()}
+                          onInput={(e) => setProfile(e.currentTarget.value)} />
+                      </label>
+                    }>
                     <label>
                       Read-only capability names
                       <input
@@ -260,6 +321,7 @@ export default function AddBody(props: {
                         onInput={(e) => setTools(e.currentTarget.value)}
                       />
                     </label>
+                    </Show>
                   }
                 >
                   <label>
@@ -276,7 +338,9 @@ export default function AddBody(props: {
                   <input
                     value={env()}
                     placeholder={
-                      kind() === "homeassistant"
+                      native()
+                        ? (kind() === "mqtt" ? "ENTRYPLUG_MQTT_CREDENTIALS" : "ENTRYPLUG_ZENOH_CONFIG")
+                        : kind() === "homeassistant"
                         ? "ENTRYPLUG_HA_TOKEN"
                         : kind() === "a2a"
                           ? "ENTRYPLUG_A2A_TOKEN"

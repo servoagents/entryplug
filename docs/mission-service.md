@@ -160,11 +160,15 @@ offers simulations, Home Assistant, MCP, A2A, ROS 2, Zenoh, and MQTT. A simulate
 camera, rover, or room can be named and added immediately. Connected bodies
 show their connection status and verified capabilities after configuration.
 
-**Zenoh includes a runnable read-only MCP bridge**; its setup commands appear in
-Add body → Zenoh. ROS 2 and MQTT still require an external HTTP MCP bridge that
-exports explicitly selected tools with `readOnlyHint: true`. A native topic,
-Zenoh endpoint or MQTT broker URL is not an MCP server URL. The protocol label
-records the declared source; selecting it does not perform device discovery.
+**MQTT and Zenoh have native connections** in Add body. Supply a broker/router
+endpoint and an explicit device profile of named observations and bounded actions.
+The resident service joins the network; agents receive separate capability grants.
+See [network embodiment, permissions, and device contracts](network-embodiment.md).
+
+Zenoh's read-only MCP bridge remains available under **Connection method →
+Observation bridge (MCP)**. ROS 2's generic Add body option and MQTT's optional MCP
+route require an external observation bridge. Native ROS task providers remain
+separate. A protocol label alone does not discover or authorize a device.
 
 ### Start the included Zenoh bridge
 
@@ -195,7 +199,7 @@ It publishes labelled temperature values once per second using native Zenoh on
 loopback port 7447. It is transport qualification, not a real sensor measurement.
 Stop either owned process with Ctrl-C; the GUI does not launch or manage it.
 
-In **Add body → Zenoh**, click **Use local bridge settings**:
+In **Add body → Zenoh → Observation bridge (MCP)**, click **Use local bridge settings**:
 
 | Field | Value |
 | --- | --- |
@@ -255,6 +259,12 @@ python -m pip install 'entryplug[mcp,a2a,homeassistant]'
 ```
 
 Create an attachment in Connections, selecting a body and exact capabilities.
+Physical actions require owner approval by default; requests appear in Connections
+with their exact arguments. Clear **Require owner approval for each device action**
+to delegate the selected actions without per-call approval. API callers can set
+`approve` to any subset of `allow`; omitting it selects the physical capabilities.
+Revocation blocks new work, invalidates pending approvals, and requests cancellation
+of in-flight work without asserting that device effects stopped.
 Save the returned credential in the external client's secret store. Use it as
 `Authorization: Bearer <attachment-token>` with:
 

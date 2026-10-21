@@ -64,7 +64,7 @@ async def main():
         }, name)
         await service.command("mission.start", {"mission_id": mission["id"]}, name + "-start")
     attachment = await service.command("attachment.create", {
-        "name":"Test", "body_id":"fixture", "allow":["fixture.effect"]}, "attach")
+        "name":"Test", "body_id":"fixture", "allow":["fixture.effect"], "approve":[]}, "attach")
     if stage == "before":
         async def stop_before_dispatch(identifier):
             os._exit(73)

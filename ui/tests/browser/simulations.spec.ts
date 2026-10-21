@@ -222,10 +222,11 @@ test("room occupancy drives its light and protocol choices explain their bridge"
   for (const protocol of ["ROS 2", "Zenoh", "MQTT"]) {
     await page
       .getByRole("button", {
-        name: `${protocol} ${protocol === "Zenoh" ? "Included read-only bridge" : "Through an MCP bridge"}`,
+        name: `${protocol} ${protocol === "ROS 2" ? "Through an MCP bridge" : "Native observations & actions"}`,
         exact: true,
       })
       .click();
+    if (protocol !== "ROS 2") await page.getByLabel("Connection method").selectOption("bridge");
     await expect(
       page.getByRole("heading", { name: `${protocol} via MCP`, exact: true }),
     ).toBeVisible();
@@ -413,7 +414,7 @@ test("local model setup works without OpenAI libraries and explains missing Olla
   });
 });
 
-test("Zenoh setup explains how to run the included bridge before asking for its URL", async ({
+test("Zenoh offers native connection and preserves the observation bridge setup", async ({
   page,
 }) => {
   await page.getByRole("button", { name: /Body & topology/ }).click();
@@ -422,6 +423,10 @@ test("Zenoh setup explains how to run the included bridge before asking for its 
     .first()
     .click();
   await page.getByRole("button", { name: /Zenoh/ }).click();
+  await expect(page.getByLabel("Zenoh endpoint", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Device profile (JSON)")).toBeVisible();
+  await expect(page.getByText("Join the network with a device profile", { exact: true })).toBeVisible();
+  await page.getByLabel("Connection method").selectOption("bridge");
   await expect(
     page.getByText("Run the included Zenoh bridge", { exact: true }),
   ).toBeVisible();
@@ -451,4 +456,52 @@ test("Zenoh setup explains how to run the included bridge before asking for its 
   await expect(
     page.getByText("Run the included Zenoh bridge", { exact: true }),
   ).not.toBeVisible();
+});
+
+test("MQTT setup saves a native profile and agent actions wait for owner approval", async ({ page, request }) => {
+  await page.getByRole("button", { name: /Body & topology/ }).click();
+  await page.getByRole("button", { name: /Add body/ }).first().click();
+  await page.getByRole("button", { name: /MQTT/ }).click();
+  await expect(page.getByLabel("MQTT broker endpoint", { exact: true })).toBeVisible();
+  await page.getByLabel("MQTT broker endpoint", { exact: true }).fill("mqtt://127.0.0.1:9");
+  const saved = page.waitForRequest(r => r.url().endsWith("/v1/connections") && r.method() === "POST");
+  await page.getByRole("button", { name: "Connect body", exact: true }).click();
+  const payload = (await saved).postDataJSON();
+  expect(payload.kind).toBe("mqtt");
+  expect(payload.profile.observations[0].name).toBe("room.temperature");
+  expect(payload.source_protocol).toBeUndefined();
+  await expect(page.getByRole("status").filter({ hasText: "Connection saved" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Connections/ }).first().click();
+  const panel = page.locator(".external-panel");
+  await panel.getByRole("combobox", { name: "Body", exact: true }).selectOption("demo.room");
+  await panel.getByLabel(/room.set_light/).check();
+  await expect(panel.getByLabel("Require owner approval for each device action")).toBeChecked();
+  await panel.getByRole("button", { name: /Create scoped access/ }).click();
+  await expect(panel.locator(".secret pre")).toBeVisible();
+  const displayedGrant = JSON.parse((await panel.locator(".secret pre").textContent())!);
+  // Simulated state changes have no physical effects. Explicit approval remains
+  // available for any capability; native physical defaults are covered by wire tests.
+  expect(displayedGrant.approve).toEqual([]);
+  await panel.getByRole("button", { name: "Dismiss credential" }).click();
+  const ownerToken = readFileSync("/tmp/entryplug-playwright/config/client.token", "utf8").trim();
+  const granted = await request.post("/v1/attachments", {
+    headers: { Authorization: `Bearer ${ownerToken}`, "Idempotency-Key": crypto.randomUUID() },
+    data: { name: "Approval test agent", body_id: "demo.room", allow: ["room.set_light"], approve: ["room.set_light"] },
+  });
+  expect(granted.status()).toBe(202);
+  const grant = await granted.json();
+  const response = await request.post("/v1/operations", {
+    headers: { Authorization: `Bearer ${grant.token}`, "Idempotency-Key": crypto.randomUUID() },
+    data: { attachment_id: grant.id, capability: "room.set_light", arguments: { on: true } },
+  });
+  expect(response.status()).toBe(202);
+  const op = await response.json();
+  expect(op.dispatch).toBe("waiting_approval");
+  await expect(panel.getByRole("heading", { name: "Agent action needs approval" })).toBeVisible();
+  await panel.getByRole("button", { name: "Approve action", exact: true }).click();
+  await expect.poll(async () => (await (await request.get(`/v1/operations/${op.id}`, {
+    headers: { Authorization: `Bearer ${grant.token}` },
+  })).json()).lifecycle).toBe("succeeded");
+  await page.screenshot({ path: "/tmp/entryplug-network-approval.png", fullPage: true });
 });

@@ -72,7 +72,15 @@ class BorrowedSession(Session):
         )
         return replace(
             view,
-            capabilities=tuple(c for c in view.capabilities if c["name"] in attachment["allow"]),
+            capabilities=tuple(
+                {
+                    **c,
+                    "approval_required": c["name"]
+                    in attachment.get("approve", [c["name"]] if c["physical_effects"] else []),
+                }
+                for c in view.capabilities
+                if c["name"] in attachment["allow"]
+            ),
             operations=operations,
         )
 

@@ -16,14 +16,26 @@ jobs:
       - name: Install test and build tools
         run: python -m pip install -r deps/dev-tools.txt -r deps/test-tools.txt -r deps/build-tools.txt
       - name: Install hash-verified runtime dependencies
-        run: python -m pip install --require-hashes -r deps/mission-service.lock -r deps/zenoh-bridge.lock
+        run: python -m pip install --require-hashes -r deps/mission-service.lock -r deps/zenoh-bridge.lock -r deps/native-networks.lock
       - run: python -m pip check
       - run: npm ci --prefix ui
       - run: PYTHONPATH=src python scripts/export_contracts.py
       - run: npm --prefix ui run types && git diff --exit-code docs/api ui/src/generated.ts
       - run: npm --prefix ui test
       - run: npm --prefix ui run build
-      - run: python -m pytest tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant optional_tests/zenoh/test_mcp_bridge.py
+      - name: Start disposable native MQTT fixture
+        run: |
+          printf 'listener 1883\nallow_anonymous true\npersistence false\nacl_file /mosquitto/config/network.acl\n' > "$RUNNER_TEMP/entryplug-mqtt.conf"
+          printf 'topic readwrite test/#\ntopic readwrite entryplug/fixture/#\ntopic readwrite homeassistant/#\ntopic read entryplug-denied/#\n' > "$RUNNER_TEMP/entryplug-mqtt.acl"
+          docker run -d --name entryplug-mqtt-test -p 127.0.0.1:18883:1883 -v "$RUNNER_TEMP/entryplug-mqtt.conf:/mosquitto/config/mosquitto.conf:ro" -v "$RUNNER_TEMP/entryplug-mqtt.acl:/mosquitto/config/network.acl:ro" eclipse-mosquitto:2.0.22
+      - run: python -m pytest tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant optional_tests/mqtt optional_tests/zenoh/test_mcp_bridge.py optional_tests/zenoh/test_zenoh_network_port.py
+        env:
+          ENTRYPLUG_TEST_MQTT_URL: mqtt://127.0.0.1:18883
+          ENTRYPLUG_MQTT_TEST_PORT: '18883'
+          ENTRYPLUG_TEST_MQTT_DENIED_PREFIX: entryplug-denied
+      - name: Stop native MQTT fixture
+        if: always()
+        run: docker rm -f entryplug-mqtt-test
       - run: python -m build --wheel --no-isolation
       - run: python scripts/check_wheel_assets.py dist/entryplug-0.0.1-py3-none-any.whl
       - name: Install built wheel

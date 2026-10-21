@@ -1,0 +1,128 @@
+{
+  "date": "2026-10-21",
+  "base_commit": "c21271235e193ffb5411165bedd5e701c580b94c",
+  "workspace_state": "Uncommitted implementation; no push or hosted CI run",
+  "scope": "Native MQTT/Zenoh profiles, scoped agent actions and external-attachment approvals",
+  "environment": {
+    "python": "3.12.3",
+    "node": "24.19.0",
+    "chrome": "155.0.8059.84",
+    "pytest": "9.1.1",
+    "pytest_asyncio": "1.4.0",
+    "paho_mqtt": "2.1.0",
+    "eclipse_zenoh": "1.10.1",
+    "mosquitto": "2.0.22",
+    "ruff": "0.13.3",
+    "mypy": "1.18.2",
+    "playwright": "1.63.0",
+    "base_image": "sha256:f60e04be326235d5c46ea532f8e1a0d8fd09a372ac901086aaa07d51fe3f3f77",
+    "python_environment": "Isolated venv, no system-site packages; source tests via PYTHONPATH=/work/src; installed checks use Python -I from /tmp"
+  },
+  "checks": {
+    "python_sequential": {
+      "passed": 580,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 55.43,
+      "warning": "Existing Authlib deprecation"
+    },
+    "browser_source": {
+      "passed": 11,
+      "seconds": 43.0
+    },
+    "browser_final_installed": {
+      "passed": 11,
+      "seconds": 48.8
+    },
+    "native_final_installed": {
+      "passed": 4,
+      "seconds": 1.33,
+      "import_path": "/checks/venv/lib/python3.12/site-packages/entryplug_app/network_port.py"
+    },
+    "ui_unit": {
+      "passed": 3
+    },
+    "typescript_and_vite": "pass",
+    "changed_python_lint_format": "pass",
+    "changed_python_strict_mypy": {
+      "files": 6,
+      "result": "pass"
+    },
+    "pip_check": "pass",
+    "wheel_assets": {
+      "files": 7,
+      "stale_chunks": 0
+    },
+    "git_diff_check": "pass"
+  },
+  "regression_reproduction": {
+    "external_approval": "Initial four attachment regressions: 3 failed, 1 passed before the fix. An explicit approve=[lamp.set] grant dispatched immediately and wrote; revoke had no pending approval to invalidate.",
+    "concurrent_run": {
+      "passed": 579,
+      "failed": 1,
+      "seconds": 58.02,
+      "test": "tests/app/test_simulations.py::test_each_scenario_has_a_complete_observable_outcome[rover-tour-4]",
+      "evidence": "concurrent-python-failure.txt and rover-timeout-ledger.json",
+      "finding": "Five-second test timeout during concurrent browser/package work. The final observation took about 2.8 seconds after durable intent; the next move remained pending and was canceled on teardown. No approval or network operation involved. Contention is a plausible explanation, not a proven root cause. Same tests and deadlines passed in the sequential run."
+    },
+    "harness_repairs": [
+      "Existing autonomous crash/cancel fixtures now explicitly request approve=[].",
+      "Unique native test module names avoid pytest import collisions.",
+      "Updated browser selectors for the new default native mode and the Body combobox.",
+      "Run browser tests from ui/ so the existing performance fixture resolves its asset.",
+      "Owned docker-exec browser wrapper required explicit service termination between installed runs."
+    ]
+  },
+  "commands": [
+    "python -m pip install --require-hashes -r deps/mission-service.lock -r deps/zenoh-bridge.lock -r deps/native-networks.lock",
+    "python -m pip install -r deps/dev-tools.txt -r deps/test-tools.txt -r deps/build-tools.txt",
+    "ENTRYPLUG_TEST_MQTT_URL=mqtt://127.0.0.1:1883 ENTRYPLUG_MQTT_TEST_PORT=1883 ENTRYPLUG_TEST_MQTT_DENIED_PREFIX=entryplug-denied python -m pytest tests optional_tests/service optional_tests/mcp optional_tests/a2a optional_tests/homeassistant optional_tests/mqtt optional_tests/zenoh/test_mcp_bridge.py optional_tests/zenoh/test_zenoh_network_port.py -q -p no:cacheprovider",
+    "node ui/node_modules/typescript/bin/tsc --noEmit -p ui",
+    "(cd ui && node node_modules/vite/bin/vite.js build)",
+    "(cd ui && node node_modules/vitest/vitest.mjs run)",
+    "(cd ui && ENTRYPLUG_TEST_PYTHON=/tmp/entryplug-network-checks/browser-python node node_modules/@playwright/test/cli.js test)",
+    "ENTRYPLUG_SKIP_UI_BUILD=1 python -m build --wheel --no-isolation --outdir /checks/dist",
+    "python scripts/check_wheel_assets.py /checks/dist/entryplug-0.0.1-py3-none-any.whl",
+    "python -m pip install --no-deps --force-reinstall /checks/dist/entryplug-0.0.1-py3-none-any.whl",
+    "cd /tmp && ENTRYPLUG_TEST_MQTT_URL=mqtt://127.0.0.1:1883 ENTRYPLUG_TEST_MQTT_DENIED_PREFIX=entryplug-denied python -I -m pytest -c /checks/installed-checks/pytest.ini /checks/installed-checks/optional_tests -q -p no:cacheprovider",
+    "(cd ui && ENTRYPLUG_TEST_INSTALLED=1 ENTRYPLUG_TEST_PYTHON=/tmp/entryplug-network-checks/browser-python node node_modules/@playwright/test/cli.js test)"
+  ],
+  "wheel": {
+    "path": "/tmp/entryplug-network-checks/dist/entryplug-0.0.1-py3-none-any.whl",
+    "sha256": "8bc3ef923ed59cc209e206eed211899586192241eb2de0639f04fe54eccb0a8c"
+  },
+  "source_sha256": {
+    "src/entryplug_app/network_port.py": "db87f27860c02a7f86261c16cb944430d8293d4e0f2df20b8766a591128cc250",
+    "src/entryplug_app/network_profile.py": "b7aeb136a5d3148429957226f4194e514a6d861f519432d1208fa402b6a2333d",
+    "src/entryplug_app/network_transport.py": "b13e7156b5577b3c34d429f786a7a803366964bbddebad135ca08f45382f21d1",
+    "src/entryplug_app/connections.py": "d10216b249005ed005329631f3a6e58bbe8658c75d1b37086596b68570c5cfa7",
+    "src/entryplug_app/service.py": "78d4312bbaf9d013259871bfea3653c72666d1c6070621f4fa7b9614a3849988",
+    "src/entryplug_app/borrowed_session.py": "bb4e21ea15e0f8e993855bbc6f6f2d145cb39dfe6eea95eb3ab687053fa558f1",
+    "src/entryplug_app/ports.py": "9c767845e565202a46a7f6f1e90a86dbdca55924789e28e678b59969893bdf89",
+    "src/entryplug_bridges/zenoh.py": "a4d74ee04e9678afa1f4a6780e845100cc6722abfdea55b48cb4ff641446c516",
+    "ui/src/AddBody.tsx": "050c8f4862930e6d1e8d312281668ba45ed549fc4c86f7ba48e0e5ba78c6b88b",
+    "ui/src/main.tsx": "4923bdc3da7bc1333c667d035d943cc0ed1fbded023d0aed82d426daec61dde9",
+    "tests/app/test_attachment_authority.py": "0fa848e0aa333624edc4d4c827f879536a044dfd81a1c44396e574bdf84a438b",
+    "tests/app/test_network_ports.py": "e2e18c84b9f8e6beae9d4da715f07f0965c7f140da27f951c9704d859636cd54",
+    "optional_tests/mqtt/test_mqtt_network_port.py": "037756711b15aa9ab9aa96b10e64630c41091565f5157fb8ddf2987d03a214aa",
+    "optional_tests/zenoh/test_zenoh_network_port.py": "0fdb2ecaa346bc64766ffd2cd7da76e786cdca67eab9a063cc0ce505450c8dc4",
+    "ui/tests/browser/simulations.spec.ts": "a917a7255c5ffbabcac2f8a27189d87e3adb47067352fb98c891b8bbef4ba527",
+    "deps/native-networks.lock": "2dc0784c8710cc4e35212d9b443ff0215d856ac09a5f14167a67184f66823296"
+  },
+  "costs_and_limits": {
+    "model_calls": 0,
+    "paid_inference_calls": 0,
+    "hardware_commands": 0,
+    "fixtures": "Owned loopback peers and isolated broker; simulated device handlers",
+    "cpu_and_memory": "Not benchmarked",
+    "existing_images": "Reused; no image build/pull",
+    "native_sdk_pins": "Unchanged",
+    "cleanup": "Complete: all three owned disposable containers removed; test logs and wheel retained"
+  },
+  "remaining": [
+    "Device-specific firmware/provider integration for the documented action contract",
+    "Production identity/TLS qualification and multi-host timing",
+    "Supported reconciliation and write re-enablement after unknown effects",
+    "Older Borrowed Light, ROS vision, installed fixture and release gates remain open"
+  ]
+}

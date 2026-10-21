@@ -50,14 +50,15 @@ class Observations:
         payload: bytes,
         *,
         deleted: bool = False,
+        retained: bool = False,
         source_timestamp: str | None = None,
     ) -> None:
         if key not in self.keys:
             return
-        status = "sample_deleted" if deleted else "ok"
+        status = "retained_unverified" if retained else "sample_deleted" if deleted else "ok"
         value: Any = None
         encoding = "json"
-        if not deleted:
+        if not deleted and not retained:
             if len(payload) > MAX_BYTES:
                 status = "payload_too_large"
             else:

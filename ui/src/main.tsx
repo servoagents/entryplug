@@ -74,6 +74,7 @@ function App() {
   const [externalCaps, setExternalCaps] = createSignal<string[]>([
     "camera.snapshot",
   ]);
+  const [approveExternalActions, setApproveExternalActions] = createSignal(true);
   const [attachmentSecret, setAttachmentSecret] = createSignal<RecordData>();
   const [connectionChecks, setConnectionChecks] = createSignal<
     Record<string, RecordData>
@@ -1843,8 +1844,8 @@ function App() {
                   <span class="eyebrow">BODIES</span>
                   <h2>Body connections</h2>
                   <p>
-                    Add a simulation, connect Home Assistant, or import
-                    capabilities through MCP or A2A.
+                    Connect MQTT, Zenoh, or Home Assistant resources, add a simulation,
+                    or import capabilities through MCP or A2A.
                   </p>
                   <div class="protocol-strip">
                     <For
@@ -1889,7 +1890,7 @@ function App() {
                             onClick={() =>
                               act(async () => {
                                 if (
-                                  ["connected", "lost"].includes(item.status)
+                                  item.status === "connected"
                                 ) {
                                   const result = await api(
                                     `connections/${item.id}/test`,
@@ -1915,7 +1916,7 @@ function App() {
                               })
                             }
                           >
-                            {["connected", "lost"].includes(item.status)
+                            {item.status === "connected"
                               ? "Test read-only"
                               : "Retry connection"}
                           </button>
@@ -2010,6 +2011,7 @@ function App() {
                         onChange={(e) => {
                           setExternalBody(e.currentTarget.value);
                           setExternalCaps([]);
+                          setApproveExternalActions(true);
                         }}
                       >
                         <For each={snapshot()!.bodies}>
@@ -2042,11 +2044,21 @@ function App() {
                               }
                             />
                             <code>{cap.name}</code>
+                            <span>{cap.physical_effects ? "Acts on device" : "Observation"}</span>
                           </label>
                         )}
                       </For>
                     </fieldset>
                   </div>
+                  <label class="check">
+                    <input type="checkbox" checked={approveExternalActions()}
+                      onChange={(e) => setApproveExternalActions(e.currentTarget.checked)} />
+                    Require owner approval for each device action
+                  </label>
+                  <p>
+                    Observations can run immediately. Clearing this option delegates the selected
+                    actions to this agent. The network's own permissions and device limits still apply.
+                  </p>
                   <button
                     disabled={!externalCaps().length || busy()}
                     onClick={() =>
@@ -2056,6 +2068,11 @@ function App() {
                             name: "External agent",
                             body_id: externalBody(),
                             allow: externalCaps(),
+                            approve: approveExternalActions()
+                              ? (snapshot()!.bodies.find(b => b.id === externalBody())?.capabilities ?? [])
+                                .filter((c: RecordData) => c.physical_effects && externalCaps().includes(c.name))
+                                .map((c: RecordData) => c.name)
+                              : [],
                           }),
                         ),
                       )
@@ -2063,6 +2080,19 @@ function App() {
                   >
                     Create scoped access ↗
                   </button>
+                  <For each={snapshot()!.approvals.filter(a => a.attachment_id && a.status === "pending")}>
+                    {(approval) => {
+                      const operation = () => snapshot()!.operations.find(op => op.id === approval.operation_id);
+                      return <section class="panel">
+                        <h3>Agent action needs approval</h3>
+                        <p>{snapshot()!.attachments.find(a => a.id === approval.attachment_id)?.name} · {approval.body_id}</p>
+                        <p>Expires {new Date(approval.expires_at * 1000).toLocaleTimeString()}</p>
+                        <pre>{pretty({ capability: operation()?.capability, arguments: (operation() as RecordData)?.arguments })}</pre>
+                        <button onClick={() => act(() => api(`approvals/${approval.id}/decision`, "POST", { allow: true }))}>Approve action</button>
+                        <button onClick={() => act(() => api(`approvals/${approval.id}/decision`, "POST", { allow: false }))}>Deny action</button>
+                      </section>;
+                    }}
+                  </For>
                   <Show when={attachmentSecret()}>
                     <div class="secret">
                       <strong>

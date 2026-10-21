@@ -1,0 +1,166 @@
+..................................................................F..... [ 12%]
+........................................................................ [ 24%]
+........................................................................ [ 37%]
+........................................................................ [ 49%]
+........................................................................ [ 62%]
+........................................................................ [ 74%]
+........................................................................ [ 86%]
+........................................................................ [ 99%]
+....                                                                     [100%]
+=================================== FAILURES ===================================
+______ test_each_scenario_has_a_complete_observable_outcome[rover-tour-4] ______
+
+tmp_path = PosixPath('/tmp/pytest-of-entryplug/pytest-15/test_each_scenario_has_a_compl3')
+kind = 'rover', scenario = 'tour', expected_alerts = 4
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "kind,scenario,expected_alerts",
+        [
+            ("camera", "entries", 3),
+            ("camera", "outage", 2),
+            ("camera", "stale", 2),
+            ("rover", "tour", 4),
+            ("room", "tour", 3),
+        ],
+    )
+    async def test_each_scenario_has_a_complete_observable_outcome(
+        tmp_path, kind, scenario, expected_alerts
+    ):
+        service = ApplicationService(Workspace.resolve(str(tmp_path)))
+        await service.open()
+        identifier = "demo.access-camera" if kind == "camera" else "demo." + kind
+        body = service.ports[identifier]
+        caps = [c["name"] for c in (await body.describe())["capabilities"]]
+        try:
+            await service.simulations.control(identifier, {"action": "scenario", "scenario": scenario})
+            mission = await service.command(
+                "mission.create",
+                {
+                    "name": "Purpose test",
+                    "instructions": "Follow the simulation policy",
+                    "agent": {"driver": "simulated", "decision_mode": "assisted"},
+                    "body": {"selector": identifier, "required_capabilities": [caps[0]]},
+                    "trigger": {
+                        "source": identifier,
+                        "event": "person.entered" if kind == "camera" else "simulation.changed",
+                    },
+                    "access": {"allow": [*caps, "alerts.emit"]},
+                },
+                "create",
+            )
+            run = await service.command("mission.start", {"mission_id": mission["id"]}, "start")
+            states = []
+            health = []
+            while service.simulations.describe(identifier)["remaining_events"]:
+                await service.simulations.control(identifier, {"action": "step"})
+                async with asyncio.timeout(5):
+                    while True:
+>                       current = await service.store.get("runs", run["id"])
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/app/test_simulations.py:155: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/entryplug_app/store.py:65: in get
+    result = await self._call(self._get, kind, identifier)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <entryplug_app.store.Store object at 0x7b7013fd8e90>
+method = <bound method Store._get of <entryplug_app.store.Store object at 0x7b7013fd8e90>>
+args = ('runs', 'run_8a8593457f614ab7ac056d37e172b1ab')
+
+    async def _call(self, method: Callable[..., ResultT], *args: Any) -> ResultT:
+>       return await asyncio.get_running_loop().run_in_executor(self._worker, method, *args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       asyncio.exceptions.CancelledError
+
+src/entryplug_app/store.py:33: CancelledError
+
+The above exception was the direct cause of the following exception:
+
+tmp_path = PosixPath('/tmp/pytest-of-entryplug/pytest-15/test_each_scenario_has_a_compl3')
+kind = 'rover', scenario = 'tour', expected_alerts = 4
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "kind,scenario,expected_alerts",
+        [
+            ("camera", "entries", 3),
+            ("camera", "outage", 2),
+            ("camera", "stale", 2),
+            ("rover", "tour", 4),
+            ("room", "tour", 3),
+        ],
+    )
+    async def test_each_scenario_has_a_complete_observable_outcome(
+        tmp_path, kind, scenario, expected_alerts
+    ):
+        service = ApplicationService(Workspace.resolve(str(tmp_path)))
+        await service.open()
+        identifier = "demo.access-camera" if kind == "camera" else "demo." + kind
+        body = service.ports[identifier]
+        caps = [c["name"] for c in (await body.describe())["capabilities"]]
+        try:
+            await service.simulations.control(identifier, {"action": "scenario", "scenario": scenario})
+            mission = await service.command(
+                "mission.create",
+                {
+                    "name": "Purpose test",
+                    "instructions": "Follow the simulation policy",
+                    "agent": {"driver": "simulated", "decision_mode": "assisted"},
+                    "body": {"selector": identifier, "required_capabilities": [caps[0]]},
+                    "trigger": {
+                        "source": identifier,
+                        "event": "person.entered" if kind == "camera" else "simulation.changed",
+                    },
+                    "access": {"allow": [*caps, "alerts.emit"]},
+                },
+                "create",
+            )
+            run = await service.command("mission.start", {"mission_id": mission["id"]}, "start")
+            states = []
+            health = []
+            while service.simulations.describe(identifier)["remaining_events"]:
+                await service.simulations.control(identifier, {"action": "step"})
+>               async with asyncio.timeout(5):
+
+tests/app/test_simulations.py:153: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <Timeout [expired]>
+exc_type = <class 'asyncio.exceptions.CancelledError'>
+exc_val = CancelledError(), exc_tb = <traceback object at 0x7b7016213ac0>
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> Optional[bool]:
+        assert self._state in (_State.ENTERED, _State.EXPIRING)
+    
+        if self._timeout_handler is not None:
+            self._timeout_handler.cancel()
+            self._timeout_handler = None
+    
+        if self._state is _State.EXPIRING:
+            self._state = _State.EXPIRED
+    
+            if self._task.uncancel() <= self._cancelling and exc_type is exceptions.CancelledError:
+                # Since there are no new cancel requests, we're
+                # handling this.
+>               raise TimeoutError from exc_val
+E               TimeoutError
+
+/usr/lib/python3.12/asyncio/timeouts.py:115: TimeoutError
+=============================== warnings summary ===============================
+optional_tests/service/test_auth.py:12
+  /work/optional_tests/service/test_auth.py:12: AuthlibDeprecationWarning: authlib.jose module is deprecated, please use joserfc instead.
+  It will be compatible before version 2.0.0.
+    from authlib.jose import JsonWebKey, JsonWebToken
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/app/test_simulations.py::test_each_scenario_has_a_complete_observable_outcome[rover-tour-4]
+1 failed, 579 passed, 1 warning in 58.02s

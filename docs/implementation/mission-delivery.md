@@ -887,3 +887,12 @@ discovery, camera decoding, actuator admission or remote authenticated hosting.
 Actual device attachment awaits its endpoint/key. Physical reconciliation,
 remaining native fault gates and release qualification stay open. No remote
 push or hosted CI run was performed.
+
+
+## Native network embodiment (21 October 2026)
+
+Native MQTT/Zenoh profiles and scoped actions now use the resident operation
+authority. External-agent approvals, revocation, native ACL refusal and durable
+uncertainty have executable coverage. See the [implementation report](network-embodiment.md)
+and [operating guide](../network-embodiment.md) for the supported device contract,
+exact validation evidence and remaining qualifications.

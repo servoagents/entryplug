@@ -27,6 +27,7 @@ class EmbodimentPort:
     body_type: str = "device"
     protocol: str = "session"
     source_protocol: str | None = None
+    network_scope: dict[str, Any] | None = None
 
     async def describe(self) -> dict[str, Any]:
         view = await self.session.observe()
@@ -36,6 +37,7 @@ class EmbodimentPort:
             "body_type": self.body_type,
             "protocol": self.protocol,
             "source_protocol": self.source_protocol,
+            "network_scope": self.network_scope,
             "simulated": self.simulated,
             "provenance": self.provenance,
             "status": "available" if self.available else "lost",

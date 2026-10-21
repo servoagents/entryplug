@@ -442,7 +442,8 @@ class ApplicationService:
                 if not port:
                     raise AppError("not_found", "Select a connected body", 404)
                 allow = payload.get("allow", [])
-                names = {c["name"] for c in (await port.describe())["capabilities"]}
+                capabilities = (await port.describe())["capabilities"]
+                names = {c["name"] for c in capabilities}
                 if (
                     not isinstance(allow, list)
                     or not allow
@@ -451,12 +452,25 @@ class ApplicationService:
                     raise AppError(
                         "validation_error", "Choose a nonempty explicit capability scope"
                     )
+                approve = payload.get(
+                    "approve",
+                    [
+                        c["name"]
+                        for c in capabilities
+                        if c["name"] in allow and c["physical_effects"]
+                    ],
+                )
+                if not isinstance(approve, list) or any(
+                    not isinstance(c, str) or c not in allow for c in approve
+                ):
+                    raise AppError("validation_error", "Approval scope must be a subset of allow")
                 token = secrets.token_urlsafe(32)
                 attachment: dict[str, Any] = {
                     "id": new_id("attachment"),
                     "name": text(payload.get("name"), "name", 160),
                     "body_id": port.body_id,
                     "allow": allow,
+                    "approve": approve,
                     "status": "active",
                     "control": "external",
                     "created_at": utc_now(),
@@ -471,6 +485,22 @@ class ApplicationService:
                 attachment["status"] = "revoked"
                 records = [("attachments", attachment["id"], attachment)]
                 result = {k: v for k, v in attachment.items() if k != "token_hash"}
+                for op in await self.store.list("operations"):
+                    if (
+                        op.get("attachment_id") != attachment["id"]
+                        or op["lifecycle"] in OP_TERMINAL
+                    ):
+                        continue
+                    op["cancel_requested"] = True
+                    if op["dispatch"] in {"pending", "waiting_approval"}:
+                        op.update(lifecycle="rejected", reason_code="ACCESS_REVOKED")
+                    if op.get("approval_id"):
+                        approval = await self.store.get("approvals", op["approval_id"])
+                        if approval["status"] == "pending":
+                            approval.update(status="invalidated", reason_code="access_revoked")
+                            records.append(("approvals", approval["id"], approval))
+                    records.append(("operations", op["id"], op))
+                    follow.append(("cancel", op["id"]))
             elif action == "operation.create":
                 result = await self._operation_intent(payload, actor)
                 run_id = result.get("run_id")
@@ -480,6 +510,7 @@ class ApplicationService:
                         "id": new_id("approval"),
                         "operation_id": result["id"],
                         "run_id": result["run_id"],
+                        "attachment_id": result["attachment_id"],
                         "revision": result["revision"],
                         "body_id": result["body_id"],
                         "session_runtime_id": result["session_runtime_id"],
@@ -496,19 +527,7 @@ class ApplicationService:
                 op = await self.store.get("operations", approval["operation_id"])
                 if approval["status"] != "pending" or op["lifecycle"] in OP_TERMINAL:
                     raise AppError("approval_invalid", "This approval is no longer pending", 409)
-                run = await self.store.get("runs", approval["run_id"])
-                mission = await self.store.get("missions", run["mission_id"])
-                port = self.ports.get(op["body_id"])
-                valid = (
-                    approval["expires_at"] > time.time()
-                    and run["lifecycle"] == "active"
-                    and (not op.get("turn_id") or op["turn_id"] == run["active_turn_id"])
-                    and mission["revision"] == approval["revision"]
-                    and port
-                    and port.available
-                    and (await port.session.observe()).runtime_id == approval["session_runtime_id"]
-                    and digest([op["capability"], op["arguments"]]) == approval["content_hash"]
-                )
+                valid = await self._approval_valid(op, approval)
                 decision = payload.get("allow")
                 if not isinstance(decision, bool):
                     raise AppError(
@@ -574,6 +593,31 @@ class ApplicationService:
             if attachment["status"] != "active" or op.get("attachment_id") != actor:
                 raise AppError("forbidden", "Operation is outside the attachment scope", 403)
 
+    async def _approval_valid(self, op: dict[str, Any], approval: dict[str, Any]) -> bool:
+        port = self.ports.get(op["body_id"])
+        if (
+            approval["expires_at"] <= time.time()
+            or not port
+            or not port.available
+            or (await port.session.observe()).runtime_id != approval["session_runtime_id"]
+            or digest([op["capability"], op["arguments"]]) != approval["content_hash"]
+        ):
+            return False
+        if op.get("attachment_id"):
+            attachment = await self.store.get("attachments", op["attachment_id"])
+            return bool(
+                attachment["status"] == "active"
+                and attachment["body_id"] == op["body_id"]
+                and op["capability"] in attachment["allow"]
+            )
+        run = await self.store.get("runs", op["run_id"])
+        mission = await self.store.get("missions", run["mission_id"])
+        return bool(
+            run["lifecycle"] == "active"
+            and (not op.get("turn_id") or op["turn_id"] == run["active_turn_id"])
+            and mission["revision"] == approval["revision"]
+        )
+
     async def _operation_intent(self, payload: dict[str, Any], actor: str) -> dict[str, Any]:
         if actor != "owner" and payload.get("attachment_id") != actor:
             raise AppError("forbidden", "An external agent may use only its own attachment", 403)
@@ -612,6 +656,10 @@ class ApplicationService:
         spec = next((c for c in view.capabilities if c["name"] == capability), None)
         if not spec:
             raise AppError("capability_unavailable", "Capability is not exposed by this body", 409)
+        if payload.get("attachment_id"):
+            approval_required = capability in attachment.get(
+                "approve", [capability] if spec["physical_effects"] else []
+            )
         if spec["physical_effects"]:
             await self._require_effects_known(body_id)
         return {
@@ -655,12 +703,7 @@ class ApplicationService:
                     raise AppError("stale_runtime", "Body changed before dispatch", 409)
                 if op.get("approval_granted"):
                     approval = await self.store.get("approvals", op["approval_id"])
-                    run = await self.store.get("runs", op["run_id"])
-                    mission = await self.store.get("missions", run["mission_id"])
-                    if (
-                        approval["expires_at"] <= time.time()
-                        or mission["revision"] != approval["revision"]
-                    ):
+                    if not await self._approval_valid(op, approval):
                         raise AppError("approval_invalid", "Approval changed before dispatch", 409)
             except AppError as error:
                 op.update(lifecycle="rejected", reason_code=error.code)

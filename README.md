@@ -58,7 +58,11 @@ transport reconnects do not reacquire or close the body. Optional native
 inference supports OpenAI API profiles and the official ChatGPT sign-in flow.
 Live account/hardware qualification remains opt-in.
 
-See [connections and providers](docs/mission-service.md#connect-a-body-or-external-agent).
+Native MQTT and Zenoh connections bind named observations and bounded actions
+through device profiles. Agents receive explicit capability grants; physical
+actions require owner approval unless delegated. See [network integration and
+permissions](docs/network-embodiment.md) and
+[connections and providers](docs/mission-service.md#connect-a-body-or-external-agent).
 
 ## Integrate by API
 

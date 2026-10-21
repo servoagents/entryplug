@@ -1,0 +1,37 @@
+{
+  "kind": "zenoh",
+  "name": "Demo room (SIMULATED)",
+  "url": "tcp/127.0.0.1:7447",
+  "profile": {
+    "observations": [
+      {
+        "name": "room.temperature",
+        "key": "demo/room/temperature",
+        "description": "SIMULATED room temperature in degrees Celsius",
+        "max_age_s": 5
+      }
+    ],
+    "actions": [
+      {
+        "name": "lamp.set",
+        "key": "demo/lamp/instance-1/set",
+        "description": "Set SIMULATED lamp brightness, absolute level 0 to 0.75",
+        "timeout_s": 5,
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "level": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 0.75
+            }
+          },
+          "required": [
+            "level"
+          ],
+          "additionalProperties": false
+        }
+      }
+    ]
+  }
+}

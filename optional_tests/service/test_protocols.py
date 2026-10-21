@@ -207,7 +207,12 @@ async def test_a2a_cancel_preserves_unconfirmed_physical_result(tmp_path):
         service.ports[port.body_id] = port
         attachment = await service.command(
             "attachment.create",
-            {"name": "Cancel fixture", "body_id": port.body_id, "allow": ["fixture.effect"]},
+            {
+                "name": "Cancel fixture",
+                "body_id": port.body_id,
+                "allow": ["fixture.effect"],
+                "approve": [],
+            },
             "effect-grant",
         )
         async with httpx.AsyncClient(
